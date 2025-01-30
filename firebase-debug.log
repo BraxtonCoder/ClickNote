@@ -1,0 +1,54 @@
+[debug] [2025-01-28T08:32:11.037Z] ----------------------------------------------------------------------
+[debug] [2025-01-28T08:32:11.040Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\braxs\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init
+[debug] [2025-01-28T08:32:11.041Z] CLI Version:   13.29.2
+[debug] [2025-01-28T08:32:11.041Z] Platform:      win32
+[debug] [2025-01-28T08:32:11.041Z] Node Version:  v22.13.1
+[debug] [2025-01-28T08:32:11.042Z] Time:          Tue Jan 28 2025 08:32:11 GMT+0000 (Greenwich Mean Time)
+[debug] [2025-01-28T08:32:11.042Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-01-28T08:32:11.271Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-01-28T08:32:11.272Z] > authorizing via signed-in user (braxsimmons2004@gmail.com)
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  C:\Users\braxs\AndroidStudioProjects\ClickNote
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
+
+[debug] [2025-01-28T09:59:40.994Z] ----------------------------------------------------------------------
+[debug] [2025-01-28T09:59:40.997Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\braxs\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-01-28T09:59:40.997Z] CLI Version:   13.29.2
+[debug] [2025-01-28T09:59:40.997Z] Platform:      win32
+[debug] [2025-01-28T09:59:40.997Z] Node Version:  v22.13.1
+[debug] [2025-01-28T09:59:40.998Z] Time:          Tue Jan 28 2025 09:59:40 GMT+0000 (Greenwich Mean Time)
+[debug] [2025-01-28T09:59:40.998Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-01-28T09:59:41.239Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-01-28T09:59:41.240Z] > authorizing via signed-in user (braxsimmons2004@gmail.com)
+[debug] [2025-01-28T09:59:41.240Z] [iam] checking project clicknote-36de5 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-01-28T09:59:41.242Z] Checked if tokens are valid: true, expires at: 1738061737250
+[debug] [2025-01-28T09:59:41.242Z] Checked if tokens are valid: true, expires at: 1738061737250
+[debug] [2025-01-28T09:59:41.243Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/clicknote-36de5:testIamPermissions [none]
+[debug] [2025-01-28T09:59:41.243Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/clicknote-36de5:testIamPermissions x-goog-quota-user=projects/clicknote-36de5
+[debug] [2025-01-28T09:59:41.243Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/clicknote-36de5:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-01-28T09:59:41.516Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/clicknote-36de5:testIamPermissions 200
+[debug] [2025-01-28T09:59:41.517Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/clicknote-36de5:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-01-28T09:59:41.517Z] Checked if tokens are valid: true, expires at: 1738061737250
+[debug] [2025-01-28T09:59:41.517Z] Checked if tokens are valid: true, expires at: 1738061737250
+[debug] [2025-01-28T09:59:41.518Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/clicknote-36de5/serviceAccounts/clicknote-36de5@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-01-28T09:59:41.518Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/clicknote-36de5/serviceAccounts/clicknote-36de5@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-01-28T09:59:42.217Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/clicknote-36de5/serviceAccounts/clicknote-36de5@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-01-28T09:59:42.217Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/clicknote-36de5/serviceAccounts/clicknote-36de5@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'clicknote-36de5'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix "$RESOURCE_DIR" run lint

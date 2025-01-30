@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#90CAF9</color>
+    <color name="primary_variant">#64B5F6</color>
+    <color name="secondary">#80DEEA</color>
+    <color name="secondary_variant">#4DD0E1</color>
+    <color name="background">#121212</color>
+    <color name="surface">#121212</color>
+    <color name="error">#CF6679</color>
+    <color name="on_primary">#000000</color>
+    <color name="on_secondary">#000000</color>
+    <color name="on_background">#FFFFFF</color>
+    <color name="on_surface">#FFFFFF</color>
+    <color name="on_error">#000000</color>
+    <color name="icon_tint">@android:color/system_neutral1_100</color>
+    <color name="splash_background">#121212</color>
+</resources> 

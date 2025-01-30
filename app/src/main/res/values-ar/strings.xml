@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ClickNote</string>
+    
+    <!-- Common -->
+    <string name="ok">موافق</string>
+    <string name="cancel">إلغاء</string>
+    <string name="save">حفظ</string>
+    <string name="delete">حذف</string>
+    <string name="edit">تعديل</string>
+    <string name="share">مشاركة</string>
+    <string name="copy">نسخ</string>
+    <string name="search">بحث</string>
+    <string name="settings">الإعدادات</string>
+    
+    <!-- Navigation -->
+    <string name="notes">الملاحظات</string>
+    <string name="folders">المجلدات</string>
+    <string name="recycle_bin">سلة المحذوفات</string>
+    <string name="create_folder">إنشاء مجلد</string>
+    
+    <!-- Notes -->
+    <string name="new_note">ملاحظة جديدة</string>
+    <string name="edit_note">تعديل الملاحظة</string>
+    <string name="delete_note">حذف الملاحظة</string>
+    <string name="note_deleted">تم نقل الملاحظة إلى سلة المحذوفات</string>
+    <string name="pin_note">تثبيت الملاحظة</string>
+    <string name="unpin_note">إلغاء تثبيت الملاحظة</string>
+    <string name="transcription">النص المكتوب</string>
+    <string name="summary">الملخص</string>
+    <string name="recording">جاري التسجيل…</string>
+    <string name="tap_to_record">انقر لبدء التسجيل</string>
+    
+    <!-- Folders -->
+    <string name="folder_name">اسم المجلد</string>
+    <string name="select_color">اختر اللون</string>
+    <string name="rename_folder">إعادة تسمية المجلد</string>
+    <string name="delete_folder">حذف المجلد</string>
+    <string name="folder_deleted">تم حذف المجلد</string>
+    
+    <!-- Settings -->
+    <string name="language_selection">اللغة</string>
+    <string name="selected_language">اللغة المختارة</string>
+    <string name="appearance">المظهر</string>
+    <string name="theme">السمة</string>
+    <string name="dark_mode">الوضع الداكن</string>
+    <string name="audio_settings">إعدادات الصوت</string>
+    <string name="save_audio">حفظ التسجيلات الصوتية</string>
+    <string name="offline_mode">وضع عدم الاتصال</string>
+    <string name="cloud_sync">مزامنة السحابة</string>
+    
+    <!-- Subscription -->
+    <string name="subscription">الاشتراك</string>
+    <string name="free_plan">الخطة المجانية</string>
+    <string name="monthly_plan">الخطة الشهرية</string>
+    <string name="annual_plan">الخطة السنوية</string>
+    <string name="upgrade_to_premium">الترقية إلى بريميوم</string>
+    <string name="subscription_limit_reached">تم الوصول إلى الحد الأسبوعي</string>
+    
+    <!-- Auth -->
+    <string name="sign_in">تسجيل الدخول</string>
+    <string name="sign_out">تسجيل الخروج</string>
+    <string name="sign_up">إنشاء حساب</string>
+    <string name="google_sign_in">تسجيل الدخول باستخدام جوجل</string>
+    
+    <!-- Errors -->
+    <string name="error_generic">حدث خطأ ما</string>
+    <string name="error_no_internet">لا يوجد اتصال بالإنترنت</string>
+    <string name="error_transcription">فشل في تحويل الصوت إلى نص</string>
+    <string name="error_cloud_sync">فشل في المزامنة مع السحابة</string>
+    
+    <!-- Filters -->
+    <string name="filter_all">الكل</string>
+    <string name="filter_today">اليوم</string>
+    <string name="filter_week">آخر 7 أيام</string>
+    <string name="filter_month">آخر 30 يوم</string>
+    <string name="filter_3months">آخر 3 أشهر</string>
+    <string name="filter_6months">آخر 6 أشهر</string>
+    <string name="filter_year">العام الماضي</string>
+    <string name="filter_custom">نطاق مخصص</string>
+    <string name="date_range">نطاق التاريخ</string>
+    <string name="start_date">تاريخ البداية</string>
+    <string name="end_date">تاريخ النهاية</string>
+</resources> 

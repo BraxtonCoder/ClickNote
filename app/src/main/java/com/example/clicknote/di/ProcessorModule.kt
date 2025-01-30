@@ -12,7 +12,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Provider
 import javax.inject.Singleton
 
 @Module
@@ -31,7 +30,7 @@ object ProcessorModule {
     @Provides
     @Singleton
     fun provideAmplitudeProcessor(
-        performanceMonitor: Provider<PerformanceMonitor>,
-        amplitudeCache: Provider<AmplitudeCache>
+        performanceMonitor: PerformanceMonitor,
+        amplitudeCache: AmplitudeCache
     ): AmplitudeProcessor = AmplitudeProcessorImpl(performanceMonitor, amplitudeCache)
 } 

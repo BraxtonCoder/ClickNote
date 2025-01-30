@@ -61,6 +61,7 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
             arg("room.incremental", "true")
             arg("room.expandProjection", "true")
+            arg("jvm.target", "17")
         }
     }
 
@@ -90,10 +91,11 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = JavaVersion.VERSION_17.toString()
         freeCompilerArgs += listOf(
             "-opt-in=kotlin.RequiresOptIn",
-            "-Xjvm-default=all"
+            "-Xjvm-default=all",
+            "-Xskip-prerelease-check"
         )
     }
 

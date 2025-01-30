@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 import kotlin.math.ln
 import kotlin.math.max
@@ -22,22 +21,19 @@ import kotlin.math.sqrt
  */
 @Singleton
 class AmplitudeProcessorImpl @Inject constructor(
-    performanceMonitorProvider: Provider<PerformanceMonitor>,
-    amplitudeCacheProvider: Provider<AmplitudeCache>
+    private val performanceMonitor: PerformanceMonitor,
+    private val amplitudeCache: AmplitudeCache
 ) : AmplitudeProcessor {
-    private val performanceMonitor by lazy { performanceMonitorProvider.get() }
-    private val amplitudeCache by lazy { amplitudeCacheProvider.get() }
-    
     private var fft: FloatFFT_1D? = null
     private var windowSize = 2048 // Power of 2 for FFT
     private var smoothingFactor = 0.2f
-    private var lastAmplitude = 0f
+    @Volatile private var lastAmplitude = 0f
     private var normalizationEnabled = true
     
     private val _amplitude = MutableStateFlow(0f)
     private val _waveform = MutableStateFlow(FloatArray(100))
     private val amplitudes = mutableListOf<Float>()
-    private val maxSize = 100
+    private val maxSize = MAX_AMPLITUDES
 
     companion object {
         private const val TAG = "AmplitudeProcessor"

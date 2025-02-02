@@ -9,17 +9,19 @@
     <color name="white">#FFFFFFFF</color>
     <color name="icon_tint">@android:color/system_neutral1_900</color>
     <color name="icon_tint_dark">@android:color/system_neutral1_100</color>
-    <color name="splash_background">#FBFBFB</color>
-    <color name="primary">#2196F3</color>
-    <color name="secondary">#03DAC6</color>
-    <color name="background">#FBFBFB</color>
-    <color name="surface">#FBFBFB</color>
+    <color name="splash_background">#FFFBFBFB</color>
+    <color name="primary">#FF2196F3</color>
+    <color name="primary_dark">#FF1976D2</color>
+    <color name="secondary">#FF4081</color>
+    <color name="background">#FFFFFFFF</color>
+    <color name="surface">#FFFFFF</color>
     <color name="error">#B00020</color>
     <color name="on_primary">#FFFFFF</color>
-    <color name="on_secondary">#000000</color>
+    <color name="on_secondary">#FFFFFF</color>
     <color name="on_background">#000000</color>
     <color name="on_surface">#000000</color>
     <color name="on_error">#FFFFFF</color>
-    <color name="primary_variant">#FF3700B3</color>
-    <color name="secondary_variant">#FF03DAC5</color>
+    <color name="primary_variant">#CC0000</color>
+    <color name="secondary_variant">#C60055</color>
+    <color name="accent">#FFFF4081</color>
 </resources>

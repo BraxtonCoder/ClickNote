@@ -5,19 +5,19 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.AudioManager
-import com.example.clicknote.domain.service.AudioRecorder
+import com.example.clicknote.domain.interfaces.AudioRecorder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
+import dagger.Lazy
 
 @Singleton
 class AudioRecorderImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val audioManager: Provider<AudioManager>
+    private val audioManager: Lazy<AudioManager>
 ) : AudioRecorder {
 
     private var audioRecord: AudioRecord? = null

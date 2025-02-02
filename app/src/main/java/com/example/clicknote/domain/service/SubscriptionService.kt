@@ -2,14 +2,21 @@ package com.example.clicknote.domain.service
 
 import com.example.clicknote.domain.model.SubscriptionPlan
 import com.example.clicknote.domain.model.SubscriptionStatus
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface SubscriptionService {
-    suspend fun getCurrentPlan(): SubscriptionPlan
-    suspend fun subscribeToPlan(planId: String): Result<Unit>
-    suspend fun cancelSubscription(): Result<Unit>
-    suspend fun restorePurchases(): Result<Unit>
-    fun getSubscriptionStatus(): Flow<SubscriptionStatus>
+    val isPremium: StateFlow<Boolean>
+    val weeklyRecordingsCount: StateFlow<Int>
+    val currentPlan: StateFlow<SubscriptionPlan>
+    val subscriptionStatus: StateFlow<SubscriptionStatus>
+
+    suspend fun purchaseSubscription(plan: SubscriptionPlan)
+    suspend fun updateSubscriptionState(plan: SubscriptionPlan)
+    suspend fun consumeFreeRecording()
+    suspend fun resetWeeklyRecordings()
+    suspend fun cancelSubscription()
+    suspend fun restoreSubscription(): Result<Unit>
+    suspend fun checkSubscriptionStatus()
     suspend fun getRemainingFreeTranscriptions(): Int
     suspend fun decrementFreeTranscriptions()
     suspend fun isSubscriptionActive(): Boolean

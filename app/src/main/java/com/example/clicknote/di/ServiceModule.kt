@@ -1,143 +1,53 @@
 package com.example.clicknote.di
 
-import android.app.NotificationManager
-import android.content.Context
-import android.media.AudioManager
-import android.os.PowerManager
-import android.os.Vibrator
-import androidx.core.app.NotificationManagerCompat
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.preferencesDataStoreFile
-import com.example.clicknote.service.*
-import com.example.clicknote.service.impl.*
-import com.example.clicknote.service.feedback.FeedbackService
-import com.example.clicknote.domain.service.*
-import com.example.clicknote.domain.preferences.UserPreferencesDataStore
-import com.example.clicknote.data.preferences.UserPreferencesDataStoreImpl
+import com.example.clicknote.data.event.ServiceEventBusImpl
+import com.example.clicknote.data.lifecycle.ServiceLifecycleManagerImpl
+import com.example.clicknote.data.mediator.ServiceMediatorImpl
+import com.example.clicknote.data.registry.ServiceRegistryImpl
+import com.example.clicknote.data.state.ServiceStateManagerImpl
+import com.example.clicknote.data.strategy.ServiceStrategyImpl
+import com.example.clicknote.data.service.EventMappingServiceImpl
+import com.example.clicknote.domain.event.ServiceEventBus
+import com.example.clicknote.domain.lifecycle.ServiceLifecycleManager
+import com.example.clicknote.domain.mediator.ServiceMediator
+import com.example.clicknote.domain.registry.ServiceRegistry
+import com.example.clicknote.domain.service.EventMappingService
+import com.example.clicknote.domain.service.ServiceStrategy
+import com.example.clicknote.domain.state.ServiceStateManager
+import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object ServiceModule {
-
-    @Provides
+abstract class ServiceModule {
+    @Binds
     @Singleton
-    fun provideVibrationHandler(impl: VibrationHandlerImpl): VibrationHandler {
-        return impl
-    }
+    abstract fun bindServiceStateManager(impl: ServiceStateManagerImpl): ServiceStateManager
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideVolumeButtonHandler(impl: VolumeButtonHandlerImpl): VolumeButtonHandler {
-        return impl
-    }
+    abstract fun bindServiceRegistry(impl: ServiceRegistryImpl): ServiceRegistry
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideStorageService(impl: StorageServiceImpl): StorageService {
-        return impl
-    }
+    abstract fun bindServiceLifecycleManager(impl: ServiceLifecycleManagerImpl): ServiceLifecycleManager
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideSpeakerProfileService(impl: SpeakerProfileServiceImpl): SpeakerProfileService {
-        return impl
-    }
+    abstract fun bindServiceMediator(impl: ServiceMediatorImpl): ServiceMediator
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideClipboardManager(impl: ClipboardManagerImpl): ClipboardManager {
-        return impl
-    }
+    abstract fun bindServiceStrategy(impl: ServiceStrategyImpl): ServiceStrategy
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideClipboardService(impl: ClipboardServiceImpl): ClipboardService {
-        return impl
-    }
+    abstract fun bindServiceEventBus(impl: ServiceEventBusImpl): ServiceEventBus
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideFeedbackService(impl: FeedbackServiceImpl): FeedbackService {
-        return impl
-    }
-
-    @Provides
-    @Singleton
-    fun provideAudioManager(@ApplicationContext context: Context): AudioManager {
-        return context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    }
-
-    @Provides
-    @Singleton
-    fun provideVibrator(@ApplicationContext context: Context): Vibrator {
-        return context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-    }
-
-    @Provides
-    @Singleton
-    fun provideNotificationManager(@ApplicationContext context: Context): NotificationManager {
-        return context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    }
-
-    @Provides
-    @Singleton
-    fun provideNotificationManagerCompat(@ApplicationContext context: Context): NotificationManagerCompat {
-        return NotificationManagerCompat.from(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
-        return PreferenceDataStoreFactory.create(
-            produceFile = { context.preferencesDataStoreFile("user_preferences") }
-        )
-    }
-
-    @Provides
-    @Singleton
-    fun provideUserPreferencesDataStore(impl: UserPreferencesDataStoreImpl): UserPreferencesDataStore {
-        return impl
-    }
-
-    @Provides
-    @Singleton
-    fun provideSubscriptionStateObserver(
-        @ApplicationContext context: Context,
-        authService: AuthService,
-        subscriptionStateManager: SubscriptionStateManager
-    ): SubscriptionStateObserver {
-        return SubscriptionStateObserver(context, authService, subscriptionStateManager)
-    }
-
-    @Provides
-    @Singleton
-    fun provideCloudSyncService(impl: CloudSyncServiceImpl): CloudSyncService {
-        return impl
-    }
-
-    @Provides
-    @Singleton
-    fun provideFirestoreService(impl: FirestoreServiceImpl): FirestoreService {
-        return impl
-    }
-
-    @Provides
-    @Singleton
-    fun provideRecordingService(impl: RecordingServiceImpl): RecordingService {
-        return impl
-    }
-
-    @Provides
-    @Singleton
-    fun provideSummaryService(impl: SummaryServiceImpl): SummaryService {
-        return impl
-    }
-} 
+    abstract fun bindEventMappingService(impl: EventMappingServiceImpl): EventMappingService
+}

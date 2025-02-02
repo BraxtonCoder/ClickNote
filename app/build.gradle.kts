@@ -39,7 +39,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.example.clicknote.HiltTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -55,18 +55,11 @@ android {
             "\"AIzaSyCnNGLFYihnlbFzlMbKdziQDzByjBEaCH0\""
         )
         buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"pk_test_51Qm0e4GWC5QPksKB0jW6MM63LlRgUW8pXYwXBCp604Tx7LZKd7a97t0imGcNLVUUlkd534MuJze90EeMwpLIREqB000J8ydsf0\"")
-
-        // Room schema location
-        ksp {
-            arg("room.schemaLocation", "$projectDir/schemas")
-            arg("room.incremental", "true")
-            arg("room.expandProjection", "true")
-            arg("jvm.target", "17")
-        }
     }
 
     buildTypes {
         debug {
+            isDebuggable = true
         }
         release {
             isMinifyEnabled = true
@@ -91,12 +84,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-Xjvm-default=all",
-            "-Xskip-prerelease-check"
-        )
+        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -107,13 +95,12 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.7"
+        kotlinCompilerExtensionVersion = "1.9.21"
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            // Exclude conflicting files
             excludes += listOf(
                 "META-INF/DEPENDENCIES",
                 "META-INF/LICENSE",
@@ -123,7 +110,21 @@ android {
                 "META-INF/NOTICE.txt",
                 "META-INF/notice.txt",
                 "META-INF/ASL2.0",
-                "META-INF/*.kotlin_module"
+                "META-INF/*.kotlin_module",
+                "META-INF/versions/9/previous-compilation-data.bin",
+                "META-INF/gradle/incremental.annotation.processors",
+                "META-INF/proguard/androidx-annotations.pro",
+                "/*.properties",
+                "META-INF/maven/**",
+                "META-INF/*.version",
+                "META-INF/com.android.tools/**"
+            )
+            pickFirsts += listOf(
+                "META-INF/services/javax.annotation.processing.Processor",
+                "META-INF/NOTICE",
+                "META-INF/LICENSE",
+                "META-INF/plexus/components.xml",
+                "META-INF/DEPENDENCIES"
             )
         }
         jniLibs {
@@ -147,8 +148,21 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
+    arg("room.expandProjection", "true")
+    arg("ksp.incremental", "true")
+    arg("ksp.incremental.log", "true")
+}
+
 kotlin {
     jvmToolchain(17)
+    sourceSets.all {
+        languageSettings {
+            optIn("kotlin.RequiresOptIn")
+        }
+    }
 }
 
 dependencies {
@@ -172,8 +186,8 @@ dependencies {
     
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
-    implementation("androidx.hilt:hilt-work:1.1.0")
-    ksp("androidx.hilt:hilt-compiler:1.1.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
     
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
@@ -188,34 +202,19 @@ dependencies {
     implementation("com.stripe:payments-core:$stripeVersion")
     implementation("com.stripe:paymentsheet:$stripeVersion")
     
-    // TensorFlow Lite dependencies for Whisper
+    // TensorFlow Lite
     val tensorflowVersion = "2.14.0"
-    implementation("org.tensorflow:tensorflow-lite-task-audio:0.4.4")
     implementation("org.tensorflow:tensorflow-lite:$tensorflowVersion")
-    implementation("org.tensorflow:tensorflow-lite-gpu:$tensorflowVersion")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
-    
-    // AWS
-    implementation("com.amazonaws:aws-android-sdk-s3:2.73.0") {
-        exclude(group = "com.google.android", module = "android")
-    }
-    implementation("com.amazonaws:aws-android-sdk-mobile-client:2.73.0") {
-        exclude(group = "com.google.android", module = "android")
-    }
-    
-    // Azure
-    implementation("com.azure:azure-storage-blob:12.25.1") {
-        exclude(group = "org.slf4j", module = "slf4j-api")
-    }
-    implementation("com.azure:azure-identity:1.11.1") {
-        exclude(group = "org.slf4j", module = "slf4j-api")
-    }
+    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
     
     // Google Cloud Storage
     implementation("com.google.cloud:google-cloud-storage:2.32.1") {
         exclude(group = "org.slf4j", module = "slf4j-api")
         exclude(group = "io.grpc", module = "grpc-core")
         exclude(group = "com.google.guava", module = "guava")
+        exclude(group = "com.google.guava", module = "listenablefuture")
     }
     
     // DataStore
@@ -237,15 +236,15 @@ dependencies {
     implementation("com.aallam.openai:openai-client:3.7.0")
     implementation("io.ktor:ktor-client-android:2.3.8")
     
-    // Vosk (offline speech recognition)
+    // Vosk
     implementation("com.alphacephei:vosk-android:0.3.47") {
         exclude(group = "net.java.dev.jna", module = "jna")
     }
 
-    // Gson for JSON handling
+    // Gson
     implementation("com.google.code.gson:gson:2.10.1")
     
-    // MixPanel Analytics
+    // MixPanel
     implementation("com.mixpanel.android:mixpanel-android:7.3.1")
     
     testImplementation("junit:junit:4.13.2")
@@ -276,6 +275,27 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("io.michaelrocks:libphonenumber-android:8.13.25")
+
+    // Force consistent versions
+    configurations.all {
+        resolutionStrategy {
+            force("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22")
+            force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22")
+            force("org.jetbrains.kotlin:kotlin-reflect:1.9.22")
+            force("com.google.guava:guava:32.1.3-android")
+            force("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+            force("org.jetbrains:annotations:24.1.0")
+            force("javax.annotation:javax.annotation-api:1.3.2")
+            force("com.google.code.findbugs:jsr305:3.0.2")
+        }
+    }
+
+    // Add Hilt testing dependencies
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.50")
+    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.50")
+    testImplementation("com.google.dagger:hilt-android-testing:2.50")
+    kspTest("com.google.dagger:hilt-android-compiler:2.50")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {

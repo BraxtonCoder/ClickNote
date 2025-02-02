@@ -1,0 +1,1 @@
+﻿package com.example.clicknote.domain.interfaces; sealed class RecordingState { object Idle : RecordingState(); object Recording : RecordingState(); object Paused : RecordingState(); object Processing : RecordingState(); data class Error(val message: String) : RecordingState() }

@@ -1,36 +1,23 @@
 package com.example.clicknote.di
 
-import android.content.Context
-import com.example.clicknote.service.AmplitudeProcessor
-import com.example.clicknote.service.PerformanceMonitor
-import com.example.clicknote.service.impl.AmplitudeProcessorImpl
-import com.example.clicknote.service.impl.PerformanceMonitorImpl
 import com.example.clicknote.domain.interfaces.AmplitudeCache
+import com.example.clicknote.domain.interfaces.AmplitudeProcessor
 import com.example.clicknote.service.impl.AmplitudeCacheImpl
+import com.example.clicknote.service.impl.AmplitudeProcessorImpl
+import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object ProcessorModule {
-    @Provides
+abstract class ProcessorModule {
+    @Binds
     @Singleton
-    fun providePerformanceMonitor(@ApplicationContext context: Context): PerformanceMonitor =
-        PerformanceMonitorImpl(context)
+    abstract fun bindAmplitudeCache(impl: AmplitudeCacheImpl): AmplitudeCache
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideAmplitudeCache(@ApplicationContext context: Context): AmplitudeCache =
-        AmplitudeCacheImpl(context)
-
-    @Provides
-    @Singleton
-    fun provideAmplitudeProcessor(
-        performanceMonitor: PerformanceMonitor,
-        amplitudeCache: AmplitudeCache
-    ): AmplitudeProcessor = AmplitudeProcessorImpl(performanceMonitor, amplitudeCache)
-} 
+    abstract fun bindAmplitudeProcessor(impl: AmplitudeProcessorImpl): AmplitudeProcessor
+}

@@ -1,6 +1,7 @@
 package com.example.clicknote.domain.service
 
 import kotlinx.coroutines.flow.Flow
+import java.io.File
 
 interface PerformanceMonitor {
     fun startMonitoring()
@@ -13,6 +14,10 @@ interface PerformanceMonitor {
     fun getNetworkMetrics(): Flow<NetworkMetrics>
     fun logEvent(event: String, duration: Long)
     fun getPerformanceReport(): PerformanceReport
+    suspend fun trackAudioProcessing()
+    suspend fun trackFileTranscription(file: File)
+    fun startMeasurement(name: String)
+    fun endMeasurement(name: String)
 }
 
 data class StorageMetrics(

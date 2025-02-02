@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class TranscriptionRepository @Inject constructor(
+class LegacyTranscriptionRepository @Inject constructor(
     private val transcriptionMetadataDao: TranscriptionMetadataDao,
     private val whisperService: WhisperService,
     private val speakerDetectionService: SpeakerDetectionService,
@@ -164,7 +164,7 @@ sealed class TranscriptionResult {
     ) : TranscriptionResult()
     
     data class Error(
-        val code: TranscriptionRepository.ErrorCode,
+        val code: LegacyTranscriptionRepository.ErrorCode,
         val message: String
     ) : TranscriptionResult()
 } 

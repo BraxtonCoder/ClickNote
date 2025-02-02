@@ -7,6 +7,8 @@ import com.example.clicknote.domain.repository.PreferencesRepository
 import com.example.clicknote.service.*
 import com.example.clicknote.domain.service.RecordingService
 import com.example.clicknote.domain.service.RecordingState
+import com.example.clicknote.domain.service.TranscriptionCapable
+import com.example.clicknote.domain.service.PerformanceMonitor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -21,7 +23,7 @@ class RecordingServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val preferencesRepository: Lazy<PreferencesRepository>,
     private val amplitudeProcessor: Lazy<AmplitudeProcessor>,
-    private val transcriptionService: Lazy<TranscriptionService>,
+    private val transcriptionService: Lazy<TranscriptionCapable>,
     private val notificationHandler: Lazy<NotificationHandler>,
     private val vibrationHandler: Lazy<VibrationHandler>,
     private val performanceMonitor: Lazy<PerformanceMonitor>

@@ -11,10 +11,11 @@ import android.os.VibratorManager
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.clicknote.domain.interfaces.RecordingState
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.repository.NoteRepository
-import com.example.clicknote.domain.service.TranscriptionService
+import com.example.clicknote.domain.service.TranscriptionCapable
 import com.example.clicknote.service.AudioRecorder
 import com.example.clicknote.service.RecordingAnalyticsService
 import com.example.clicknote.service.PremiumFeature
@@ -34,12 +35,8 @@ import javax.inject.Inject
 import java.util.UUID
 import kotlin.math.max
 
-enum class RecordingState {
-    IDLE, RECORDING, PAUSED
-}
-
 data class RecordingUiState(
-    val recordingState: RecordingState = RecordingState.IDLE,
+    val recordingState: RecordingState = RecordingState.Idle,
     val recordingDuration: Long = 0L,
     val currentAmplitude: Int = 0,
     val amplitudeHistory: List<Int> = emptyList(),
@@ -55,7 +52,7 @@ data class RecordingUiState(
 class RecordingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val audioRecorder: AudioRecorder,
-    private val transcriptionService: TranscriptionService,
+    private val transcriptionService: TranscriptionCapable,
     private val noteRepository: NoteRepository,
     private val analyticsService: RecordingAnalyticsService,
     private val premiumFeatureManager: PremiumFeatureManager
@@ -156,7 +153,7 @@ class RecordingViewModel @Inject constructor(
             try {
                 audioRecorder.pauseRecording()
                 _uiState.update { it.copy(
-                    recordingState = RecordingState.PAUSED,
+                    recordingState = RecordingState.Paused,
                     isLoading = false
                 )}
                 analyticsService.logRecordingPaused(uiState.value.recordingDuration)
@@ -174,7 +171,7 @@ class RecordingViewModel @Inject constructor(
             try {
                 audioRecorder.resumeRecording()
                 _uiState.update { it.copy(
-                    recordingState = RecordingState.RECORDING,
+                    recordingState = RecordingState.Recording,
                     error = null,
                     isLoading = true
                 )}
@@ -195,7 +192,7 @@ class RecordingViewModel @Inject constructor(
                 audioRecorder.stopRecording()
                 transcriptionJob?.cancel()
                 _uiState.update { it.copy(
-                    recordingState = RecordingState.IDLE,
+                    recordingState = RecordingState.Idle,
                     isLoading = false
                 )}
                 analyticsService.logRecordingStopped(uiState.value.recordingDuration)
@@ -342,7 +339,7 @@ class RecordingViewModel @Inject constructor(
         recorder = null
         recordingJob?.cancel()
         transcriptionJob?.cancel()
-        if (uiState.value.recordingState == RecordingState.RECORDING) {
+        if (uiState.value.recordingState == RecordingState.Recording) {
             stopRecording()
         }
     }

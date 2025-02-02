@@ -1,35 +1,37 @@
 package com.example.clicknote.di
 
-import com.example.clicknote.domain.service.TranscriptionService
-import com.example.clicknote.service.*
-import com.example.clicknote.service.impl.*
+import com.example.clicknote.domain.service.TranscriptionCapable
+import com.example.clicknote.service.impl.CombinedTranscriptionServiceImpl
+import com.example.clicknote.service.impl.OfflineTranscriptionServiceImpl
+import com.example.clicknote.service.impl.OnlineTranscriptionServiceImpl
+import com.example.clicknote.di.qualifiers.Online
+import com.example.clicknote.di.qualifiers.Offline
+import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import dagger.Provides
 import javax.inject.Singleton
-import javax.inject.Provider
-import android.content.Context
-import okhttp3.OkHttpClient
-import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.Binds
-import dagger.Lazy
 
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class TranscriptionServiceModule {
-
     @Binds
     @Singleton
     abstract fun bindTranscriptionService(
         impl: CombinedTranscriptionServiceImpl
-    ): TranscriptionService
+    ): TranscriptionCapable
 
-    companion object {
-        @Provides
-        @Singleton
-        fun provideOkHttpClient(): OkHttpClient {
-            return OkHttpClient.Builder().build()
-        }
-    }
-} 
+    @Binds
+    @Singleton
+    @Online
+    abstract fun bindOnlineTranscriptionService(
+        impl: OnlineTranscriptionServiceImpl
+    ): TranscriptionCapable
+
+    @Binds
+    @Singleton
+    @Offline
+    abstract fun bindOfflineTranscriptionService(
+        impl: OfflineTranscriptionServiceImpl
+    ): TranscriptionCapable
+}

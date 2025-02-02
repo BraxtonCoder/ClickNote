@@ -1,50 +1,29 @@
 package com.example.clicknote.domain.model
 
-sealed class SubscriptionPlan {
-    abstract val id: String
-    abstract val name: String
-    abstract val price: Double
-    abstract val interval: String
-    abstract val features: List<String>
+/**
+ * Represents the different subscription plans available in the app
+ * @property price The price of the subscription in GBP
+ * @property weeklyLimit The number of transcriptions allowed per week (null for unlimited)
+ */
+enum class SubscriptionPlan {
+    FREE,
+    MONTHLY,
+    ANNUAL;
 
-    data class Free(
-        override val id: String = "free",
-        override val name: String = "Free",
-        override val price: Double = 0.0,
-        override val interval: String = "month",
-        override val features: List<String> = listOf(
-            "3 transcriptions per week",
-            "Basic transcription",
-            "Local storage only"
-        )
-    ) : SubscriptionPlan()
+    val price: Float
+        get() = when (this) {
+            FREE -> 0f
+            MONTHLY -> 9.99f
+            ANNUAL -> 98f
+        }
 
-    data class Monthly(
-        override val id: String = "price_monthly",
-        override val name: String = "Premium Monthly",
-        override val price: Double = 9.99,
-        override val interval: String = "month",
-        override val features: List<String> = listOf(
-            "Unlimited transcriptions",
-            "Advanced AI transcription",
-            "Cloud storage",
-            "Priority support"
-        )
-    ) : SubscriptionPlan()
+    val weeklyLimit: Int
+        get() = when (this) {
+            FREE -> 3
+            MONTHLY, ANNUAL -> Int.MAX_VALUE
+        }
 
-    data class Annual(
-        override val id: String = "price_annual",
-        override val name: String = "Premium Annual",
-        override val price: Double = 98.0,
-        override val interval: String = "year",
-        override val features: List<String> = listOf(
-            "Unlimited transcriptions",
-            "Advanced AI transcription",
-            "Cloud storage",
-            "Priority support",
-            "18% discount"
-        )
-    ) : SubscriptionPlan()
+    fun isPremium(): Boolean = this == MONTHLY || this == ANNUAL
 }
 
 enum class SubscriptionStatus {

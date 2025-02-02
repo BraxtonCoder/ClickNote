@@ -1,5 +1,6 @@
 package com.example.clicknote.domain.preferences
 
+import com.example.clicknote.domain.model.CloudProvider
 import kotlinx.coroutines.flow.Flow
 
 interface UserPreferencesDataStore {
@@ -14,17 +15,16 @@ interface UserPreferencesDataStore {
     val lastSyncTime: Flow<Long>
     val cloudSyncEnabled: Flow<Boolean>
     val weeklyTranscriptionCount: Flow<Int>
-    val isPremium: Flow<Boolean>
-    val subscriptionType: Flow<String>
-    val subscriptionExpiryDate: Flow<Long>
     val detectSpeakers: Flow<Boolean>
     val transcriptionLanguage: Flow<String>
     val audioQuality: Flow<String>
-    val cloudProvider: Flow<String>
+    val cloudProvider: Flow<CloudProvider>
     val buttonTriggerDelay: Flow<Long>
     val openaiApiKey: Flow<String>
     val showSilentNotifications: Flow<Boolean>
     val onboardingCompleted: Flow<Boolean>
+    val isFirstTimeUser: Flow<Boolean>
+    val lastTranscriptionReset: Flow<Long>
 
     suspend fun setCallRecordingEnabled(enabled: Boolean)
     suspend fun setAudioSavingEnabled(enabled: Boolean)
@@ -38,17 +38,16 @@ interface UserPreferencesDataStore {
     suspend fun setCloudSyncEnabled(enabled: Boolean)
     suspend fun incrementWeeklyTranscriptionCount()
     suspend fun resetWeeklyTranscriptionCount()
-    suspend fun setIsPremium(isPremium: Boolean)
-    suspend fun setSubscriptionType(type: String)
-    suspend fun setSubscriptionExpiryDate(date: Long)
     suspend fun setDetectSpeakers(enabled: Boolean)
     suspend fun setTranscriptionLanguage(language: String)
     suspend fun setAudioQuality(quality: String)
-    suspend fun setCloudProvider(provider: String)
+    suspend fun setCloudProvider(provider: CloudProvider)
     suspend fun setButtonTriggerDelay(delay: Long)
     suspend fun setOpenaiApiKey(key: String)
-    suspend fun setShowSilentNotifications(show: Boolean)
+    suspend fun setShowSilentNotifications(enabled: Boolean)
     suspend fun setOnboardingCompleted(completed: Boolean)
+    suspend fun setIsFirstTimeUser(isFirst: Boolean)
+    suspend fun setLastTranscriptionReset(time: Long)
 }
 
 enum class AudioQuality {

@@ -7,7 +7,7 @@ import com.example.clicknote.domain.model.CallRecording
 import com.example.clicknote.domain.repository.CallRecordingRepository
 import com.example.clicknote.service.notification.CallRecordingNotificationService
 import com.example.clicknote.service.transcription.TranscriptionManager
-import com.example.clicknote.util.audio.AudioEnhancer
+import com.example.clicknote.service.AudioEnhancer
 import com.example.clicknote.util.ContactUtils
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
@@ -75,7 +75,7 @@ class CallRecordingServiceTest {
         val enhancedAudioFile = mockk<File>()
 
         every { contactUtils.getContactName(phoneNumber) } returns contactName
-        every { audioEnhancer.enhance(any()) } returns enhancedAudioFile
+        every { audioEnhancer.enhanceAudioFile(any()) } returns enhancedAudioFile
         coEvery { transcriptionManager.transcribe(any()) } returns transcription
         coEvery { transcriptionManager.generateSummary(any()) } returns summary
         coEvery { repository.insertCallRecording(any()) } just Runs
@@ -95,7 +95,7 @@ class CallRecordingServiceTest {
         // Then
         verify { telephonyManager.listen(any(), TelephonyManager.LISTEN_CALL_STATE) }
         verify { contactUtils.getContactName(phoneNumber) }
-        verify { audioEnhancer.enhance(any()) }
+        verify { audioEnhancer.enhanceAudioFile(any()) }
         coVerify { transcriptionManager.transcribe(any()) }
         coVerify { transcriptionManager.generateSummary(any()) }
         coVerify { repository.insertCallRecording(any()) }

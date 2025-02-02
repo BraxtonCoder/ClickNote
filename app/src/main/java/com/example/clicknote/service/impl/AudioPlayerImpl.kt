@@ -1,14 +1,18 @@
 package com.example.clicknote.service.impl
 
+import android.content.Context
 import android.media.MediaPlayer
 import com.example.clicknote.service.AudioPlayer
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AudioPlayerImpl @Inject constructor() : AudioPlayer {
+class AudioPlayerImpl @Inject constructor(
+    @ApplicationContext private val context: Context
+) : AudioPlayer {
 
     private var mediaPlayer: MediaPlayer? = null
     private var progressJob: Job? = null

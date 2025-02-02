@@ -1,85 +1,11 @@
 package com.example.clicknote.service
 
 import android.app.Activity
-import com.example.clicknote.domain.model.SubscriptionState
+import com.example.clicknote.domain.model.SubscriptionPlan
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 interface BillingService {
-    /**
-     * Current subscription state
-     */
-    val subscriptionState: StateFlow<SubscriptionState>
-
-    /**
-     * Whether user has premium subscription
-     */
-    val isPremium: StateFlow<Boolean>
-
-    /**
-     * Available subscription plans
-     */
-    val subscriptionPlans: Flow<List<SubscriptionPlan>>
-
-    /**
-     * Whether user can transcribe based on subscription status and usage
-     */
-    val canTranscribe: Flow<Boolean>
-
-    /**
-     * Number of remaining transcriptions for free users
-     */
-    val remainingTranscriptions: Flow<Int>
-
-    /**
-     * Number of remaining free recordings for free users
-     */
-    val freeRecordingsRemaining: Flow<Int>
-
-    /**
-     * Purchase monthly subscription
-     */
-    suspend fun purchaseMonthlySubscription(): Result<Unit>
-
-    /**
-     * Purchase annual subscription
-     */
-    suspend fun purchaseAnnualSubscription(): Result<Unit>
-
-    /**
-     * Restore purchases
-     */
-    suspend fun restorePurchases(): Result<Unit>
-
-    /**
-     * Check if user has active subscription
-     */
-    fun hasActiveSubscription(): Boolean
-
-    /**
-     * Check if user can transcribe based on subscription status and usage
-     */
-    suspend fun checkTranscriptionAvailability(): Result<Boolean>
-
-    /**
-     * Increment transcription count for free users
-     */
-    suspend fun incrementTranscriptionCount(): Result<Unit>
-
-    /**
-     * Reset transcription count for free users
-     */
-    suspend fun resetTranscriptionCount(): Result<Unit>
-
-    /**
-     * Show subscription options to the user
-     */
-    suspend fun showSubscriptionOptions()
-
-    /**
-     * Manage existing subscription
-     */
-    suspend fun manageSubscription()
-
     /**
      * Initialize billing connection
      */
@@ -91,42 +17,22 @@ interface BillingService {
     fun endBillingConnection()
 
     /**
-     * Check if user is premium
+     * Purchase a subscription plan
      */
-    fun isPremiumUser(): Boolean
+    suspend fun purchaseSubscription(plan: SubscriptionPlan): Result<Unit>
 
     /**
-     * Get remaining free recordings for free users
+     * Restore purchases
      */
-    fun getRemainingFreeRecordings(): Int
+    suspend fun restorePurchases(): Result<Unit>
 
     /**
-     * Consume a free recording
+     * Get current subscription plan
      */
-    fun consumeFreeRecording()
+    val currentPlan: StateFlow<SubscriptionPlan>
 
     /**
-     * Reset free recordings count
+     * Get remaining free recordings
      */
-    fun resetFreeRecordingsCount()
-
-    /**
-     * Open premium purchase
-     */
-    suspend fun openPremiumPurchase()
-
-    /**
-     * Open manage subscriptions
-     */
-    suspend fun openManageSubscriptions()
-
-    /**
-     * Check premium status
-     */
-    suspend fun checkPremiumStatus(): Boolean
-
-    /**
-     * Get remaining free recordings for free users
-     */
-    suspend fun getRemainingFreeRecordings(): Int
+    val remainingFreeRecordings: Flow<Int>
 } 

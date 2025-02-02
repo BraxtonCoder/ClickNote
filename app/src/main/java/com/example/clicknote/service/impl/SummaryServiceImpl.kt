@@ -3,8 +3,9 @@ package com.example.clicknote.service.impl
 import android.content.Context
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.model.*
-import com.example.clicknote.service.*
-import com.example.clicknote.service.model.SummaryRequest
+import com.example.clicknote.domain.service.SummaryService
+import com.example.clicknote.domain.service.Summary
+import com.example.clicknote.domain.service.SummaryTemplate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -20,24 +21,23 @@ class SummaryServiceImpl @Inject constructor(
     private val claudeService: ClaudeService
 ) : SummaryService {
 
+    override val id: String = "summary_service"
+    private var initialized = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var currentJob: Job? = null
-
-    private val _summaryState = MutableStateFlow(SummaryState.IDLE)
-    override val summaryState: StateFlow<SummaryState> = _summaryState.asStateFlow()
-
-    private val _progress = MutableStateFlow(0f)
-    override val progress: Flow<Float> = _progress.asStateFlow()
-
-    private val _templates = MutableStateFlow<List<SummaryTemplate>>(emptyList())
-    override val templates: Flow<List<SummaryTemplate>> = _templates.asStateFlow()
-
     private val _summaryProgress = MutableStateFlow(0f)
     private var _isSummarizing = MutableStateFlow(false)
 
     init {
-        loadDefaultTemplates()
+        initialized = true
     }
+
+    override fun cleanup() {
+        scope.cancel()
+        initialized = false
+    }
+
+    override fun isInitialized(): Boolean = initialized
 
     override suspend fun generateSummary(text: String): Result<Summary> = runCatching {
         _isSummarizing.value = true
@@ -104,8 +104,17 @@ class SummaryServiceImpl @Inject constructor(
                 language = "en"
             )
 
+            val prompt = when (template) {
+                SummaryTemplate.GENERAL -> "Please provide a general summary of the following text:"
+                SummaryTemplate.BUSINESS -> "Please provide a business-focused summary of the following text:"
+                SummaryTemplate.ACADEMIC -> "Please provide an academic summary of the following text:"
+                SummaryTemplate.TECHNICAL -> "Please provide a technical summary of the following text:"
+                SummaryTemplate.MEETING -> "Please provide a meeting summary of the following text:"
+                SummaryTemplate.CONVERSATION -> "Please provide a conversation summary of the following text:"
+            }
+
             val summaryText = claudeService.generateSummary(
-                text = "${template.prompt}\n\n$text",
+                text = "$prompt\n\n$text",
                 options = options
             ).getOrThrow()
 
@@ -141,176 +150,14 @@ class SummaryServiceImpl @Inject constructor(
 
     override fun isSummarizing(): Boolean = _isSummarizing.value
 
-    override suspend fun generateDetailedSummary(
-        text: String,
-        options: SummaryOptions
-    ): Result<DetailedSummary> = runCatching {
-        _summaryState.value = SummaryState.GENERATING
-        _progress.value = 0f
-
-        val topics = extractTopics(text).getOrThrow()
-        val entities = extractEntities(text).getOrThrow()
-        val timeline = extractTimeline(text).getOrThrow()
-        val keyPoints = generateKeyPoints(text).getOrThrow()
-        val actionItems = generateActionItems(text).getOrThrow()
-
-        _progress.value = 1f
-        _summaryState.value = SummaryState.SUCCESS
-
-        DetailedSummary(
-            id = UUID.randomUUID().toString(),
-            noteId = UUID.randomUUID().toString(),
-            summary = Summary(
-                id = UUID.randomUUID().toString(),
-                noteId = UUID.randomUUID().toString(),
-                content = text,
-                wordCount = text.split("\\s+".toRegex()).size,
-                sourceWordCount = text.split("\\s+".toRegex()).size
-            ),
-            topics = topics,
-            entities = entities,
-            timeline = timeline
+    override suspend fun getAvailableTemplates(): Result<List<SummaryTemplate>> = Result.success(
+        listOf(
+            SummaryTemplate.GENERAL,
+            SummaryTemplate.BUSINESS,
+            SummaryTemplate.ACADEMIC,
+            SummaryTemplate.TECHNICAL,
+            SummaryTemplate.MEETING,
+            SummaryTemplate.CONVERSATION
         )
-    }.onFailure {
-        _summaryState.value = SummaryState.ERROR
-    }
-
-    override suspend fun extractTopics(
-        text: String,
-        maxTopics: Int
-    ): Result<List<Topic>> = runCatching {
-        _summaryState.value = SummaryState.GENERATING
-
-        val topics = (1..maxTopics).map { index ->
-            Topic(
-                id = UUID.randomUUID().toString(),
-                name = "Topic $index",
-                relevance = 1f / index,
-                mentions = 1,
-                subtopics = emptyList()
-            )
-        }
-
-        _summaryState.value = SummaryState.SUCCESS
-        topics
-    }
-
-    override suspend fun extractEntities(
-        text: String,
-        types: Set<EntityType>
-    ): Result<List<Entity>> = runCatching {
-        emptyList()
-    }
-
-    override suspend fun extractTimeline(
-        text: String,
-        maxEvents: Int
-    ): Result<List<TimelineEvent>> = runCatching {
-        emptyList()
-    }
-
-    override suspend fun generateKeyPoints(
-        text: String,
-        maxPoints: Int
-    ): Result<List<String>> = runCatching {
-        (1..maxPoints).map { "Key point $it" }
-    }
-
-    override suspend fun generateActionItems(
-        text: String,
-        maxItems: Int
-    ): Result<List<String>> = runCatching {
-        (1..maxItems).map { "Action item $it" }
-    }
-
-    override suspend fun generateTitle(
-        text: String,
-        maxLength: Int
-    ): Result<String> = runCatching {
-        text.take(maxLength)
-    }
-
-    override suspend fun generateTags(
-        text: String,
-        maxTags: Int
-    ): Result<List<String>> = runCatching {
-        (1..maxTags).map { "tag$it" }
-    }
-
-    override fun getAvailableTemplates(): List<SummaryTemplate> {
-        return defaultTemplates
-    }
-
-    override fun getTemplateByName(name: String): SummaryTemplate? {
-        return defaultTemplates.find { it.name == name }
-    }
-
-    override suspend fun generateStreamingSummary(
-        text: String,
-        options: SummaryOptions
-    ): Flow<String> = flow {
-        emit("Streaming summary...")
-    }
-
-    override suspend fun cancelSummarization() {
-        currentJob?.cancel()
-        _summaryState.value = SummaryState.IDLE
-        _progress.value = 0f
-    }
-
-    override suspend fun getTemplatesForCategory(category: String): List<SummaryTemplate> {
-        return getAvailableTemplates().filter { it.category.name == category }
-    }
-
-    override suspend fun createTemplate(template: SummaryTemplate) {
-        val currentTemplates = _templates.value.toMutableList()
-        currentTemplates.add(template)
-        _templates.value = currentTemplates
-    }
-
-    override suspend fun deleteTemplate(templateId: String) {
-        val currentTemplates = _templates.value.toMutableList()
-        currentTemplates.removeAll { it.id == templateId }
-        _templates.value = currentTemplates
-    }
-
-    override fun streamSummary(text: String, templateType: TemplateType?): Flow<String> = flow {
-        emit("Streaming summary...")
-    }
-
-    override suspend fun askQuestion(text: String, question: String): Result<String> = runCatching {
-        "Answer to: $question"
-    }
-
-    override fun isAvailable(): Boolean = true
-
-    private fun loadDefaultTemplates() {
-        _templates.value = defaultTemplates
-    }
-
-    companion object {
-        private val defaultTemplates = listOf(
-            SummaryTemplate(
-                id = "general_brief",
-                name = "Brief Overview",
-                description = "A concise summary highlighting key points",
-                category = TemplateCategory.GENERAL,
-                prompt = "Provide a brief overview of the main points discussed in this recording."
-            ),
-            SummaryTemplate(
-                id = "business_meeting",
-                name = "Meeting Minutes",
-                description = "Structured summary of meeting discussions and action items",
-                category = TemplateCategory.BUSINESS,
-                prompt = "Summarize this meeting recording in a structured format including: 1. Key Discussion Points 2. Decisions Made 3. Action Items 4. Next Steps"
-            ),
-            SummaryTemplate(
-                id = "academic_lecture",
-                name = "Lecture Notes",
-                description = "Organized summary of academic lecture content",
-                category = TemplateCategory.ACADEMIC,
-                prompt = "Create structured lecture notes including: Main Concepts, Key Terms, Examples, and Important Relationships"
-            )
-        )
-    }
+    )
 } 

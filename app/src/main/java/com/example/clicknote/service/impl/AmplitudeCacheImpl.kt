@@ -13,43 +13,44 @@ class AmplitudeCacheImpl @Inject constructor(
     @ApplicationContext context: Context
 ) : AmplitudeCache {
     private val amplitudes = mutableListOf<Float>()
-    private val maxSize = MAX_SIZE
+    private val maxSize = 100
     @Volatile private var lastAmplitude = 0f
-    private val memoryCache = LruCache<String, List<Float>>(MAX_SIZE)
+    private val memoryCache = LruCache<String, List<Float>>(maxSize)
     private val cacheDir = File(context.cacheDir, "amplitude_cache").apply { mkdirs() }
 
-    companion object {
-        private const val MAX_SIZE = 100
-    }
-
-    @Synchronized
     override fun cacheAmplitude(amplitude: Float) {
-        lastAmplitude = amplitude
-        amplitudes.add(amplitude)
-        if (amplitudes.size > maxSize) {
-            amplitudes.removeAt(0)
+        synchronized(amplitudes) {
+            amplitudes.add(amplitude)
+            if (amplitudes.size > maxSize) {
+                amplitudes.removeAt(0)
+            }
         }
     }
 
-    @Synchronized
-    override fun get(): List<Float> = amplitudes.toList()
+    override fun get(): List<Float> {
+        synchronized(amplitudes) {
+            return amplitudes.toList()
+        }
+    }
 
     override fun getLastAmplitude(): Float = lastAmplitude
 
-    @Synchronized
     override fun clear() {
-        amplitudes.clear()
+        synchronized(amplitudes) {
+            amplitudes.clear()
+        }
         lastAmplitude = 0f
         memoryCache.evictAll()
         cacheDir.listFiles()?.forEach { it.delete() }
     }
 
-    @Synchronized
     override fun put(values: List<Float>) {
-        amplitudes.clear()
-        amplitudes.addAll(values.takeLast(maxSize))
-        if (values.isNotEmpty()) {
-            lastAmplitude = values.last()
+        synchronized(amplitudes) {
+            amplitudes.clear()
+            amplitudes.addAll(values.takeLast(maxSize))
+            if (values.isNotEmpty()) {
+                lastAmplitude = values.last()
+            }
         }
         val key = values.hashCode().toString()
         memoryCache.put(key, values)

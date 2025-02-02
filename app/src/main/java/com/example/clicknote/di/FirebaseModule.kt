@@ -5,10 +5,10 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.ktx.Firebase
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import android.content.Context
@@ -21,20 +21,20 @@ object FirebaseModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseAuth(impl: FirebaseAuthImpl): FirebaseAuth {
-        return impl
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
     }
 
     @Provides
     @Singleton
-    fun provideFirebaseStorage(impl: FirebaseStorageImpl): FirebaseStorage {
-        return impl
+    fun provideFirebaseStorage(): FirebaseStorage {
+        return FirebaseStorage.getInstance()
     }
 
     @Provides
     @Singleton
-    fun provideFirebaseFirestore(impl: FirebaseFirestoreImpl): FirebaseFirestore {
-        return impl
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
     }
 
     @Provides

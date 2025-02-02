@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.service.AudioRecordingService
-import com.example.clicknote.service.TranscriptionService
+import com.example.clicknote.domain.service.TranscriptionCapable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -16,7 +16,7 @@ import javax.inject.Inject
 class CreateNoteViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
     private val audioRecordingService: AudioRecordingService,
-    private val transcriptionService: TranscriptionService
+    private val transcriptionService: TranscriptionCapable
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NoteCreationState())

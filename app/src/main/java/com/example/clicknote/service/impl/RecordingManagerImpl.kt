@@ -4,26 +4,24 @@ import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
-import com.example.clicknote.domain.model.TranscriptionResult
+import com.example.clicknote.domain.interfaces.TranscriptionEventHandler
+import com.example.clicknote.domain.interfaces.TranscriptionStateManager
+import com.example.clicknote.domain.interfaces.RecordingManager
+import com.example.clicknote.domain.interfaces.RecordingState
 import com.example.clicknote.service.*
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.io.File
 import javax.inject.Inject
-import javax.inject.Singleton
-import javax.inject.Provider
 
-@Singleton
 class RecordingManagerImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val audioRecorder: Provider<AudioRecorder>,
-    private val transcriptionService: Provider<TranscriptionService>,
-    private val audioEnhancer: Provider<AudioEnhancer>,
-    private val notificationHandler: Provider<NotificationHandler>,
-    private val performanceMonitor: Provider<PerformanceMonitor>,
-    private val amplitudeProcessor: Provider<AmplitudeProcessor>,
-    private val userPreferences: Provider<UserPreferencesDataStore>
+    private val audioRecorder: AudioRecorder,
+    private val eventHandler: TranscriptionEventHandler,
+    private val stateManager: TranscriptionStateManager,
+    private val audioEnhancer: AudioEnhancer,
+    private val amplitudeProcessor: AmplitudeProcessor,
+    private val userPreferences: UserPreferencesDataStore
 ) : RecordingManager {
 
     private var mediaRecorder: MediaRecorder? = null
@@ -33,60 +31,127 @@ class RecordingManagerImpl @Inject constructor(
     
     private val _isRecording = MutableStateFlow(false)
     private val _recordingState = MutableStateFlow<RecordingState>(RecordingState.Idle)
-    private val _transcriptionText = MutableStateFlow("")
+    private val _recordingDuration = MutableStateFlow(0L)
     private val _amplitude = MutableStateFlow(0f)
+    private val _error = MutableSharedFlow<Throwable>()
     
-    override val isRecording: Flow<Boolean> = _isRecording.asStateFlow()
-    override val recordingState: Flow<RecordingState> = _recordingState.asStateFlow()
-    override val transcriptionText: Flow<String> = _transcriptionText.asStateFlow()
-    override val amplitude: Flow<Float> = _amplitude.asStateFlow()
-    override val waveform: Flow<FloatArray> = amplitudeProcessor.get().getWaveformFlow()
+    override val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
+    override val recordingState: StateFlow<RecordingState> = _recordingState.asStateFlow()
+    override val recordingDuration: StateFlow<Long> = _recordingDuration.asStateFlow()
+    override val amplitude: StateFlow<Float> = _amplitude.asStateFlow()
+    override val waveform: StateFlow<FloatArray> = amplitudeProcessor.getWaveformFlow()
+    override val transcriptionResult: SharedFlow<String> = eventHandler.getTranscriptionStateFlow()
+        .map { state -> 
+            when (state) {
+                is TranscriptionState.Success -> state.text
+                else -> ""
+            }
+        }
+        .shareIn(managerScope, SharingStarted.Eagerly, 1)
+    override val error: SharedFlow<Throwable> = _error.asSharedFlow()
 
-    override suspend fun startRecording(outputFile: File) {
-        if (_isRecording.value) return
-        
-        performanceMonitor.get().startOperation("recording_session")
+    override suspend fun startRecording() {
+        if (_recordingState.value is RecordingState.Recording) return
         
         try {
-            initializeMediaRecorder(outputFile)
-            mediaRecorder?.start()
-            
+            audioRecorder.startRecording()
+            audioEnhancer.startProcessing()
+            eventHandler.onTranscriptionStarted()
             _isRecording.value = true
             _recordingState.value = RecordingState.Recording
-            
             startAmplitudeMonitoring()
-            startRealtimeTranscription()
-            notificationHandler.get().showRecordingNotification(true)
-            
+            startDurationTracking()
         } catch (e: Exception) {
-            handleRecordingError(e)
+            _error.emit(e)
+            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
+            throw e
         }
     }
 
     override suspend fun stopRecording() {
-        if (!_isRecording.value) return
-        
         try {
+            audioRecorder.stopRecording()
+            audioEnhancer.stopProcessing()
+            amplitudeProcessor.reset()
+            _isRecording.value = false
+            _recordingState.value = RecordingState.Idle
             recordingJob?.cancel()
             amplitudeJob?.cancel()
-            
-            mediaRecorder?.apply {
-                stop()
-                release()
-            }
-            mediaRecorder = null
-            
-            _recordingState.value = RecordingState.Processing
-            _isRecording.value = false
-            
-            notificationHandler.get().showRecordingNotification(false)
-            amplitudeProcessor.get().reset()
-            performanceMonitor.get().endOperation("recording_session")
-            
         } catch (e: Exception) {
-            handleRecordingError(e)
+            _error.emit(e)
+            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
+            throw e
         }
     }
+
+    override suspend fun pauseRecording() {
+        try {
+            audioRecorder.pauseRecording()
+            audioEnhancer.pauseProcessing()
+            _isRecording.value = false
+            _recordingState.value = RecordingState.Paused
+            recordingJob?.cancel()
+            amplitudeJob?.cancel()
+        } catch (e: Exception) {
+            _error.emit(e)
+            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
+            throw e
+        }
+    }
+
+    override suspend fun resumeRecording() {
+        try {
+            audioRecorder.resumeRecording()
+            audioEnhancer.resumeProcessing()
+            _isRecording.value = true
+            _recordingState.value = RecordingState.Recording
+            startAmplitudeMonitoring()
+            startDurationTracking()
+        } catch (e: Exception) {
+            _error.emit(e)
+            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
+            throw e
+        }
+    }
+
+    override suspend fun cleanup() {
+        try {
+            stopRecording()
+            audioRecorder.release()
+            mediaRecorder?.release()
+            mediaRecorder = null
+            managerScope.cancel()
+        } catch (e: Exception) {
+            _error.emit(e)
+            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
+            throw e
+        }
+    }
+
+    private fun startAmplitudeMonitoring() {
+        amplitudeJob?.cancel()
+        amplitudeJob = managerScope.launch {
+            while (isActive) {
+                val maxAmplitude = audioRecorder.getMaxAmplitude()
+                _amplitude.value = maxAmplitude.toFloat()
+                delay(50) // Update amplitude every 50ms
+            }
+        }
+    }
+
+    private fun startDurationTracking() {
+        recordingJob?.cancel()
+        recordingJob = managerScope.launch {
+            var duration = _recordingDuration.value
+            while (isActive) {
+                delay(1000) // Update duration every second
+                duration += 1000
+                _recordingDuration.value = duration
+            }
+        }
+    }
+
+    override fun getAmplitude(): Float = _amplitude.value
 
     private fun initializeMediaRecorder(outputFile: File) {
         mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -105,48 +170,24 @@ class RecordingManagerImpl @Inject constructor(
         }
     }
 
-    private fun startAmplitudeMonitoring() {
-        amplitudeJob = managerScope.launch {
-            while (isActive && _isRecording.value) {
-                try {
-                    mediaRecorder?.maxAmplitude?.let { amplitude ->
-                        val normalizedAmplitude = amplitude.toFloat() / Short.MAX_VALUE
-                        amplitudeProcessor.get().processAmplitude(normalizedAmplitude)
-                        _amplitude.value = normalizedAmplitude
-                    }
-                } catch (e: Exception) {
-                    // Ignore amplitude processing errors
-                }
-                delay(100) // Update amplitude every 100ms
-            }
-        }
-    }
-
-    private fun startRealtimeTranscription() {
-        managerScope.launch {
-            try {
-                transcriptionService.get().startRealtimeTranscription { text ->
-                    _transcriptionText.value = text
-                }
-            } catch (e: Exception) {
-                // Handle transcription error
-            }
-        }
-    }
-
     private fun handleRecordingError(e: Exception) {
-        _recordingState.value = RecordingState.Error(e)
+        managerScope.launch {
+            _error.emit(e)
+            eventHandler.onTranscriptionError(e)
+        }
         cleanup()
     }
 
-    override fun cleanup() {
-        recordingJob?.cancel()
-        amplitudeJob?.cancel()
-        mediaRecorder?.release()
-        mediaRecorder = null
-        _isRecording.value = false
-        _recordingState.value = RecordingState.Idle
-        _transcriptionText.value = ""
-        amplitudeProcessor.get().reset()
+    private fun createOutputFile(): File {
+        val dir = File(context.filesDir, "recordings")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return File(dir, "recording_${System.currentTimeMillis()}.m4a")
+    }
+
+    private fun getCurrentRecordingFile(): File? {
+        val dir = File(context.filesDir, "recordings")
+        return dir.listFiles()?.maxByOrNull { it.lastModified() }
     }
 } 

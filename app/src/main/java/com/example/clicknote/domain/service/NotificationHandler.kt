@@ -1,5 +1,7 @@
 package com.example.clicknote.domain.service
 
+import android.app.Notification
+
 interface NotificationHandler {
     fun showTranscriptionNotification(noteId: String, preview: String)
     fun showRecordingNotification()
@@ -11,6 +13,10 @@ interface NotificationHandler {
     fun cancelAllNotifications()
     fun updateRecordingProgress(duration: Long)
     fun updateTranscriptionProgress(progress: Float)
+    fun createRecordingNotification(): Notification
+    fun hideRecordingNotification()
+    fun updateNotificationForPausedState()
+    fun updateNotificationForRecordingState()
 }
 
 object NotificationIds {

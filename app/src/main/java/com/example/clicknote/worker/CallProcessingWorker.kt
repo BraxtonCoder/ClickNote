@@ -6,8 +6,8 @@ import androidx.work.*
 import com.example.clicknote.analytics.AnalyticsManager
 import com.example.clicknote.domain.model.CallRecording
 import com.example.clicknote.domain.repository.CallRecordingRepository
+import com.example.clicknote.service.AudioEnhancer
 import com.example.clicknote.service.transcription.TranscriptionManager
-import com.example.clicknote.util.audio.AudioEnhancer
 import com.example.clicknote.util.ContactUtils
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -37,7 +37,7 @@ class CallProcessingWorker @AssistedInject constructor(
             analyticsManager.trackTranscriptionStarted(phoneNumber)
             
             setProgress(workDataOf(KEY_PROGRESS to "Enhancing audio"))
-            val enhancedAudioFile = audioEnhancer.enhance(audioFile)
+            val enhancedAudioFile = audioEnhancer.enhanceAudioFile(audioFile)
             
             setProgress(workDataOf(KEY_PROGRESS to "Transcribing"))
             val transcription = transcriptionManager.transcribe(enhancedAudioFile)

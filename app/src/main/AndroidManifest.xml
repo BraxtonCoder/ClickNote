@@ -92,11 +92,6 @@
         </service>
 
         <service
-            android:name=".service.recording.AudioRecordingService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
-
-        <service
             android:name=".service.recording.CallRecordingService"
             android:enabled="true"
             android:exported="false"
@@ -107,6 +102,12 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+
+        <service
+            android:name=".service.impl.AudioRecordingForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <!-- WorkManager Configuration -->
         <provider

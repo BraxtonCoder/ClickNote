@@ -13,8 +13,6 @@ import com.example.clicknote.service.notification.NotificationService
 import com.example.clicknote.service.notification.NotificationServiceImpl
 import com.example.clicknote.service.storage.StorageService
 import com.example.clicknote.service.storage.StorageServiceImpl
-import com.example.clicknote.service.transcription.TranscriptionService
-import com.example.clicknote.service.transcription.TranscriptionServiceImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -48,8 +46,4 @@ abstract class ServiceModule {
     @Binds
     @Singleton
     abstract fun bindStorageService(impl: StorageServiceImpl): StorageService
-
-    @Binds
-    @Singleton
-    abstract fun bindTranscriptionService(impl: TranscriptionServiceImpl): TranscriptionService
 } 

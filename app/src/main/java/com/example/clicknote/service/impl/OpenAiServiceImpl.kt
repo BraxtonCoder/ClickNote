@@ -14,7 +14,7 @@ import com.example.clicknote.domain.repository.PreferencesRepository
 import com.example.clicknote.service.OpenAiService
 import com.example.clicknote.service.api.OpenAiApi
 import com.example.clicknote.service.model.*
-import com.example.clicknote.service.PerformanceMonitor
+import com.example.clicknote.domain.service.PerformanceMonitor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -34,7 +34,7 @@ class OpenAiServiceImpl @Inject constructor(
     private val userPreferences: UserPreferencesDataStore,
     private val openAiApi: OpenAiApi,
     private val preferencesRepository: PreferencesRepository,
-    private val performanceMonitor: PerformanceMonitor,
+    private val performanceMonitor: Lazy<PerformanceMonitor>,
     private val okHttpClient: OkHttpClient
 ) : OpenAiService {
 
@@ -68,13 +68,13 @@ class OpenAiServiceImpl @Inject constructor(
                 _operationInProgress.value = false
             }
         } catch (e: Exception) {
-            performanceMonitor.trackError(e)
+            performanceMonitor.get().trackError(e)
             _operationInProgress.value = false
         }
     }
 
     override suspend fun transcribeAudio(audioFile: File): String {
-        performanceMonitor.trackFileTranscription(audioFile)
+        performanceMonitor.get().trackFileTranscription(audioFile)
         val api = openAI ?: throw IllegalStateException("OpenAI not initialized")
         
         return try {
@@ -84,13 +84,13 @@ class OpenAiServiceImpl @Inject constructor(
             )
             api.transcription(request).text
         } catch (e: Exception) {
-            performanceMonitor.trackError(e)
+            performanceMonitor.get().trackError(e)
             throw e
         }
     }
 
     override suspend fun transcribeWithTimestamps(audioFile: File): TranscriptionResult {
-        performanceMonitor.trackFileTranscription(audioFile)
+        performanceMonitor.get().trackFileTranscription(audioFile)
         val api = openAI ?: throw IllegalStateException("OpenAI not initialized")
         
         return try {
@@ -103,7 +103,7 @@ class OpenAiServiceImpl @Inject constructor(
             // Convert response to TranscriptionResult
             TranscriptionResult("") // Placeholder
         } catch (e: Exception) {
-            performanceMonitor.trackError(e)
+            performanceMonitor.get().trackError(e)
             throw e
         }
     }
@@ -135,7 +135,7 @@ class OpenAiServiceImpl @Inject constructor(
     }
 
     override suspend fun detectSpeakers(audioFile: File): List<String> {
-        performanceMonitor.startMonitoring("speaker_detection")
+        performanceMonitor.get().startMonitoring("speaker_detection")
         val api = openAI ?: throw IllegalStateException("OpenAI not initialized")
         
         return try {
@@ -165,10 +165,10 @@ class OpenAiServiceImpl @Inject constructor(
 
             response.split("\n").filter { it.startsWith("Person") }
         } catch (e: Exception) {
-            performanceMonitor.trackError(e)
+            performanceMonitor.get().trackError(e)
             throw e
         } finally {
-            performanceMonitor.stopMonitoring("speaker_detection")
+            performanceMonitor.get().stopMonitoring("speaker_detection")
         }
     }
 

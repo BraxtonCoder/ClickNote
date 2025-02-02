@@ -2,13 +2,16 @@ package com.example.clicknote.domain.service
 
 import kotlinx.coroutines.flow.Flow
 
-interface SummaryService {
+interface SummaryService : BaseService {
+    override val id: String
+    override fun cleanup()
+    override fun isInitialized(): Boolean
     suspend fun generateSummary(text: String): Result<Summary>
     suspend fun generateSummaryWithTemplate(text: String, template: SummaryTemplate): Result<Summary>
     fun getSummaryProgress(): Flow<Float>
     fun cancelSummaryGeneration()
     fun isSummarizing(): Boolean
-    suspend fun getAvailableTemplates(): List<SummaryTemplate>
+    suspend fun getAvailableTemplates(): Result<List<SummaryTemplate>>
 }
 
 data class Summary(
@@ -20,10 +23,11 @@ data class Summary(
     val readingTime: Int
 )
 
-data class SummaryTemplate(
-    val id: String,
-    val name: String,
-    val description: String,
-    val prompt: String,
-    val category: String
-) 
+enum class SummaryTemplate {
+    GENERAL,
+    BUSINESS,
+    ACADEMIC,
+    TECHNICAL,
+    MEETING,
+    CONVERSATION
+} 

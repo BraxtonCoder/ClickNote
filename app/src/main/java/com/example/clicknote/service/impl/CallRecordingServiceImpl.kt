@@ -8,9 +8,10 @@ import androidx.core.app.NotificationManagerCompat
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.Speaker
 import com.example.clicknote.domain.repository.NoteRepository
+import com.example.clicknote.domain.service.TranscriptionCapable
+import com.example.clicknote.domain.service.PerformanceMonitor
 import com.example.clicknote.service.CallRecordingService
 import com.example.clicknote.service.NotificationService
-import com.example.clicknote.service.TranscriptionService
 import com.example.clicknote.util.AudioUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +28,7 @@ import javax.inject.Singleton
 class CallRecordingServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val noteRepository: NoteRepository,
-    private val transcriptionService: TranscriptionService,
+    private val transcriptionService: TranscriptionCapable,
     private val notificationService: NotificationService,
     private val audioUtils: AudioUtils
 ) : CallRecordingService {

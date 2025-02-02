@@ -1,26 +1,57 @@
 package com.example.clicknote.domain.service
 
-import com.example.clicknote.domain.model.TranscriptionResult
+import com.example.clicknote.domain.model.Summary
+import com.example.clicknote.domain.model.SummaryTemplate
+import com.example.clicknote.domain.model.TranscriptionSettings
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 
-interface TranscriptionService {
-    suspend fun transcribeAudio(audioPath: String): Result<TranscriptionResult>
-    fun getTranscriptionProgress(): Flow<Float>
-    fun cancelTranscription()
-    fun isTranscribing(): Boolean
-    suspend fun detectLanguage(audioPath: String): String
-    suspend fun identifySpeakers(audioPath: String): List<String>
+interface BaseService {
+    val id: String
+    suspend fun cleanup()
+    fun isInitialized(): Boolean
+}
 
-    suspend fun transcribeAudio(
-        audioFile: File,
-        language: String? = null,
-        prompt: String? = null
-    ): Result<String>
+interface TranscriptionCapable : BaseService {
+    override val id: String
+    override suspend fun cleanup()
+    override fun isInitialized(): Boolean
     
-    suspend fun transcribeAudioStream(
-        audioData: ByteArray,
-        language: String? = null,
-        prompt: String? = null
-    ): Result<String>
-} 
+    suspend fun transcribeAudio(audioData: ByteArray, settings: TranscriptionSettings): Result<String>
+    suspend fun transcribeFile(file: File, settings: TranscriptionSettings): Result<String>
+    suspend fun detectLanguage(audioData: ByteArray): Result<String>
+    suspend fun getAvailableLanguages(): Result<List<String>>
+    suspend fun detectSpeakers(audioData: ByteArray): Result<Int>
+    suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>>
+    suspend fun generateSummary(text: String, template: SummaryTemplate): Result<Summary>
+}
+
+interface LanguageDetectionService : BaseService {
+    override val id: String
+    override suspend fun cleanup()
+    override fun isInitialized(): Boolean
+    
+    suspend fun detectLanguage(audioData: ByteArray): Result<String>
+    suspend fun getAvailableLanguages(): Result<List<String>>
+}
+
+interface SpeakerDetectionService : BaseService {
+    override val id: String
+    override suspend fun cleanup()
+    override fun isInitialized(): Boolean
+    
+    suspend fun detectSpeakers(audioData: ByteArray): Result<Int>
+    suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>>
+}
+
+interface SummaryService : BaseService {
+    override val id: String
+    override suspend fun cleanup()
+    override fun isInitialized(): Boolean
+    
+    suspend fun generateSummary(text: String, template: SummaryTemplate): Result<Summary>
+}
+
+interface OnlineCapableService : TranscriptionCapable
+
+interface OfflineCapableService : TranscriptionCapable

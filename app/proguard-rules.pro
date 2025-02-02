@@ -14,7 +14,7 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
@@ -50,9 +50,9 @@
 -keep class com.google.android.gms.** { *; }
 
 # Keep Hilt
--keep class dagger.hilt.android.** { *; }
+-keep class dagger.hilt.** { *; }
 -keep class javax.inject.** { *; }
--keep class * extends dagger.hilt.android.internal.managers.ViewComponentManager { *; }
+-keep class * extends dagger.hilt.android.internal.managers.ApplicationComponentManager { *; }
 
 # Keep Compose
 -keep class androidx.compose.** { *; }
@@ -80,14 +80,58 @@
 # Keep TensorFlow Lite
 -keep class org.tensorflow.lite.** { *; }
 
-# Keep AWS SDK
--keep class com.amazonaws.** { *; }
+# Keep Google Cloud Storage
+-keep class com.google.cloud.storage.** { *; }
 
-# Keep Azure SDK
--keep class com.azure.** { *; }
+# Keep OpenAI client
+-keep class com.aallam.openai.** { *; }
 
-# Keep Model classes
--keep class com.example.clicknote.domain.model.** { *; }
+# Keep Vosk
+-keep class org.vosk.** { *; }
+
+# Keep Gson
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class sun.misc.Unsafe { *; }
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
+# Keep MixPanel
+-keep class com.mixpanel.android.** { *; }
+
+# Keep Media3 ExoPlayer
+-keep class androidx.media3.** { *; }
+
+# Keep JTransforms
+-keep class edu.emory.mathcs.jtransforms.** { *; }
+
+# Keep Google Play Billing
+-keep class com.android.billingclient.** { *; }
+
+# Keep Retrofit
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
+-dontwarn javax.annotation.**
+-dontwarn kotlin.Unit
+-dontwarn retrofit2.KotlinExtensions
+-dontwarn retrofit2.KotlinExtensions$*
+-keep class retrofit2.** { *; }
+
+# Keep OkHttp
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn javax.annotation.**
+-dontwarn org.conscrypt.**
+-keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
+
+# Keep libphonenumber
+-keep class com.google.i18n.phonenumbers.** { *; }
 
 # Keep enums
 -keepclassmembers enum * {

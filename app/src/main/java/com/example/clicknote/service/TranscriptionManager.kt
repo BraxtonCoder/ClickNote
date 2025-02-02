@@ -1,71 +1,62 @@
 package com.example.clicknote.service
 
-import com.example.clicknote.domain.model.TranscriptionResult
+import com.example.clicknote.domain.interfaces.*
+import com.example.clicknote.domain.model.TranscriptionSettings
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
-import com.example.clicknote.domain.service.TranscriptionService
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onEach
+import com.example.clicknote.domain.usecase.TranscriptionUseCase
+import kotlinx.coroutines.flow.*
 import java.io.File
 import javax.inject.Inject
-import javax.inject.Singleton
 import javax.inject.Provider
+import javax.inject.Singleton
 
 @Singleton
 class TranscriptionManager @Inject constructor(
-    private val onlineTranscriptionService: Provider<OnlineTranscriptionService>,
-    private val offlineTranscriptionService: Provider<WhisperOfflineTranscriptionService>,
-    private val userPreferences: UserPreferencesDataStore,
-    private val connectivityManager: NetworkConnectivityManager
-) : TranscriptionService {
+    private val transcriptionUseCase: Provider<TranscriptionUseCase>,
+    private val eventHandler: Provider<TranscriptionEventHandler>,
+    private val stateManager: Provider<TranscriptionStateManager>,
+    private val userPreferences: Provider<UserPreferencesDataStore>,
+    private val connectivityManager: Provider<NetworkConnectivityManager>
+) {
+    val transcriptionState: Flow<TranscriptionState> = eventHandler.get().getTranscriptionStateFlow()
+    val isTranscribing: StateFlow<Boolean> = stateManager.get().isTranscribing
+    val currentFile: StateFlow<File?> = stateManager.get().currentFile
 
-    override fun transcribeStream(): Flow<String> {
-        val service = getActiveService()
-        return service.transcribeStream()
-            .onEach { transcription ->
-                // Log successful transcription
-            }
-            .catch { error ->
-                // If online transcription fails, try falling back to offline
-                if (service == onlineTranscriptionService.get() && !service.isOfflineMode()) {
-                    emit("Falling back to offline transcription...")
-                    offlineTranscriptionService.get().transcribeStream()
-                        .collect { emit(it) }
-                } else {
-                    emit("Transcription error: ${error.message}")
-                }
-            }
+    suspend fun transcribeStream(audioStream: Flow<ByteArray>): Flow<String> {
+        val settings = getTranscriptionSettings()
+        return transcriptionUseCase.get().transcribeStream(audioStream, settings)
     }
 
-    override suspend fun transcribeFile(audioFile: File): TranscriptionResult {
-        return try {
-            getActiveService().transcribeFile(audioFile)
-        } catch (e: Exception) {
-            // If online transcription fails, try falling back to offline
-            if (getActiveService() == onlineTranscriptionService.get()) {
-                offlineTranscriptionService.get().transcribeFile(audioFile)
-            } else {
-                TranscriptionResult.Error("Failed to transcribe file: ${e.message}")
-            }
-        }
+    suspend fun transcribeFile(audioFile: File): Result<String> {
+        val settings = getTranscriptionSettings()
+        return transcriptionUseCase.get().transcribeFile(audioFile, settings)
     }
 
-    override fun isOfflineMode(): Boolean = getActiveService().isOfflineMode()
+    suspend fun generateSummary(text: String): Result<String> {
+        return transcriptionUseCase.get().generateSummary(text)
+    }
 
-    override fun getLanguages(): List<String> = getActiveService().getLanguages()
+    suspend fun detectSpeakers(audioFile: File): List<String> {
+        return transcriptionUseCase.get().detectSpeakers(audioFile)
+    }
 
-    private fun getActiveService(): TranscriptionService {
-        val preferOffline = userPreferences.getPreferOfflineTranscription()
-        val isOnline = connectivityManager.isNetworkAvailable()
+    suspend fun cleanup() {
+        transcriptionUseCase.get().cleanup()
+        stateManager.get().cleanup()
+    }
 
-        return when {
-            preferOffline -> offlineTranscriptionService.get()
-            isOnline -> onlineTranscriptionService.get()
-            else -> offlineTranscriptionService.get()
-        }
+    private fun getTranscriptionSettings(): TranscriptionSettings {
+        return TranscriptionSettings(
+            preferOfflineMode = userPreferences.get().getPreferOfflineTranscription(),
+            isNetworkAvailable = connectivityManager.get().isNetworkAvailable(),
+            selectedLanguage = userPreferences.get().getSelectedLanguage(),
+            enhanceAudio = userPreferences.get().getEnhanceAudio(),
+            speakerDiarization = userPreferences.get().getSpeakerDiarization(),
+            saveAudio = userPreferences.get().getSaveAudio()
+        )
     }
 
     companion object {
         private const val TAG = "TranscriptionManager"
     }
-} 
+}

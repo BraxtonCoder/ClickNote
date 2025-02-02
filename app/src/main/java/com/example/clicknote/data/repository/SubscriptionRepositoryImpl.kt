@@ -1,70 +1,66 @@
 package com.example.clicknote.data.repository
 
-import com.example.clicknote.data.api.StripeApi
-import com.example.clicknote.data.local.SubscriptionDao
-import com.example.clicknote.data.model.SubscriptionStatus
-import com.example.clicknote.data.model.SubscriptionTier
+import com.example.clicknote.domain.model.SubscriptionPlan
+import com.example.clicknote.domain.model.SubscriptionStatus
 import com.example.clicknote.domain.repository.SubscriptionRepository
-import com.example.clicknote.data.preferences.UserPreferences
+import com.example.clicknote.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class SubscriptionRepositoryImpl @Inject constructor(
-    private val stripeApi: StripeApi,
-    private val subscriptionDao: SubscriptionDao,
-    private val userPreferences: UserPreferences
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) : SubscriptionRepository {
 
-    override suspend fun subscribe(tier: SubscriptionTier, paymentMethodId: String) {
-        val priceId = when (tier) {
-            is SubscriptionTier.Free -> return // Free tier doesn't need Stripe subscription
-            is SubscriptionTier.Monthly -> MONTHLY_PRICE_ID
-            is SubscriptionTier.Annual -> ANNUAL_PRICE_ID
+    private val _isPremium = MutableStateFlow(false)
+    override val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+
+    private val _weeklyRecordingsCount = MutableStateFlow(3)
+    override val weeklyRecordingsCount: StateFlow<Int> = _weeklyRecordingsCount.asStateFlow()
+
+    private val _currentPlan = MutableStateFlow<SubscriptionPlan>(SubscriptionPlan.FREE)
+    override val currentPlan: StateFlow<SubscriptionPlan> = _currentPlan.asStateFlow()
+
+    private val _subscriptionStatus = MutableStateFlow<SubscriptionStatus>(SubscriptionStatus.Free)
+    override val subscriptionStatus: StateFlow<SubscriptionStatus> = _subscriptionStatus.asStateFlow()
+
+    override suspend fun updateSubscriptionState(plan: SubscriptionPlan) {
+        _currentPlan.value = plan
+        _isPremium.value = plan != SubscriptionPlan.FREE
+        _subscriptionStatus.value = when (plan) {
+            SubscriptionPlan.FREE -> SubscriptionStatus.Free
+            SubscriptionPlan.MONTHLY -> SubscriptionStatus.Premium(
+                expirationDate = System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000,
+                isAutoRenewing = true,
+                plan = plan
+            )
+            SubscriptionPlan.ANNUAL -> SubscriptionStatus.Premium(
+                expirationDate = System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000,
+                isAutoRenewing = true,
+                plan = plan
+            )
         }
-        
-        val subscription = stripeApi.createSubscription(
-            priceId = priceId,
-            paymentMethodId = paymentMethodId
-        )
-        
-        // Update local subscription status
-        updateSubscriptionStatus(SubscriptionStatus(
-            tier = tier,
-            isActive = true,
-            weeklyUsageCount = 0,
-            expiryDate = subscription.currentPeriodEnd
-        ))
     }
 
-    override suspend fun updateSubscriptionStatus(status: SubscriptionStatus) {
-        subscriptionDao.updateSubscriptionStatus(status)
+    override suspend fun consumeFreeRecording() {
+        if (!_isPremium.value && _weeklyRecordingsCount.value > 0) {
+            _weeklyRecordingsCount.value = _weeklyRecordingsCount.value - 1
+        }
     }
 
-    override suspend fun getSubscriptionStatus(): SubscriptionStatus {
-        return subscriptionDao.getSubscriptionStatus() ?: SubscriptionStatus(
-            tier = SubscriptionTier.Free(),
-            isActive = false,
-            weeklyUsageCount = 0,
-            expiryDate = null
-        )
+    override suspend fun resetWeeklyRecordings() {
+        if (!_isPremium.value) {
+            _weeklyRecordingsCount.value = 3
+        }
     }
 
     override suspend fun cancelSubscription() {
-        val currentStatus = getSubscriptionStatus()
-        if (currentStatus.tier is SubscriptionTier.Free) return
-        
-        stripeApi.cancelSubscription()
-        
-        // Update to free tier after cancellation
-        updateSubscriptionStatus(SubscriptionStatus(
-            tier = SubscriptionTier.Free(),
-            isActive = false,
-            weeklyUsageCount = 0,
-            expiryDate = null
-        ))
+        updateSubscriptionState(SubscriptionPlan.FREE)
     }
 
-    companion object {
-        private const val MONTHLY_PRICE_ID = "price_monthly"
-        private const val ANNUAL_PRICE_ID = "price_annual"
+    override suspend fun restoreSubscription(plan: SubscriptionPlan) {
+        updateSubscriptionState(plan)
     }
-} 
+}

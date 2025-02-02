@@ -10,7 +10,7 @@ import com.example.clicknote.domain.model.CallRecording
 import com.example.clicknote.domain.repository.CallRecordingRepository
 import com.example.clicknote.service.notification.CallRecordingNotificationService
 import com.example.clicknote.service.transcription.TranscriptionManager
-import com.example.clicknote.util.audio.AudioEnhancer
+import com.example.clicknote.service.AudioEnhancer
 import com.example.clicknote.util.ContactUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*

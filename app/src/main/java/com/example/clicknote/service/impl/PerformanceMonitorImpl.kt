@@ -1,7 +1,15 @@
 package com.example.clicknote.service.impl
 
 import android.content.Context
-import com.example.clicknote.service.PerformanceMonitor
+import android.app.ActivityManager
+import android.os.BatteryManager
+import android.os.Environment
+import android.os.StatFs
+import android.net.TrafficStats
+import com.example.clicknote.domain.service.PerformanceMonitor
+import com.example.clicknote.domain.service.StorageMetrics
+import com.example.clicknote.domain.service.NetworkMetrics
+import com.example.clicknote.domain.service.PerformanceReport
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,78 +22,69 @@ import javax.inject.Singleton
 class PerformanceMonitorImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : PerformanceMonitor {
+    private var isMonitoring = false
+    private val cpuUsage = MutableStateFlow(0f)
+    private val memoryUsage = MutableStateFlow(0L)
+    private val batteryUsage = MutableStateFlow(0f)
+    private val storageMetrics = MutableStateFlow(StorageMetrics(0L, 0L, 0))
+    private val networkMetrics = MutableStateFlow(NetworkMetrics(0L, 0L, 0L))
+    private val events = mutableMapOf<String, MutableList<Long>>()
+    private val measurements = mutableMapOf<String, Long>()
 
-    private val monitoringTags = mutableMapOf<String, Long>()
-    private val metrics = mutableMapOf<String, MutableMap<String, Double>>()
-    private val events = mutableMapOf<String, MutableList<String>>()
-    private val _metricsFlow = MutableStateFlow<Map<String, Map<String, Double>>>(emptyMap())
-    private val eventsFlow = MutableStateFlow<Map<String, List<String>>>(emptyMap())
-
-    override fun startMonitoring(tag: String) {
-        monitoringTags[tag] = System.currentTimeMillis()
-        if (!metrics.containsKey(tag)) {
-            metrics[tag] = mutableMapOf()
-            events[tag] = mutableListOf()
-            updateFlows()
-        }
+    override fun startMonitoring() {
+        isMonitoring = true
+        // Start monitoring threads would be initialized here
     }
 
-    override fun stopMonitoring(tag: String) {
-        monitoringTags.remove(tag)?.let { startTime ->
+    override fun stopMonitoring() {
+        isMonitoring = false
+        // Stop monitoring threads would be cleaned up here
+    }
+
+    override fun isMonitoring(): Boolean = isMonitoring
+
+    override fun getCpuUsage(): Flow<Float> = cpuUsage.asStateFlow()
+
+    override fun getMemoryUsage(): Flow<Long> = memoryUsage.asStateFlow()
+
+    override fun getBatteryUsage(): Flow<Float> = batteryUsage.asStateFlow()
+
+    override fun getStorageMetrics(): Flow<StorageMetrics> = storageMetrics.asStateFlow()
+
+    override fun getNetworkMetrics(): Flow<NetworkMetrics> = networkMetrics.asStateFlow()
+
+    override fun logEvent(event: String, duration: Long) {
+        events.getOrPut(event) { mutableListOf() }.add(duration)
+    }
+
+    override fun getPerformanceReport(): PerformanceReport {
+        return PerformanceReport(
+            averageCpuUsage = cpuUsage.value,
+            peakMemoryUsage = memoryUsage.value,
+            averageBatteryDrain = batteryUsage.value,
+            storageMetrics = storageMetrics.value,
+            networkMetrics = networkMetrics.value,
+            events = events.toMap()
+        )
+    }
+
+    override suspend fun trackAudioProcessing() {
+        logEvent("audio_processing", System.currentTimeMillis())
+    }
+
+    override suspend fun trackFileTranscription(file: File) {
+        logEvent("file_transcription", System.currentTimeMillis())
+    }
+
+    override fun startMeasurement(name: String) {
+        measurements[name] = System.currentTimeMillis()
+    }
+
+    override fun endMeasurement(name: String) {
+        val startTime = measurements.remove(name)
+        if (startTime != null) {
             val duration = System.currentTimeMillis() - startTime
-            logMetric(tag, "duration_ms", duration.toDouble())
+            logEvent(name, duration)
         }
-    }
-
-    override fun trackFileTranscription(file: File) {
-        startMonitoring("file_transcription")
-        logMetric("file_transcription", "size_bytes", file.length().toDouble())
-    }
-
-    override fun trackAudioProcessing() {
-        startMonitoring("audio_processing")
-    }
-
-    override fun trackError(error: Throwable) {
-        logEvent("error", error.message ?: "Unknown error")
-    }
-
-    override fun logEvent(tag: String, message: String) {
-        if (monitoringTags.contains(tag)) {
-            events.getOrPut(tag) { mutableListOf() }.add(message)
-            updateFlows()
-        }
-    }
-
-    override fun logMetric(tag: String, metric: String, value: Double) {
-        metrics.getOrPut(tag) { mutableMapOf() }[metric] = value
-        _metricsFlow.value = metrics.toMap()
-        updateFlows()
-    }
-
-    override fun getMetrics(tag: String): Flow<Map<String, Double>> {
-        return _metricsFlow.asStateFlow()
-    }
-
-    override fun getEvents(tag: String): Flow<List<String>> {
-        return eventsFlow.map { it[tag] ?: emptyList() }
-    }
-
-    override fun clearMetrics(tag: String) {
-        metrics[tag]?.clear()
-        events[tag]?.clear()
-        updateFlows()
-    }
-
-    override fun cleanup() {
-        metrics.clear()
-        events.clear()
-        monitoringTags.clear()
-        updateFlows()
-    }
-
-    private fun updateFlows() {
-        _metricsFlow.value = metrics.toMap()
-        eventsFlow.value = events.toMap()
     }
 } 

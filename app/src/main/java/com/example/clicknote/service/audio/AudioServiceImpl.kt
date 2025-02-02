@@ -14,15 +14,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
 class AudioServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val audioEnhancer: Provider<AudioEnhancer>,
-    private val audioConverter: Provider<AudioConverter>,
-    private val audioPlayer: Provider<AudioPlayer>
+    private val audioEnhancer: AudioEnhancer,
+    private val audioConverter: AudioConverter,
+    private val audioPlayer: AudioPlayer
 ) : AudioService {
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
@@ -103,22 +102,23 @@ class AudioServiceImpl @Inject constructor(
 
     override suspend fun enhanceAudio(inputFile: File, outputFile: File) {
         withContext(Dispatchers.IO) {
-            audioEnhancer.get().enhance(inputFile, outputFile)
+            val enhancedFile = audioEnhancer.enhanceAudioFile(inputFile)
+            enhancedFile.copyTo(outputFile, overwrite = true)
         }
     }
 
-    override suspend fun convertAudio(inputFile: File, outputFile: File, format: AudioFormat) {
+    override suspend fun convertAudio(inputFile: File, outputFile: File, format: AudioFileFormat) {
         withContext(Dispatchers.IO) {
-            audioConverter.get().convert(inputFile, outputFile, format)
+            audioConverter.convert(inputFile, outputFile, format)
         }
     }
 
     override suspend fun playAudio(file: File) {
-        audioPlayer.get().play(file)
+        audioPlayer.play(file)
     }
 
     override suspend fun stopPlayback() {
-        audioPlayer.get().stop()
+        audioPlayer.stop()
     }
 
     private fun startRecordingThread(bufferSize: Int) {

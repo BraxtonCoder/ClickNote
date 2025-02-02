@@ -2,47 +2,60 @@ package com.example.clicknote.service.recording
 
 import android.app.Service
 import android.content.Intent
+import android.media.AudioManager
 import android.media.MediaRecorder
+import android.os.Build
+import android.os.Environment
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.telephony.PhoneStateListener
+import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
+import androidx.annotation.RequiresApi
 import androidx.work.*
 import com.example.clicknote.analytics.AnalyticsManager
 import com.example.clicknote.domain.repository.CallRecordingRepository
+import com.example.clicknote.service.AudioEnhancer
+import com.example.clicknote.service.AudioRecorder
+import com.example.clicknote.service.CallRecordingCallback
+import com.example.clicknote.service.CallRecordingState
 import com.example.clicknote.service.IRecordingService
 import com.example.clicknote.service.TranscriptionMode
 import com.example.clicknote.service.notification.CallRecordingNotificationService
 import com.example.clicknote.service.transcription.TranscriptionManager
-import com.example.clicknote.util.audio.AudioEnhancer
 import com.example.clicknote.util.ContactUtils
 import com.example.clicknote.worker.CallProcessingWorker
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.components.SingletonComponent
+import com.example.clicknote.util.NetworkChecker
+import com.example.clicknote.util.PermissionChecker
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
+import javax.inject.Inject
 
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface CallRecordingServiceEntryPoint {
-    fun repository(): CallRecordingRepository
-    fun transcriptionManager(): TranscriptionManager
-    fun audioEnhancer(): AudioEnhancer
-    fun contactUtils(): ContactUtils
-    fun notificationService(): CallRecordingNotificationService
-    fun analyticsManager(): AnalyticsManager
-}
-
+@AndroidEntryPoint
 class CallRecordingService : Service(), IRecordingService {
 
-    private lateinit var repository: CallRecordingRepository
-    private lateinit var transcriptionManager: TranscriptionManager
-    private lateinit var audioEnhancer: AudioEnhancer
-    private lateinit var contactUtils: ContactUtils
-    private lateinit var notificationService: CallRecordingNotificationService
-    private lateinit var analyticsManager: AnalyticsManager
+    @Inject
+    lateinit var repository: CallRecordingRepository
+    
+    @Inject
+    lateinit var transcriptionManager: TranscriptionManager
+    
+    @Inject
+    lateinit var audioEnhancer: AudioEnhancer
+    
+    @Inject
+    lateinit var contactUtils: ContactUtils
+    
+    @Inject
+    lateinit var notificationService: CallRecordingNotificationService
+    
+    @Inject
+    lateinit var analyticsManager: AnalyticsManager
 
     private var mediaRecorder: MediaRecorder? = null
     private var recordingStartTime: Long = 0
@@ -96,16 +109,6 @@ class CallRecordingService : Service(), IRecordingService {
 
     override fun onCreate() {
         super.onCreate()
-        val entryPoint = EntryPointAccessors.fromApplication(
-            applicationContext,
-            CallRecordingServiceEntryPoint::class.java
-        )
-        repository = entryPoint.repository()
-        transcriptionManager = entryPoint.transcriptionManager()
-        audioEnhancer = entryPoint.audioEnhancer()
-        contactUtils = entryPoint.contactUtils()
-        notificationService = entryPoint.notificationService()
-        analyticsManager = entryPoint.analyticsManager()
         val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
     }
@@ -189,7 +192,7 @@ class CallRecordingService : Service(), IRecordingService {
 
     private suspend fun processRecording(audioFile: File, duration: Long) {
         try {
-            val enhancedFile = audioEnhancer.enhance(audioFile)
+            val enhancedFile = audioEnhancer.enhanceAudioFile(audioFile)
             val transcription = transcriptionManager.transcribe(enhancedFile)
             
             val workRequest = OneTimeWorkRequestBuilder<CallProcessingWorker>()

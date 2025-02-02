@@ -4,8 +4,6 @@ import com.example.clicknote.data.repository.TranscriptionRepositoryImpl
 import com.example.clicknote.domain.repository.TranscriptionRepository
 import com.example.clicknote.domain.usecase.TranscriptionUseCase
 import com.example.clicknote.service.TranscriptionManager
-import com.example.clicknote.service.TranscriptionEventHandler
-import com.example.clicknote.service.TranscriptionStateManager
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.interfaces.NetworkConnectivityManager
 import com.example.clicknote.data.factory.TranscriptionServiceFactoryImpl
@@ -18,11 +16,9 @@ import com.example.clicknote.domain.service.TranscriptionCapable
 import com.example.clicknote.service.impl.OnlineTranscriptionServiceImpl
 import com.example.clicknote.service.impl.OfflineTranscriptionServiceImpl
 import com.example.clicknote.service.impl.CombinedTranscriptionServiceImpl
-import com.example.clicknote.di.qualifiers.Online
-import com.example.clicknote.di.qualifiers.Offline
-import com.example.clicknote.di.qualifiers.Combined
-import com.example.clicknote.di.qualifiers.Primary
-import com.example.clicknote.di.qualifiers.ApplicationScope
+import com.example.clicknote.domain.provider.TranscriptionEventHandlerProvider
+import com.example.clicknote.service.impl.DefaultTranscriptionEventHandlerProvider
+import com.example.clicknote.di.qualifiers.*
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -50,6 +46,12 @@ abstract class TranscriptionModule {
     @Binds
     @Singleton
     abstract fun bindTranscriptionServiceSelector(impl: TranscriptionServiceSelectorImpl): TranscriptionServiceSelector
+
+    @Binds
+    @Singleton
+    abstract fun bindTranscriptionEventHandlerProvider(
+        impl: DefaultTranscriptionEventHandlerProvider
+    ): TranscriptionEventHandlerProvider
 
     @Binds
     @Singleton

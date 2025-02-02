@@ -67,12 +67,6 @@ abstract class AppBindingsModule {
 
     @Binds
     @Singleton
-    abstract fun bindTranscriptionEventHandler(
-        impl: TranscriptionEventHandlerImpl
-    ): TranscriptionEventHandler
-
-    @Binds
-    @Singleton
     abstract fun bindNotificationHandler(
         impl: NotificationHandlerImpl
     ): NotificationHandler
@@ -100,4 +94,12 @@ abstract class AppBindingsModule {
     abstract fun bindUserPreferencesDataStore(
         impl: UserPreferencesDataStoreImpl
     ): UserPreferencesDataStore
+
+    /*
+    @Binds
+    @Singleton
+    abstract fun bindTranscriptionEventHandler(
+        impl: TranscriptionEventHandlerImpl
+    ): TranscriptionEventHandler
+    */
 } 

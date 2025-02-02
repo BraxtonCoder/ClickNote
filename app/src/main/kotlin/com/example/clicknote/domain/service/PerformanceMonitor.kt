@@ -1,25 +1,24 @@
 package com.example.clicknote.domain.service
 
-import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 interface PerformanceMonitor {
-    fun startMonitoring()
-    fun stopMonitoring()
-    fun isMonitoring(): Boolean
-    fun getCpuUsage(): Flow<Float>
-    fun getMemoryUsage(): Flow<Long>
-    fun getBatteryUsage(): Flow<Float>
-    fun getStorageMetrics(): Flow<StorageMetrics>
-    fun getNetworkMetrics(): Flow<NetworkMetrics>
-    fun logEvent(event: String, duration: Long)
-    fun getPerformanceReport(): PerformanceReport
     suspend fun trackAudioProcessing()
     suspend fun trackFileTranscription(file: File)
-    fun startMeasurement(name: String)
-    fun endMeasurement(name: String)
-    fun startOperation(operationName: String)
-    fun endOperation(operationName: String)
+    suspend fun trackSpeakerDetection()
+    suspend fun trackLanguageDetection()
+    suspend fun trackSummarization()
+    suspend fun trackCloudSync()
+    suspend fun trackDatabaseOperation(operation: String)
+    suspend fun trackNetworkRequest(endpoint: String)
+    suspend fun trackMemoryUsage()
+    suspend fun trackBatteryUsage()
+    suspend fun trackCPUUsage()
+    suspend fun trackStorageUsage()
+    suspend fun trackUserInteraction(action: String)
+    suspend fun trackError(error: Throwable)
+    suspend fun trackLatency(operation: String, durationMs: Long)
+    suspend fun flush()
 }
 
 data class StorageMetrics(

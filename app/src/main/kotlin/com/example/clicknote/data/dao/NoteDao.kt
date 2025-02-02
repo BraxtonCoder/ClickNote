@@ -6,12 +6,13 @@ import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.data.entity.NoteWithFolderEntity
 import com.example.clicknote.data.model.SyncStatus
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDateTime
 
 @Dao
 interface NoteDao {
     @Transaction
     @Query("""
-        SELECT * FROM notes 
+        SELECT * FROM note_entity 
         WHERE is_deleted = 0 
         ORDER BY is_pinned DESC, created_at DESC
     """)
@@ -19,7 +20,7 @@ interface NoteDao {
     
     @Transaction
     @Query("""
-        SELECT * FROM notes 
+        SELECT * FROM note_entity 
         WHERE folder_id = :folderId 
         AND is_deleted = 0 
         ORDER BY is_pinned DESC, created_at DESC
@@ -28,7 +29,7 @@ interface NoteDao {
     
     @Transaction
     @Query("""
-        SELECT * FROM notes 
+        SELECT * FROM note_entity 
         WHERE (title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%')
         AND is_deleted = 0 
         ORDER BY is_pinned DESC, created_at DESC
@@ -37,165 +38,119 @@ interface NoteDao {
     
     @Transaction
     @Query("""
-        SELECT * FROM notes 
+        SELECT * FROM note_entity 
         WHERE is_deleted = 1 
         ORDER BY deleted_at DESC
     """)
     fun getDeletedNotes(): Flow<List<NoteEntity>>
 
     @Transaction
-    @Query("SELECT * FROM notes WHERE id = :id")
+    @Query("SELECT * FROM note_entity WHERE id = :id")
     suspend fun getNoteById(id: String): NoteEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(note: NoteEntity): Long
+    suspend fun insertNote(note: NoteEntity): Long
     
     @Update
-    suspend fun update(note: NoteEntity)
+    suspend fun updateNote(note: NoteEntity)
     
-    @Query("UPDATE notes SET is_deleted = 1, deleted_at = :timestamp WHERE id = :id")
-    suspend fun moveToTrash(id: String, timestamp: Long = System.currentTimeMillis())
+    @Query("UPDATE note_entity SET is_deleted = 1, deleted_at = :timestamp WHERE id = :id")
+    suspend fun moveToTrash(id: String, timestamp: LocalDateTime = LocalDateTime.now())
     
-    @Query("UPDATE notes SET is_deleted = 0, deleted_at = NULL WHERE id = :id")
+    @Query("UPDATE note_entity SET is_deleted = 0, deleted_at = NULL WHERE id = :id")
     suspend fun restoreFromTrash(id: String)
     
-    @Query("DELETE FROM notes WHERE id = :id")
+    @Query("DELETE FROM note_entity WHERE id = :id")
     suspend fun delete(id: String)
     
-    @Query("DELETE FROM notes WHERE is_deleted = 1 AND deleted_at <= :timestamp")
-    suspend fun deleteExpiredNotes(timestamp: Long)
+    @Query("DELETE FROM note_entity WHERE is_deleted = 1 AND deleted_at <= :timestamp")
+    suspend fun deleteExpiredNotes(timestamp: LocalDateTime)
     
-    @Query("UPDATE notes SET folder_id = :folderId WHERE id IN (:noteIds)")
+    @Query("UPDATE note_entity SET folder_id = :folderId WHERE id IN (:noteIds)")
     suspend fun moveNotesToFolder(noteIds: List<String>, folderId: String?)
     
-    @Query("UPDATE notes SET is_pinned = :isPinned WHERE id = :id")
+    @Query("UPDATE note_entity SET is_pinned = :isPinned WHERE id = :id")
     suspend fun updatePinned(id: String, isPinned: Boolean)
     
     @Transaction
     @Query("""
-        SELECT * FROM notes 
-        WHERE created_at BETWEEN :startTimestamp AND :endTimestamp
+        SELECT * FROM note_entity 
+        WHERE created_at BETWEEN :startDate AND :endDate
         AND is_deleted = 0
         ORDER BY created_at DESC
     """)
-    fun getNotesByDateRange(startTimestamp: Long, endTimestamp: Long): Flow<List<NoteEntity>>
+    fun getNotesByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<NoteEntity>>
 
     @Query("""
-        SELECT COUNT(*) FROM notes 
-        WHERE created_at BETWEEN :startTimestamp AND :endTimestamp
+        SELECT COUNT(*) FROM note_entity 
+        WHERE created_at BETWEEN :startDate AND :endDate
         AND is_deleted = 0
     """)
-    fun getNotesCountInDateRange(startTimestamp: Long, endTimestamp: Long): Int
+    fun getNotesCountInDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Int
 
-    @Query("SELECT COUNT(*) FROM notes WHERE is_deleted = 0")
+    @Query("SELECT COUNT(*) FROM note_entity WHERE is_deleted = 0")
     fun getTotalNotesCount(): Int
 
     @Transaction
     @Query("""
-        SELECT n.* FROM notes n 
-        LEFT JOIN folders f ON n.folder_id = f.id 
-        WHERE n.is_deleted = 0 
-        ORDER BY n.is_pinned DESC, n.created_at DESC
+        SELECT * FROM note_entity 
+        WHERE is_deleted = 0 
+        ORDER BY is_pinned DESC, created_at DESC
     """)
     fun getAllNotesWithFolders(): Flow<List<NoteWithFolderEntity>>
 
     @Transaction
     @Query("""
-        SELECT n.* FROM notes n 
-        LEFT JOIN folders f ON n.folder_id = f.id 
-        WHERE (n.title LIKE '%' || :query || '%' OR n.content LIKE '%' || :query || '%')
-        AND n.is_deleted = 0 
-        ORDER BY n.is_pinned DESC, n.created_at DESC
+        SELECT * FROM note_entity 
+        WHERE (title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%')
+        AND is_deleted = 0 
+        ORDER BY is_pinned DESC, created_at DESC
     """)
     fun searchNotesWithFolders(query: String): Flow<List<NoteWithFolderEntity>>
 
-    @Query("SELECT * FROM notes WHERE sync_status = :status")
+    @Query("SELECT * FROM note_entity WHERE sync_status = :status")
     suspend fun getNotesBySyncStatus(status: SyncStatus): List<NoteEntity>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertNote(note: NoteEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertNotes(notes: List<NoteEntity>)
-
-    @Update
-    suspend fun updateNote(note: NoteEntity)
-
-    @Update
-    suspend fun updateNotes(notes: List<NoteEntity>)
-
-    @Query("UPDATE notes SET sync_status = :status WHERE id IN (:noteIds)")
-    suspend fun updateSyncStatus(noteIds: List<String>, status: SyncStatus)
-
-    @Query("UPDATE notes SET is_deleted = 1, deleted_at = :timestamp WHERE id = :id")
-    suspend fun softDeleteNote(id: String, timestamp: Long = System.currentTimeMillis())
-
-    @Query("UPDATE notes SET is_deleted = 0, deleted_at = NULL WHERE id = :id")
-    suspend fun restoreNote(id: String)
-
-    @Query("DELETE FROM notes WHERE id = :id")
-    suspend fun hardDeleteNote(id: String)
-
-    @Query("DELETE FROM notes WHERE is_deleted = 1 AND deleted_at < :timestamp")
-    suspend fun deleteOldNotes(timestamp: Long)
-
-    @Transaction
-    suspend fun syncNotes(serverNotes: List<NoteEntity>) {
-        // Update sync status for all notes being processed
-        val localNotes = getNotesBySyncStatus(SyncStatus.PENDING)
-        updateSyncStatus(localNotes.map { it.id }, SyncStatus.SYNCING)
-
-        try {
-            // Insert or update server notes
-            insertNotes(serverNotes)
-            
-            // Update sync status to SYNCED
-            updateSyncStatus(localNotes.map { it.id }, SyncStatus.SYNCED)
-        } catch (e: Exception) {
-            // Update sync status to ERROR for failed notes
-            updateSyncStatus(localNotes.map { it.id }, SyncStatus.ERROR)
-            throw e
-        }
-    }
-
-    @Query("SELECT * FROM notes WHERE sync_status = :status")
-    fun getNotesBySyncStatus(status: Int): Flow<List<NoteEntity>>
-
-    @Query("SELECT * FROM notes WHERE sync_status = :status")
-    suspend fun getNotesBySyncStatusSuspend(status: Int): List<NoteEntity>
-
-    @Transaction
-    @Query("SELECT * FROM notes WHERE id = :id")
-    suspend fun getNoteWithFolder(id: String): NoteWithFolderEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(notes: List<NoteEntity>)
 
-    @Query("UPDATE notes SET folder_id = :folderId WHERE id = :noteId")
+    @Update
+    suspend fun updateNotes(notes: List<NoteEntity>)
+
+    @Query("UPDATE note_entity SET sync_status = :status WHERE id IN (:noteIds)")
+    suspend fun updateSyncStatus(noteIds: List<String>, status: SyncStatus)
+
+    @Query("UPDATE note_entity SET folder_id = :folderId WHERE id = :noteId")
     suspend fun updateNoteFolder(noteId: String, folderId: String?)
 
-    @Query("UPDATE notes SET is_pinned = :isPinned WHERE id = :noteId")
-    suspend fun updateNotePinned(noteId: String, isPinned: Boolean)
-
-    @Query("UPDATE notes SET sync_status = :status WHERE id = :noteId")
-    suspend fun updateSyncStatus(noteId: String, status: Int)
-
-    @Query("SELECT COUNT(*) FROM notes WHERE is_deleted = 1")
+    @Query("SELECT COUNT(*) FROM note_entity WHERE is_deleted = 1")
     fun getDeletedNotesCount(): Flow<Int>
 
     @Query("""
-        SELECT * FROM notes 
-        WHERE is_deleted = 0 
-        AND (title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%')
-        ORDER BY is_pinned DESC, created_at DESC
+        SELECT * FROM note_entity 
+        WHERE is_deleted = 0 AND has_audio = 1 
+        ORDER BY created_at DESC
     """)
-    fun searchNotes(query: String): Flow<List<NoteEntity>>
+    fun getNotesWithAudio(): Flow<List<NoteEntity>>
 
     @Query("""
-        SELECT * FROM notes 
-        WHERE is_deleted = 0 
-        AND created_at BETWEEN :startTime AND :endTime
-        ORDER BY is_pinned DESC, created_at DESC
+        SELECT * FROM note_entity 
+        WHERE is_deleted = 0 AND source = :source 
+        ORDER BY created_at DESC
     """)
-    fun getNotesByDateRange(startTime: Long, endTime: Long): Flow<List<NoteEntity>>
+    fun getNotesBySource(source: String): Flow<List<NoteEntity>>
+
+    @Transaction
+    suspend fun syncNotes(serverNotes: List<NoteEntity>) {
+        val localNotes = getNotesBySyncStatus(SyncStatus.PENDING)
+        updateSyncStatus(localNotes.map { it.id }, SyncStatus.SYNCING)
+
+        try {
+            insertAll(serverNotes)
+            updateSyncStatus(localNotes.map { it.id }, SyncStatus.SYNCED)
+        } catch (e: Exception) {
+            updateSyncStatus(localNotes.map { it.id }, SyncStatus.ERROR)
+            throw e
+        }
+    }
 } 

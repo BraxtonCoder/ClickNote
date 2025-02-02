@@ -3,9 +3,10 @@ package com.example.clicknote.service.impl
 import android.content.Context
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.model.Language
-import com.example.clicknote.data.model.TranscriptionResult
-import com.example.clicknote.service.WhisperService
-import com.example.clicknote.service.TranscriptionState
+import com.example.clicknote.domain.service.WhisperService
+import com.example.clicknote.domain.service.WhisperTranscription
+import com.example.clicknote.domain.service.WhisperSegment
+import com.example.clicknote.domain.service.WhisperModelInfo
 import com.example.clicknote.service.WhisperLib
 import com.example.clicknote.service.api.OpenAiApi
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,31 +21,30 @@ import com.aallam.openai.client.OpenAI
 import okio.source
 import com.example.clicknote.domain.repository.PreferencesRepository
 import org.tensorflow.lite.task.audio.classifier.AudioClassifier
+import com.example.clicknote.domain.model.TranscriptionSettings
+import com.example.clicknote.di.ApplicationScope
 
 @Singleton
 class WhisperServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val openAiApi: OpenAiApi,
     private val userPreferences: UserPreferencesDataStore,
-    private val preferencesRepository: PreferencesRepository
+    private val preferencesRepository: PreferencesRepository,
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) : WhisperService {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var currentJob: Job? = null
-
     private val _transcriptionProgress = MutableStateFlow(0f)
-    override val transcriptionProgress: Flow<Float> = _transcriptionProgress.asStateFlow()
-
-    private val _transcriptionState = MutableStateFlow(TranscriptionState.IDLE)
-    override val transcriptionState: Flow<TranscriptionState> = _transcriptionState.asStateFlow()
+    override fun getTranscriptionProgress(): Flow<Float> = _transcriptionProgress.asStateFlow()
 
     private var whisperModel: Any? = null // Replace with actual Whisper model type
     private val modelName = "base"
 
     private var classifier: AudioClassifier? = null
+    private var isInitialized = false
+    private var isTranscribing = false
 
     init {
-        scope.launch {
+        coroutineScope.launch {
             initializeWhisperModel()
         }
     }
@@ -72,46 +72,46 @@ class WhisperServiceImpl @Inject constructor(
             _transcriptionProgress.value = 0.4f
         } catch (e: Exception) {
             isInitialized = false
-            _transcriptionState.value = TranscriptionState.ERROR
             throw e
         }
     }
 
-    override fun isAvailable(): Boolean = isInitialized
-
-    override suspend fun transcribe(audioFile: File): String {
-        return try {
-            openAiApi.transcribe(audioFile)
-        } catch (e: Exception) {
-            // Fallback to offline transcription
-            transcribeOffline(audioFile)
-        }
-    }
-
-    override suspend fun transcribeWithTimestamps(audioFile: File, language: Language?): TranscriptionResult {
-        return try {
-            openAiApi.transcribeWithTimestamps(audioFile, language)
-        } catch (e: Exception) {
-            // Fallback to offline transcription
-            transcribeOfflineWithTimestamps(audioFile)
-        }
-    }
-
-    override suspend fun transcribeStream(audioStream: Flow<ByteArray>): Flow<String> = flow {
+    override suspend fun transcribeAudio(audioFile: File, language: String?): Result<WhisperTranscription> = runCatching {
+        isTranscribing = true
         try {
-            openAiApi.transcribeStream(audioStream).collect { text ->
-                emit(text)
-            }
+            val result = openAiApi.transcribe(audioFile)
+            WhisperTranscription(
+                text = result,
+                segments = emptyList(),
+                language = language ?: "en",
+                speakers = emptyList(),
+                confidence = 1.0f,
+                duration = 0L,
+                modelInfo = getModelInfo()
+            )
         } catch (e: Exception) {
             // Fallback to offline transcription
-            transcribeOfflineStream(audioStream).collect { text ->
-                emit(text)
-            }
+            transcribeOffline(audioFile, language)
+        } finally {
+            isTranscribing = false
+            _transcriptionProgress.value = 0f
         }
     }
 
-    override suspend fun detectSpeakers(audioFile: File): List<String> {
-        return try {
+    override fun isTranscribing(): Boolean = isTranscribing
+
+    override fun cancelTranscription() {
+        isTranscribing = false
+        _transcriptionProgress.value = 0f
+    }
+
+    override suspend fun detectLanguage(audioFile: File): Result<String> = runCatching {
+        // Implement language detection
+        "en"
+    }
+
+    override suspend fun identifySpeakers(audioFile: File): Result<List<String>> = runCatching {
+        try {
             openAiApi.detectSpeakers(audioFile)
         } catch (e: Exception) {
             // Fallback to offline speaker detection
@@ -119,41 +119,33 @@ class WhisperServiceImpl @Inject constructor(
         }
     }
 
-    override suspend fun transcribeAudio(
-        audioFile: File,
-        language: String?,
-        prompt: String?
-    ): Result<String> = transcribe(audioFile)
+    override suspend fun getAvailableLanguages(): List<String> = listOf(
+        "en", "es", "fr", "de", "it", "pt", "nl", "pl", "ru", "zh", "ja", "ko"
+    )
 
-    override fun cancelTranscription() {
-        currentJob?.cancel()
-        _transcriptionState.value = TranscriptionState.CANCELLED
-        _transcriptionProgress.value = 0f
-    }
+    override suspend fun getModelInfo(): WhisperModelInfo = WhisperModelInfo(
+        name = modelName,
+        version = "1.0",
+        languages = getAvailableLanguages(),
+        isMultilingual = true,
+        supportsTimestamps = true,
+        supportsSpeakerIdentification = true
+    )
 
-    private suspend fun transcribeOffline(audioFile: File): String {
+    private suspend fun transcribeOffline(audioFile: File, language: String?): WhisperTranscription {
         initializeModelIfNeeded()
         return withContext(Dispatchers.Default) {
             // Implement offline transcription using Whisper model
-            "Offline transcription placeholder"
-        }
-    }
-
-    private suspend fun transcribeOfflineWithTimestamps(audioFile: File): TranscriptionResult {
-        initializeModelIfNeeded()
-        return withContext(Dispatchers.Default) {
-            // Implement offline transcription with timestamps
-            TranscriptionResult(
+            WhisperTranscription(
                 text = "Offline transcription placeholder",
-                segments = emptyList()
+                segments = emptyList(),
+                language = language ?: "en",
+                speakers = emptyList(),
+                confidence = 0.8f,
+                duration = 0L,
+                modelInfo = getModelInfo()
             )
         }
-    }
-
-    private fun transcribeOfflineStream(audioStream: Flow<ByteArray>): Flow<String> = flow {
-        initializeModelIfNeeded()
-        // Implement offline stream transcription
-        emit("Offline stream transcription placeholder")
     }
 
     private suspend fun detectSpeakersOffline(audioFile: File): List<String> {
@@ -171,20 +163,6 @@ class WhisperServiceImpl @Inject constructor(
                 Any() // Replace with actual model initialization
             }
         }
-    }
-
-    override suspend fun initialize() = withContext(Dispatchers.IO) {
-        if (!isInitialized) {
-            classifier = AudioClassifier.createFromFile(context, "whisper_model.tflite")
-            isInitialized = true
-        }
-    }
-
-    override suspend fun cleanup() = withContext(Dispatchers.IO) {
-        classifier?.close()
-        classifier = null
-        isInitialized = false
-        whisperModel = null
     }
 
     companion object {

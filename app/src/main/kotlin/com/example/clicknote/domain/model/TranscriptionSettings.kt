@@ -1,12 +1,15 @@
 package com.example.clicknote.domain.model
 
 data class TranscriptionSettings(
-    val preferOfflineMode: Boolean,
-    val isNetworkAvailable: Boolean,
-    val selectedLanguage: String = "en",
-    val enhanceAudio: Boolean = true,
-    val detectSpeakers: Boolean = true
+    val language: String = "en",
+    val detectSpeakers: Boolean = false,
+    val saveAudio: Boolean = true,
+    val highQualityAudio: Boolean = false,
+    val autoPunctuation: Boolean = true,
+    val offlineMode: Boolean = false,
+    val timestampParagraphs: Boolean = true,
+    val maxDuration: Long = 3600000L // 1 hour in milliseconds
 ) {
     val shouldUseOnlineMode: Boolean
-        get() = !preferOfflineMode && isNetworkAvailable
+        get() = !offlineMode
 } 

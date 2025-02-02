@@ -14,16 +14,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class StateModule {
+interface StateModule {
     @Binds
     @Singleton
-    abstract fun bindTranscriptionServiceState(
+    fun bindServiceStateManager(
+        impl: ServiceStateManagerImpl
+    ): ServiceStateManager
+
+    @Binds
+    @Singleton
+    fun bindTranscriptionServiceState(
         impl: TranscriptionServiceStateImpl
     ): TranscriptionServiceState
+}
 
-    companion object {
-        @Provides
-        @Singleton
-        fun provideStateFlows() = MutableStateFlow<TranscriptionServiceState?>(null)
-    }
+@Module
+@InstallIn(SingletonComponent::class)
+object StateProviderModule {
+    @Provides
+    @Singleton
+    fun provideTranscriptionStateFlow(): MutableStateFlow<TranscriptionServiceState?> = 
+        MutableStateFlow(null)
 } 

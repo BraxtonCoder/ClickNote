@@ -1,11 +1,13 @@
 package com.example.clicknote.domain.model
 
 sealed class TranscriptionEvent {
+    data class Started(val timestamp: Long) : TranscriptionEvent()
     data class Progress(val progress: Float) : TranscriptionEvent()
-    data class LanguageDetected(val language: String) : TranscriptionEvent()
-    data class TranscriptionCompleted(val text: String) : TranscriptionEvent()
-    data class Error(val error: Throwable) : TranscriptionEvent()
-    object Started : TranscriptionEvent()
-    object Cancelled : TranscriptionEvent()
-    object Completed : TranscriptionEvent()
+    data class SpeakerDetected(val speaker: String) : TranscriptionEvent()
+    data class Transcribed(val text: String, val confidence: Float) : TranscriptionEvent()
+    data class Error(val message: String) : TranscriptionEvent()
+    data class Completed(val duration: Long) : TranscriptionEvent()
+    object Stopped : TranscriptionEvent()
+    object Paused : TranscriptionEvent()
+    object Resumed : TranscriptionEvent()
 } 

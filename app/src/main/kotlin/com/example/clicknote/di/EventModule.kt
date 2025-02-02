@@ -19,8 +19,6 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 @Module
@@ -50,17 +48,12 @@ abstract class EventModule {
             stateManager: Provider<ServiceStateManager>,
             registry: Provider<ServiceRegistry>,
             eventFlow: MutableSharedFlow<ServiceEvent>,
-            coroutineScope: CoroutineScope
+            @ApplicationScope coroutineScope: CoroutineScope
         ): ServiceEventHandler = ServiceEventHandlerImpl(
             stateManager = stateManager,
             registry = registry,
             events = eventFlow,
             coroutineScope = coroutineScope
         )
-
-        @Provides
-        @Singleton
-        fun provideCoroutineScope(): CoroutineScope =
-            CoroutineScope(SupervisorJob() + Dispatchers.Default)
     }
 } 

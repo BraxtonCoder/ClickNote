@@ -19,8 +19,8 @@ import javax.inject.Provider
         SpeakerProfile::class,
         CallRecordingEntity::class
     ],
-    version = 4,
-    exportSchema = false
+    version = 5,
+    exportSchema = true
 )
 @TypeConverters(RoomConverters::class)
 abstract class ClickNoteDatabase : RoomDatabase() {
@@ -50,7 +50,12 @@ abstract class ClickNoteDatabase : RoomDatabase() {
                 ClickNoteDatabase::class.java,
                 DATABASE_NAME
             )
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(
+                Migrations.MIGRATION_1_2,
+                Migrations.MIGRATION_2_3,
+                Migrations.MIGRATION_3_4,
+                Migrations.MIGRATION_4_5
+            )
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
@@ -59,8 +64,10 @@ abstract class ClickNoteDatabase : RoomDatabase() {
             })
             .build()
         }
+    }
 
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
+    object Migrations {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 // Add sync_status column with default value of 0 (PENDING)
                 database.execSQL(
@@ -73,7 +80,7 @@ abstract class ClickNoteDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_2_3 = object : Migration(2, 3) {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 // Add sort_order column to folders table
                 database.execSQL(
@@ -86,7 +93,7 @@ abstract class ClickNoteDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_3_4 = object : Migration(3, 4) {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 // Add sync_status column to folders table
                 database.execSQL(
@@ -119,6 +126,42 @@ abstract class ClickNoteDatabase : RoomDatabase() {
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_call_recordings_created_at ON call_recordings(created_at)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_call_recordings_phone_number ON call_recordings(phone_number)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_call_recordings_sync_status ON call_recordings(sync_status)")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Drop old note_entity table
+                database.execSQL("DROP TABLE IF EXISTS note_entity")
+
+                // Create new note_entity table with updated schema
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS note_entity (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        deleted_at TEXT,
+                        is_deleted INTEGER NOT NULL DEFAULT 0,
+                        is_pinned INTEGER NOT NULL DEFAULT 0,
+                        has_audio INTEGER NOT NULL DEFAULT 0,
+                        audio_path TEXT,
+                        source TEXT NOT NULL DEFAULT 'MANUAL',
+                        folder_id TEXT,
+                        summary TEXT,
+                        key_points TEXT NOT NULL DEFAULT '[]',
+                        speakers TEXT NOT NULL DEFAULT '[]',
+                        sync_status TEXT NOT NULL DEFAULT 'PENDING',
+                        FOREIGN KEY(folder_id) REFERENCES folder_entity(id) ON DELETE SET NULL
+                    )
+                """)
+
+                // Create indices for better query performance
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_note_entity_folder_id ON note_entity(folder_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_note_entity_created_at ON note_entity(created_at)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_note_entity_updated_at ON note_entity(updated_at)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_note_entity_is_deleted ON note_entity(is_deleted)")
             }
         }
     }

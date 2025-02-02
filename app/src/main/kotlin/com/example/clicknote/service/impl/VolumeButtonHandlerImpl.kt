@@ -5,6 +5,8 @@ import android.view.KeyEvent
 import com.example.clicknote.service.VolumeButtonHandler
 import com.example.clicknote.service.VibrationHandler
 import com.example.clicknote.service.RecordingManager
+import com.example.clicknote.domain.service.VolumeButtonHandler
+import com.example.clicknote.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,11 +21,11 @@ import javax.inject.Singleton
 @Singleton
 class VolumeButtonHandlerImpl @Inject constructor(
     @ApplicationContext private val context: Context,
+    @ApplicationScope private val coroutineScope: CoroutineScope,
     private val vibrationHandler: VibrationHandler,
     private val recordingManager: RecordingManager
 ) : VolumeButtonHandler {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var lastKeyEventTime = 0L
     private var lastKeyCode = 0
     private var sequenceJob: Job? = null
@@ -57,7 +59,7 @@ class VolumeButtonHandlerImpl @Inject constructor(
 
     private fun startSequenceTimer() {
         sequenceJob?.cancel()
-        sequenceJob = scope.launch {
+        sequenceJob = coroutineScope.launch {
             delay(sequenceTimeout)
             // Reset sequence if timeout reached
             lastKeyEventTime = 0
@@ -66,7 +68,7 @@ class VolumeButtonHandlerImpl @Inject constructor(
     }
 
     private fun handleVolumeButtonSequence() {
-        scope.launch {
+        coroutineScope.launch {
             val isRecording = recordingManager.isRecording.first()
             if (isRecording) {
                 vibrationHandler.vibrateDouble()

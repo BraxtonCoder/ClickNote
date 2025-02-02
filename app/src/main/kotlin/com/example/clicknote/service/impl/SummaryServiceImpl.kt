@@ -6,6 +6,7 @@ import com.example.clicknote.domain.model.*
 import com.example.clicknote.domain.service.SummaryService
 import com.example.clicknote.domain.service.Summary
 import com.example.clicknote.domain.service.SummaryTemplate
+import com.example.clicknote.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -18,7 +19,8 @@ class SummaryServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val userPreferences: UserPreferencesDataStore,
     private val openAiService: OpenAiService,
-    private val claudeService: ClaudeService
+    private val claudeService: ClaudeService,
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) : SummaryService {
 
     override val id: String = "summary_service"

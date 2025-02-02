@@ -13,6 +13,7 @@ import com.example.clicknote.domain.service.PerformanceMonitor
 import com.example.clicknote.service.CallRecordingService
 import com.example.clicknote.service.NotificationService
 import com.example.clicknote.util.AudioUtils
+import com.example.clicknote.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,13 +31,13 @@ class CallRecordingServiceImpl @Inject constructor(
     private val noteRepository: NoteRepository,
     private val transcriptionService: TranscriptionCapable,
     private val notificationService: NotificationService,
-    private val audioUtils: AudioUtils
+    private val audioUtils: AudioUtils,
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) : CallRecordingService {
 
     private var mediaRecorder: MediaRecorder? = null
     private var currentRecordingFile: File? = null
     private var isRecording = false
-    private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     private val _recordingState = MutableStateFlow<RecordingState>(RecordingState.Idle)
     override val recordingState: StateFlow<RecordingState> = _recordingState

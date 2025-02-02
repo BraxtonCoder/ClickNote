@@ -10,26 +10,22 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.clicknote.R
-import com.example.clicknote.domain.service.NotificationHandler
-import com.example.clicknote.domain.service.NotificationIds
-import com.example.clicknote.presentation.MainActivity
+import com.example.clicknote.domain.interfaces.NotificationHandler
+import com.example.clicknote.domain.model.TranscriptionState
+import com.example.clicknote.ui.MainActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class NotificationHandlerImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val notificationManager: NotificationManagerCompat
+    @ApplicationContext private val context: Context
 ) : NotificationHandler {
 
     companion object {
-        private const val CHANNEL_ID_RECORDING = "recording_channel"
         private const val CHANNEL_ID_TRANSCRIPTION = "transcription_channel"
-        private const val CHANNEL_ID_SYNC = "sync_channel"
-        private const val CHANNEL_ID_BACKUP = "backup_channel"
-        private const val CHANNEL_ID_ERROR = "error_channel"
-        private const val CHANNEL_ID_SUCCESS = "success_channel"
+        private const val CHANNEL_ID_SILENT = "silent_channel"
+        private const val NOTIFICATION_ID_TRANSCRIPTION = 1
     }
 
     init {
@@ -38,252 +34,140 @@ class NotificationHandlerImpl @Inject constructor(
 
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channels = listOf(
-                NotificationChannel(
-                    CHANNEL_ID_RECORDING,
-                    "Recording",
-                    NotificationManager.IMPORTANCE_HIGH
-                ),
-                NotificationChannel(
-                    CHANNEL_ID_TRANSCRIPTION,
-                    "Transcription",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ),
-                NotificationChannel(
-                    CHANNEL_ID_SYNC,
-                    "Sync",
-                    NotificationManager.IMPORTANCE_LOW
-                ),
-                NotificationChannel(
-                    CHANNEL_ID_BACKUP,
-                    "Backup",
-                    NotificationManager.IMPORTANCE_LOW
-                ),
-                NotificationChannel(
-                    CHANNEL_ID_ERROR,
-                    "Errors",
-                    NotificationManager.IMPORTANCE_HIGH
-                ),
-                NotificationChannel(
-                    CHANNEL_ID_SUCCESS,
-                    "Success",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                )
-            )
-            channels.forEach { channel ->
-                notificationManager.createNotificationChannel(channel)
+            val transcriptionChannel = NotificationChannel(
+                CHANNEL_ID_TRANSCRIPTION,
+                "Transcription Service",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Shows the status of ongoing transcriptions"
+                setShowBadge(true)
             }
+
+            val silentChannel = NotificationChannel(
+                CHANNEL_ID_SILENT,
+                "Silent Notifications",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows transcribed notes without sound"
+                setShowBadge(false)
+            }
+
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannels(listOf(transcriptionChannel, silentChannel))
         }
     }
 
-    override fun showRecordingNotification() {
-        val notification = createBaseNotification(CHANNEL_ID_RECORDING)
-            .setContentTitle("Recording in progress")
-            .setContentText("Tap to view")
-            .setSmallIcon(R.drawable.ic_mic)
+    override fun createTranscriptionNotification(state: TranscriptionState): Notification {
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID_TRANSCRIPTION)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(false)
             .setOngoing(true)
-            .addAction(createStopAction())
-            .addAction(createPauseAction())
-            .build()
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
 
-        notificationManager.notify(NotificationIds.RECORDING, notification)
+        when (state) {
+            is TranscriptionState.Recording -> {
+                builder.setContentTitle("Recording...")
+                    .setContentText("Tap to open")
+                    .setProgress(0, 0, true)
+            }
+            is TranscriptionState.Processing -> {
+                builder.setContentTitle("Processing transcription...")
+                    .setContentText("Progress: ${(state.progress * 100).toInt()}%")
+                    .setProgress(100, (state.progress * 100).toInt(), false)
+            }
+            is TranscriptionState.Completed -> {
+                builder.setContentTitle("Transcription completed")
+                    .setContentText("Duration: ${state.duration / 1000}s")
+                    .setProgress(0, 0, false)
+                    .setAutoCancel(true)
+                    .setOngoing(false)
+            }
+            is TranscriptionState.Error -> {
+                builder.setContentTitle("Transcription failed")
+                    .setContentText(state.error.message ?: "Unknown error")
+                    .setProgress(0, 0, false)
+                    .setAutoCancel(true)
+                    .setOngoing(false)
+            }
+            else -> {
+                builder.setContentTitle("ClickNote")
+                    .setContentText("Ready to record")
+            }
+        }
+
+        return builder.build()
     }
 
-    override fun showTranscriptionNotification(noteId: String, preview: String) {
-        val notification = createBaseNotification(CHANNEL_ID_TRANSCRIPTION)
-            .setContentTitle("New note created")
-            .setContentText(preview)
-            .setSmallIcon(R.drawable.ic_note)
+    override fun showTranscriptionNotification(state: TranscriptionState) {
+        val notification = createTranscriptionNotification(state)
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_TRANSCRIPTION, notification)
+    }
+
+    override fun updateTranscriptionNotification(state: TranscriptionState) {
+        showTranscriptionNotification(state)
+    }
+
+    override fun cancelTranscriptionNotification() {
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID_TRANSCRIPTION)
+    }
+
+    override fun createSilentNotification(text: String): Notification {
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(context, CHANNEL_ID_SILENT)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("New note transcribed")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .addAction(
+                R.drawable.ic_copy,
+                "Copy",
+                PendingIntent.getBroadcast(
+                    context,
+                    0,
+                    Intent("com.example.clicknote.COPY_NOTE").putExtra("text", text),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
+            .addAction(
+                R.drawable.ic_share,
+                "Share",
+                PendingIntent.getBroadcast(
+                    context,
+                    0,
+                    Intent("com.example.clicknote.SHARE_NOTE").putExtra("text", text),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
             .build()
-
-        notificationManager.notify(NotificationIds.TRANSCRIPTION, notification)
     }
 
-    override fun showSyncNotification(progress: Float) {
-        val notification = createBaseNotification(CHANNEL_ID_SYNC)
-            .setContentTitle("Syncing notes")
-            .setProgress(100, (progress * 100).toInt(), false)
-            .setSmallIcon(R.drawable.ic_sync)
-            .setOngoing(true)
-            .build()
-
-        notificationManager.notify(NotificationIds.SYNC, notification)
+    override fun showSilentNotification(text: String, id: Int) {
+        val notification = createSilentNotification(text)
+        NotificationManagerCompat.from(context).notify(id, notification)
     }
 
-    override fun showBackupNotification(progress: Float) {
-        val notification = createBaseNotification(CHANNEL_ID_BACKUP)
-            .setContentTitle("Backing up notes")
-            .setProgress(100, (progress * 100).toInt(), false)
-            .setSmallIcon(R.drawable.ic_backup)
-            .setOngoing(true)
-            .build()
-
-        notificationManager.notify(NotificationIds.BACKUP, notification)
-    }
-
-    override fun showErrorNotification(message: String) {
-        val notification = createBaseNotification(CHANNEL_ID_ERROR)
-            .setContentTitle("Error")
-            .setContentText(message)
-            .setSmallIcon(R.drawable.ic_error)
-            .setAutoCancel(true)
-            .build()
-
-        notificationManager.notify(NotificationIds.ERROR, notification)
-    }
-
-    override fun showSuccessNotification(message: String) {
-        val notification = createBaseNotification(CHANNEL_ID_SUCCESS)
-            .setContentTitle("Success")
-            .setContentText(message)
-            .setSmallIcon(R.drawable.ic_success)
-            .setAutoCancel(true)
-            .build()
-
-        notificationManager.notify(NotificationIds.SUCCESS, notification)
-    }
-
-    override fun cancelNotification(id: Int) {
-        notificationManager.cancel(id)
+    override fun cancelSilentNotification(id: Int) {
+        NotificationManagerCompat.from(context).cancel(id)
     }
 
     override fun cancelAllNotifications() {
-        notificationManager.cancelAll()
-    }
-
-    override fun updateRecordingProgress(duration: Long) {
-        val notification = createBaseNotification(CHANNEL_ID_RECORDING)
-            .setContentTitle("Recording in progress")
-            .setContentText(formatDuration(duration))
-            .setSmallIcon(R.drawable.ic_mic)
-            .setOngoing(true)
-            .addAction(createStopAction())
-            .addAction(createPauseAction())
-            .build()
-
-        notificationManager.notify(NotificationIds.RECORDING, notification)
-    }
-
-    override fun updateTranscriptionProgress(progress: Float) {
-        val notification = createBaseNotification(CHANNEL_ID_TRANSCRIPTION)
-            .setContentTitle("Transcribing audio")
-            .setProgress(100, (progress * 100).toInt(), false)
-            .setSmallIcon(R.drawable.ic_transcribe)
-            .setOngoing(true)
-            .build()
-
-        notificationManager.notify(NotificationIds.TRANSCRIPTION, notification)
-    }
-
-    override fun createRecordingNotification(): Notification {
-        return createBaseNotification(CHANNEL_ID_RECORDING)
-            .setContentTitle("Recording in progress")
-            .setContentText("Tap to view")
-            .setSmallIcon(R.drawable.ic_mic)
-            .setOngoing(true)
-            .addAction(createStopAction())
-            .addAction(createPauseAction())
-            .build()
-    }
-
-    private fun createBaseNotification(channelId: String): NotificationCompat.Builder {
-        return NotificationCompat.Builder(context, channelId)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(createPendingIntent())
-    }
-
-    private fun createPendingIntent(): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        return PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-    }
-
-    private fun createStopAction(): NotificationCompat.Action {
-        val intent = Intent(context, AudioRecordingForegroundService::class.java).apply {
-            action = AudioRecordingForegroundService.ACTION_STOP_RECORDING
-        }
-        val pendingIntent = PendingIntent.getService(
-            context,
-            1,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        return NotificationCompat.Action(
-            R.drawable.ic_stop,
-            "Stop",
-            pendingIntent
-        )
-    }
-
-    private fun createPauseAction(): NotificationCompat.Action {
-        val intent = Intent(context, AudioRecordingForegroundService::class.java).apply {
-            action = AudioRecordingForegroundService.ACTION_PAUSE_RECORDING
-        }
-        val pendingIntent = PendingIntent.getService(
-            context,
-            2,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        return NotificationCompat.Action(
-            R.drawable.ic_pause,
-            "Pause",
-            pendingIntent
-        )
-    }
-
-    private fun formatDuration(durationMs: Long): String {
-        val seconds = (durationMs / 1000) % 60
-        val minutes = (durationMs / (1000 * 60)) % 60
-        val hours = durationMs / (1000 * 60 * 60)
-        return when {
-            hours > 0 -> String.format("%02d:%02d:%02d", hours, minutes, seconds)
-            else -> String.format("%02d:%02d", minutes, seconds)
-        }
-    }
-
-    override fun hideRecordingNotification() {
-        cancelNotification(NotificationIds.RECORDING)
-    }
-
-    override fun updateNotificationForPausedState() {
-        val notification = createBaseNotification(CHANNEL_ID_RECORDING)
-            .setContentTitle("Recording paused")
-            .setContentText("Tap to view")
-            .setSmallIcon(R.drawable.ic_mic)
-            .setOngoing(true)
-            .addAction(createStopAction())
-            .addAction(createResumeAction())
-            .build()
-
-        notificationManager.notify(NotificationIds.RECORDING, notification)
-    }
-
-    override fun updateNotificationForRecordingState() {
-        showRecordingNotification()
-    }
-
-    private fun createResumeAction(): NotificationCompat.Action {
-        val intent = Intent(context, AudioRecordingForegroundService::class.java).apply {
-            action = AudioRecordingForegroundService.ACTION_RESUME_RECORDING
-        }
-        val pendingIntent = PendingIntent.getService(
-            context,
-            3,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        return NotificationCompat.Action(
-            R.drawable.ic_play,
-            "Resume",
-            pendingIntent
-        )
+        NotificationManagerCompat.from(context).cancelAll()
     }
 } 

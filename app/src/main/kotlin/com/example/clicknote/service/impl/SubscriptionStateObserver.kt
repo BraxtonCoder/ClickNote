@@ -4,6 +4,8 @@ import android.content.Context
 import com.example.clicknote.domain.model.SubscriptionState
 import com.example.clicknote.service.AuthService
 import com.example.clicknote.service.SubscriptionStateManager
+import com.example.clicknote.domain.service.SubscriptionStateObserver
+import com.example.clicknote.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,16 +21,15 @@ import dagger.Lazy
 class SubscriptionStateObserver @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authService: Lazy<AuthService>,
-    private val subscriptionStateManager: Provider<SubscriptionStateManager>
-) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
+    private val subscriptionStateManager: Provider<SubscriptionStateManager>,
+    @ApplicationScope private val coroutineScope: CoroutineScope
+) : SubscriptionStateObserver {
     init {
         observeAuthState()
     }
 
     private fun observeAuthState() {
-        scope.launch {
+        coroutineScope.launch {
             authService.get().isSignedIn.collectLatest { isSignedIn ->
                 if (!isSignedIn) {
                     subscriptionStateManager.get().updateSubscriptionState(SubscriptionState.FREE)

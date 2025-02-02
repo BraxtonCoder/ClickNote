@@ -8,12 +8,16 @@ import com.example.clicknote.domain.interfaces.TranscriptionEventHandler
 import com.example.clicknote.domain.interfaces.TranscriptionStateManager
 import com.example.clicknote.domain.interfaces.RecordingManager
 import com.example.clicknote.domain.interfaces.RecordingState
+import com.example.clicknote.domain.model.TranscriptionState
 import com.example.clicknote.service.*
+import com.example.clicknote.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class RecordingManagerImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val audioRecorder: AudioRecorder,
@@ -21,13 +25,14 @@ class RecordingManagerImpl @Inject constructor(
     private val stateManager: TranscriptionStateManager,
     private val audioEnhancer: AudioEnhancer,
     private val amplitudeProcessor: AmplitudeProcessor,
-    private val userPreferences: UserPreferencesDataStore
+    private val userPreferences: UserPreferencesDataStore,
+    @ApplicationScope private val coroutineScope: CoroutineScope,
+    private val recordingStateManager: RecordingStateManager
 ) : RecordingManager {
 
     private var mediaRecorder: MediaRecorder? = null
     private var recordingJob: Job? = null
     private var amplitudeJob: Job? = null
-    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     private val _isRecording = MutableStateFlow(false)
     private val _recordingState = MutableStateFlow<RecordingState>(RecordingState.Idle)
@@ -36,82 +41,37 @@ class RecordingManagerImpl @Inject constructor(
     private val _error = MutableSharedFlow<Throwable>()
     
     override val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
-    override val recordingState: StateFlow<RecordingState> = _recordingState.asStateFlow()
+    override val recordingState: Flow<RecordingState> = recordingStateManager.currentState
     override val recordingDuration: StateFlow<Long> = _recordingDuration.asStateFlow()
     override val amplitude: StateFlow<Float> = _amplitude.asStateFlow()
     override val waveform: StateFlow<FloatArray> = amplitudeProcessor.getWaveformFlow()
-    override val transcriptionResult: SharedFlow<String> = eventHandler.getTranscriptionStateFlow()
-        .map { state -> 
-            when (state) {
-                is TranscriptionState.Success -> state.text
-                else -> ""
-            }
+    override val transcriptionState: Flow<TranscriptionState> = stateManager.currentState
+    override val transcriptionResult: Flow<String> = transcriptionState.map { state ->
+        when (state) {
+            is TranscriptionState.Completed -> state.text
+            else -> ""
         }
-        .shareIn(managerScope, SharingStarted.Eagerly, 1)
+    }
     override val error: SharedFlow<Throwable> = _error.asSharedFlow()
 
     override suspend fun startRecording() {
-        if (_recordingState.value is RecordingState.Recording) return
-        
-        try {
-            audioRecorder.startRecording()
-            audioEnhancer.startProcessing()
-            eventHandler.onTranscriptionStarted()
-            _isRecording.value = true
-            _recordingState.value = RecordingState.Recording
-            startAmplitudeMonitoring()
-            startDurationTracking()
-        } catch (e: Exception) {
-            _error.emit(e)
-            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
-            throw e
-        }
+        recordingStateManager.startRecording()
     }
 
     override suspend fun stopRecording() {
-        try {
-            audioRecorder.stopRecording()
-            audioEnhancer.stopProcessing()
-            amplitudeProcessor.reset()
-            _isRecording.value = false
-            _recordingState.value = RecordingState.Idle
-            recordingJob?.cancel()
-            amplitudeJob?.cancel()
-        } catch (e: Exception) {
-            _error.emit(e)
-            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
-            throw e
-        }
+        recordingStateManager.stopRecording()
     }
 
     override suspend fun pauseRecording() {
-        try {
-            audioRecorder.pauseRecording()
-            audioEnhancer.pauseProcessing()
-            _isRecording.value = false
-            _recordingState.value = RecordingState.Paused
-            recordingJob?.cancel()
-            amplitudeJob?.cancel()
-        } catch (e: Exception) {
-            _error.emit(e)
-            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
-            throw e
-        }
+        recordingStateManager.pauseRecording()
     }
 
     override suspend fun resumeRecording() {
-        try {
-            audioRecorder.resumeRecording()
-            audioEnhancer.resumeProcessing()
-            _isRecording.value = true
-            _recordingState.value = RecordingState.Recording
-            startAmplitudeMonitoring()
-            startDurationTracking()
-        } catch (e: Exception) {
-            _error.emit(e)
-            _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
-            throw e
-        }
+        recordingStateManager.resumeRecording()
+    }
+
+    override suspend fun cancelRecording() {
+        recordingStateManager.cancelRecording()
     }
 
     override suspend fun cleanup() {
@@ -120,7 +80,7 @@ class RecordingManagerImpl @Inject constructor(
             audioRecorder.release()
             mediaRecorder?.release()
             mediaRecorder = null
-            managerScope.cancel()
+            coroutineScope.cancel()
         } catch (e: Exception) {
             _error.emit(e)
             _recordingState.value = RecordingState.Error(e.message ?: "Unknown error occurred")
@@ -130,7 +90,7 @@ class RecordingManagerImpl @Inject constructor(
 
     private fun startAmplitudeMonitoring() {
         amplitudeJob?.cancel()
-        amplitudeJob = managerScope.launch {
+        amplitudeJob = coroutineScope.launch {
             while (isActive) {
                 val maxAmplitude = audioRecorder.getMaxAmplitude()
                 _amplitude.value = maxAmplitude.toFloat()
@@ -141,7 +101,7 @@ class RecordingManagerImpl @Inject constructor(
 
     private fun startDurationTracking() {
         recordingJob?.cancel()
-        recordingJob = managerScope.launch {
+        recordingJob = coroutineScope.launch {
             var duration = _recordingDuration.value
             while (isActive) {
                 delay(1000) // Update duration every second
@@ -171,7 +131,7 @@ class RecordingManagerImpl @Inject constructor(
     }
 
     private fun handleRecordingError(e: Exception) {
-        managerScope.launch {
+        coroutineScope.launch {
             _error.emit(e)
             eventHandler.onTranscriptionError(e)
         }

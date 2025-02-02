@@ -1,6 +1,8 @@
 package com.example.clicknote.service.impl
 
 import android.content.Context
+import com.example.clicknote.domain.service.WhisperTranscriptionService
+import com.example.clicknote.di.ApplicationScope
 import com.example.clicknote.service.TranscriptionService
 import com.example.clicknote.service.TranscriptionSegment
 import com.example.clicknote.service.Speaker
@@ -14,11 +16,12 @@ import java.nio.ByteOrder
 import javax.inject.Inject
 import kotlin.math.min
 
+@Singleton
 class WhisperTranscriptionService @Inject constructor(
-    @ApplicationContext private val context: Context
-) : TranscriptionService {
+    @ApplicationContext private val context: Context,
+    @ApplicationScope private val coroutineScope: CoroutineScope
+) : WhisperTranscriptionService {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var classifier: AudioClassifier? = null
     private var isTranscribing = false
     

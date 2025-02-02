@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.service.AudioRecorder
 import com.example.clicknote.service.WhisperService
+import com.example.clicknote.domain.model.TranscriptionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -16,13 +17,6 @@ sealed class CreateNoteEvent {
     data object NavigateBack : CreateNoteEvent()
     data class ShowError(val message: String) : CreateNoteEvent()
     data class ShowSuccess(val message: String) : CreateNoteEvent()
-}
-
-sealed class TranscriptionState {
-    data object Idle : TranscriptionState()
-    data object Loading : TranscriptionState()
-    data class Success(val text: String) : TranscriptionState()
-    data class Error(val message: String) : TranscriptionState()
 }
 
 @HiltViewModel
@@ -77,17 +71,17 @@ class CreateNoteViewModel @Inject constructor(
                 _isRecording.value = false
                 
                 recordingFile?.let { file ->
-                    _transcriptionState.value = TranscriptionState.Loading
+                    _transcriptionState.value = TranscriptionState.Processing(0f)
                     try {
                         val result = whisperService.transcribe(file)
                         result.onSuccess { text ->
-                            _transcriptionState.value = TranscriptionState.Success(text)
+                            _transcriptionState.value = TranscriptionState.Completed(text, 0L)
                         }.onFailure { error ->
-                            _transcriptionState.value = TranscriptionState.Error("Transcription failed: ${error.message}")
+                            _transcriptionState.value = TranscriptionState.Error(error)
                             _events.emit(CreateNoteEvent.ShowError("Failed to transcribe audio: ${error.message}"))
                         }
                     } catch (e: Exception) {
-                        _transcriptionState.value = TranscriptionState.Error("Transcription failed: ${e.message}")
+                        _transcriptionState.value = TranscriptionState.Error(e)
                         _events.emit(CreateNoteEvent.ShowError("Failed to transcribe audio: ${e.message}"))
                     }
                 }

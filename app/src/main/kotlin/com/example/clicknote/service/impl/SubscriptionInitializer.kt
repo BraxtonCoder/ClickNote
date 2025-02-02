@@ -8,12 +8,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
+import com.example.clicknote.domain.repository.SubscriptionRepository
+import com.example.clicknote.di.ApplicationScope
 
 @Singleton
 class SubscriptionInitializer @Inject constructor(
     private val billingService: Provider<BillingService>,
     private val stateManager: Provider<SubscriptionStateManager>,
-    private val coroutineScope: CoroutineScope
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) {
     fun initialize() {
         coroutineScope.launch {

@@ -15,6 +15,7 @@ import com.example.clicknote.service.OpenAiService
 import com.example.clicknote.service.api.OpenAiApi
 import com.example.clicknote.service.model.*
 import com.example.clicknote.domain.service.PerformanceMonitor
+import com.example.clicknote.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -35,10 +36,10 @@ class OpenAiServiceImpl @Inject constructor(
     private val openAiApi: OpenAiApi,
     private val preferencesRepository: PreferencesRepository,
     private val performanceMonitor: Lazy<PerformanceMonitor>,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) : OpenAiService {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var openAI: OpenAI? = null
     private val _progress = MutableStateFlow(0f)
     override val progress: Flow<Float> = _progress.asStateFlow()
@@ -55,7 +56,7 @@ class OpenAiServiceImpl @Inject constructor(
     }
 
     init {
-        scope.launch {
+        coroutineScope.launch {
             initializeOpenAI()
         }
     }
@@ -359,7 +360,7 @@ class OpenAiServiceImpl @Inject constructor(
     override fun isAvailable(): Boolean = openAI != null
 
     override suspend fun cleanup() {
-        scope.cancel()
+        coroutineScope.cancel()
         openAI = null
         _progress.value = 0f
         _operationInProgress.value = false

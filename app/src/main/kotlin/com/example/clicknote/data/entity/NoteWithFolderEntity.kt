@@ -2,7 +2,7 @@ package com.example.clicknote.data.entity
 
 import androidx.room.Embedded
 import androidx.room.Relation
-import com.example.clicknote.domain.model.NoteWithFolder
+import com.example.clicknote.domain.model.Note
 
 data class NoteWithFolderEntity(
     @Embedded
@@ -15,16 +15,16 @@ data class NoteWithFolderEntity(
     )
     val folder: FolderEntity?
 ) {
-    fun toDomain() = NoteWithFolder(
-        note = note.toDomain(),
-        folder = folder?.toDomain()
+    fun toNote(): Note = note.toNote().copy(
+        folderId = folder?.id
     )
 
     companion object {
-        fun fromDomain(noteWithFolder: NoteWithFolder): NoteWithFolderEntity {
-            val note = NoteEntity.fromDomain(noteWithFolder.note)
-            val folder = noteWithFolder.folder?.let { FolderEntity.fromDomain(it) }
-            return NoteWithFolderEntity(note, folder)
+        fun fromNote(note: Note, folder: FolderEntity? = null): NoteWithFolderEntity {
+            return NoteWithFolderEntity(
+                note = note.toNoteEntity(),
+                folder = folder
+            )
         }
     }
 } 

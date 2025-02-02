@@ -5,23 +5,31 @@ import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
 import androidx.room.TypeConverters
 import com.example.clicknote.data.converter.RoomConverters
-import java.util.UUID
+import java.time.LocalDateTime
 
 @Entity(tableName = "search_history")
 @TypeConverters(RoomConverters::class)
 data class SearchHistory(
     @PrimaryKey
-    @ColumnInfo(name = "id")
-    val id: String = UUID.randomUUID().toString(),
+    val id: String,
 
     @ColumnInfo(name = "query")
     val query: String,
 
-    @ColumnInfo(name = "timestamp")
-    val timestamp: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "type")
+    val type: String,
 
-    @ColumnInfo(name = "result_count")
-    val resultCount: Int = 0
+    @ColumnInfo(name = "use_count")
+    val useCount: Int = 0,
+
+    @ColumnInfo(name = "last_used")
+    val lastUsed: LocalDateTime = LocalDateTime.now(),
+
+    @ColumnInfo(name = "created_at")
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @ColumnInfo(name = "is_deleted")
+    val isDeleted: Boolean = false
 )
 
 enum class SearchType {

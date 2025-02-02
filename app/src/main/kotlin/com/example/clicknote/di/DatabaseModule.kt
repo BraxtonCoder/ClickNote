@@ -2,6 +2,7 @@ package com.example.clicknote.di
 
 import android.content.Context
 import androidx.room.Room
+import com.example.clicknote.data.converter.RoomConverters
 import com.example.clicknote.data.db.ClickNoteDatabase
 import com.example.clicknote.data.dao.*
 import dagger.Module
@@ -17,12 +18,29 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): ClickNoteDatabase {
+    fun provideRoomConverters(): RoomConverters {
+        return RoomConverters()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAppDatabase(
+        @ApplicationContext context: Context,
+        roomConverters: RoomConverters
+    ): ClickNoteDatabase {
         return Room.databaseBuilder(
             context,
             ClickNoteDatabase::class.java,
             ClickNoteDatabase.DATABASE_NAME
-        ).build()
+        )
+        .addTypeConverter(roomConverters)
+        .addMigrations(
+            ClickNoteDatabase.Migrations.MIGRATION_1_2,
+            ClickNoteDatabase.Migrations.MIGRATION_2_3,
+            ClickNoteDatabase.Migrations.MIGRATION_3_4,
+            ClickNoteDatabase.Migrations.MIGRATION_4_5
+        )
+        .build()
     }
 
     @Provides

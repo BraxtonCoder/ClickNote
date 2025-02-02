@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.clicknote.ui.components.EnhancedWaveformVisualizer
 import com.example.clicknote.ui.viewmodel.CreateNoteViewModel
-import com.example.clicknote.ui.viewmodel.TranscriptionState
+import com.example.clicknote.domain.model.TranscriptionState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,12 +33,12 @@ fun CreateNoteScreen(
 
     LaunchedEffect(transcriptionState) {
         when (transcriptionState) {
-            is TranscriptionState.Success -> {
-                contentState.value = TextFieldValue((transcriptionState as TranscriptionState.Success).text)
+            is TranscriptionState.Completed -> {
+                contentState.value = TextFieldValue((transcriptionState as TranscriptionState.Completed).text)
             }
             is TranscriptionState.Error -> {
                 snackbarHostState.showSnackbar(
-                    message = (transcriptionState as TranscriptionState.Error).message,
+                    message = (transcriptionState as TranscriptionState.Error).error.message ?: "Unknown error",
                     duration = SnackbarDuration.Short
                 )
             }
@@ -143,7 +143,7 @@ fun CreateNoteScreen(
                 enabled = !isSaving
             )
 
-            if (isRecording || transcriptionState is TranscriptionState.Loading) {
+            if (isRecording || transcriptionState is TranscriptionState.Processing) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -157,7 +157,7 @@ fun CreateNoteScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    if (transcriptionState is TranscriptionState.Loading) {
+                    if (transcriptionState is TranscriptionState.Processing) {
                         CircularProgressIndicator()
                     }
                 }
@@ -171,7 +171,7 @@ fun CreateNoteScreen(
                     .fillMaxWidth()
                     .weight(1f),
                 textStyle = MaterialTheme.typography.bodyLarge,
-                enabled = !isSaving && transcriptionState !is TranscriptionState.Loading
+                enabled = !isSaving && transcriptionState !is TranscriptionState.Processing
             )
         }
     }

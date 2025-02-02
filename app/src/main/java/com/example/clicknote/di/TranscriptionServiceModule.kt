@@ -10,6 +10,7 @@ import com.example.clicknote.di.qualifiers.Combined
 import com.example.clicknote.di.qualifiers.Primary
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Provider
@@ -40,12 +41,13 @@ abstract class TranscriptionServiceModule {
     ): TranscriptionCapable
 
     companion object {
-        @Primary
+        @Provides
         @Singleton
+        @Primary
         fun providePrimaryTranscriptionService(
             @Combined combinedService: Provider<TranscriptionCapable>
         ): TranscriptionCapable {
             return combinedService.get()
         }
     }
-}
+} 

@@ -4,7 +4,8 @@ import androidx.room.ProvidedTypeConverter
 import androidx.room.TypeConverter
 import com.example.clicknote.data.entity.NoteSource
 import com.example.clicknote.data.entity.TranscriptionState
-import com.example.clicknote.domain.model.TranscriptionSegment
+import com.example.clicknote.data.model.SyncStatus
+import com.example.clicknote.data.entity.TranscriptionSegment
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.time.Instant
@@ -13,22 +14,22 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.*
 import javax.inject.Inject
+import java.time.format.DateTimeFormatter
 
 @ProvidedTypeConverter
 class RoomConverters @Inject constructor() {
     private val gson = Gson()
+    private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
     // DateTime conversions
     @TypeConverter
-    fun fromTimestamp(value: Long?): LocalDateTime? {
-        return value?.let {
-            LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
-        }
+    fun fromTimestamp(value: String?): LocalDateTime? {
+        return value?.let { LocalDateTime.parse(it, formatter) }
     }
 
     @TypeConverter
-    fun dateToTimestamp(date: LocalDateTime?): Long? {
-        return date?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+    fun dateToTimestamp(date: LocalDateTime?): String? {
+        return date?.format(formatter)
     }
 
     // Date conversions
@@ -44,14 +45,15 @@ class RoomConverters @Inject constructor() {
 
     // Simple List conversions using Gson
     @TypeConverter
-    fun fromStringList(value: String?): List<String>? {
-        if (value == null) return null
-        return value.split(",").map { it.trim() }
+    fun fromStringList(value: String?): List<String> {
+        if (value == null) return emptyList()
+        val listType = object : TypeToken<List<String>>() {}.type
+        return gson.fromJson(value, listType)
     }
 
     @TypeConverter
-    fun stringListToString(list: List<String>?): String? {
-        return list?.joinToString(",")
+    fun toStringList(list: List<String>): String {
+        return gson.toJson(list)
     }
 
     @TypeConverter
@@ -77,6 +79,12 @@ class RoomConverters @Inject constructor() {
 
     @TypeConverter
     fun toTranscriptionState(value: String): TranscriptionState = TranscriptionState.valueOf(value)
+
+    @TypeConverter
+    fun fromSyncStatus(status: SyncStatus): String = status.name
+
+    @TypeConverter
+    fun toSyncStatus(value: String): SyncStatus = SyncStatus.valueOf(value)
 
     // TranscriptionSegment conversions
     @TypeConverter

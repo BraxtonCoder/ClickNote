@@ -18,12 +18,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.example.clicknote.domain.repository.UserPreferencesDataStore
+import com.example.clicknote.di.ApplicationScope
 
 @Singleton
 class BillingRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val auth: FirebaseAuth,
-    private val coroutineScope: CoroutineScope
+    @ApplicationScope private val coroutineScope: CoroutineScope,
+    private val billingClient: BillingClient,
+    private val preferences: UserPreferencesDataStore
 ) : BillingRepository {
 
     private val _subscriptionStatus = MutableStateFlow(SubscriptionStatus.FREE)
@@ -31,11 +35,6 @@ class BillingRepositoryImpl @Inject constructor(
 
     private val _subscriptionDetails = MutableStateFlow(SubscriptionDetails(SubscriptionStatus.FREE))
     override val subscriptionDetails = _subscriptionDetails.asStateFlow()
-
-    private var billingClient: BillingClient = BillingClient.newBuilder(context)
-        .setListener(purchasesUpdatedListener)
-        .enablePendingPurchases()
-        .build()
 
     private var currentPurchase: Purchase? = null
 

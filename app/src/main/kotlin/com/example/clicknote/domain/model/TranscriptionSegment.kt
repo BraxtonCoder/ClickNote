@@ -16,8 +16,8 @@ data class TranscriptionSegment(
     val text: String,
     val startTime: Long,
     val endTime: Long,
-    val speaker: String? = null,
-    val confidence: Float = 0f
+    val confidence: Float,
+    val speaker: String? = null
 ) {
     companion object {
         /**
@@ -26,7 +26,8 @@ data class TranscriptionSegment(
         fun empty(noteId: String) = TranscriptionSegment(
             text = "",
             startTime = 0L,
-            endTime = 0L
+            endTime = 0L,
+            confidence = 0f
         )
     }
 } 

@@ -1,6 +1,8 @@
 package com.example.clicknote.data.entity
 
 import androidx.room.*
+import com.example.clicknote.data.converter.RoomConverters
+import java.time.LocalDateTime
 
 @Entity(
     tableName = "transcription_metadata",
@@ -12,11 +14,14 @@ import androidx.room.*
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("note_id")]
+    indices = [
+        Index("note_id")
+    ]
 )
+@TypeConverters(RoomConverters::class)
 data class TranscriptionMetadata(
     @PrimaryKey
-    val id: String = java.util.UUID.randomUUID().toString(),
+    val id: String,
 
     @ColumnInfo(name = "note_id")
     val noteId: String,
@@ -24,21 +29,30 @@ data class TranscriptionMetadata(
     @ColumnInfo(name = "language")
     val language: String,
 
-    @ColumnInfo(name = "duration")
-    val duration: Long,
+    @ColumnInfo(name = "duration_ms")
+    val durationMs: Long,
 
     @ColumnInfo(name = "word_count")
     val wordCount: Int,
 
+    @ColumnInfo(name = "confidence_score")
+    val confidenceScore: Float,
+
+    @ColumnInfo(name = "processing_time")
+    val processingTime: Long,
+
+    @ColumnInfo(name = "created_at")
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
+
+    @ColumnInfo(name = "is_deleted")
+    val isDeleted: Boolean = false,
+
     @ColumnInfo(name = "speaker_count")
     val speakerCount: Int = 1,
 
-    @ColumnInfo(name = "is_processed")
-    val isProcessed: Boolean = false,
-
-    @ColumnInfo(name = "processing_timestamp")
-    val processingTimestamp: Long? = null,
-
-    @ColumnInfo(name = "error_message")
-    val errorMessage: String? = null
+    @ColumnInfo(name = "has_audio")
+    val hasAudio: Boolean = false
 ) 

@@ -8,16 +8,18 @@ data class Note(
     val id: String,
     val title: String,
     val content: String,
-    val timestamp: Long,
-    val audioPath: String? = null,
-    val isInTrash: Boolean = false,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime,
+    val deletedAt: LocalDateTime? = null,
+    val isDeleted: Boolean = false,
     val isPinned: Boolean = false,
+    val hasAudio: Boolean = false,
+    val audioPath: String? = null,
+    val source: String = "MANUAL",
     val folderId: String? = null,
     val summary: String? = null,
     val keyPoints: List<String> = emptyList(),
-    val speakers: List<String> = emptyList(),
-    val source: NoteSource = NoteSource.MANUAL,
-    val deletedAt: Long? = null
+    val speakers: List<String> = emptyList()
 ) {
     companion object {
         fun create(
@@ -32,11 +34,12 @@ data class Note(
                 id = UUID.randomUUID().toString(),
                 title = title,
                 content = content,
-                timestamp = System.currentTimeMillis(),
+                createdAt = LocalDateTime.now(),
+                updatedAt = LocalDateTime.now(),
                 folderId = folderId,
                 hasAudio = hasAudio,
                 audioPath = audioPath,
-                source = source
+                source = source.toString()
             )
         }
     }

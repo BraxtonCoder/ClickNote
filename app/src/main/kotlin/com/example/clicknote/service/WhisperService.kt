@@ -4,6 +4,7 @@ import java.io.File
 import kotlinx.coroutines.flow.Flow
 import com.example.clicknote.domain.model.Language
 import com.example.clicknote.data.model.TranscriptionResult
+import com.example.clicknote.domain.model.TranscriptionState
 
 interface WhisperService {
     val transcriptionProgress: Flow<Float>
@@ -17,12 +18,4 @@ interface WhisperService {
     fun cancelTranscription()
     fun isAvailable(): Boolean
     suspend fun cleanup()
-}
-
-enum class TranscriptionState {
-    IDLE,
-    TRANSCRIBING,
-    COMPLETED,
-    CANCELLED,
-    ERROR
 } 

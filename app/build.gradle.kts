@@ -19,11 +19,11 @@ plugins {
 }
 
 android {
-    namespace = "com.braxsoftware.clicknote"
+    namespace = "com.example.clicknote"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.braxsoftware.clicknote"
+        applicationId = "com.example.clicknote"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -34,13 +34,10 @@ android {
             useSupportLibrary = true
         }
 
-        javaCompileOptions {
-            annotationProcessorOptions {
-                arguments += mapOf(
-                    "room.schemaLocation" to "$projectDir/schemas",
-                    "room.incremental" to "true"
-                )
-            }
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+            arg("room.incremental", "true")
+            arg("room.expandProjection", "true")
         }
     }
 
@@ -106,9 +103,14 @@ dependencies {
     implementation("androidx.room:room-paging:2.6.1")
     implementation("androidx.room:room-testing:2.6.1")
 
+    // Gson for JSON parsing
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // Hilt
     implementation("com.google.dagger:hilt-android:2.50")
     kapt("com.google.dagger:hilt-android-compiler:2.50")
+    implementation("androidx.hilt:hilt-work:1.1.0")
+    kapt("androidx.hilt:hilt-compiler:1.1.0")
 
     // Audio Processing
     implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
@@ -121,6 +123,9 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.compose.material3:material3-window-size-class:1.2.1")
     implementation("com.google.android.material:material:1.11.0")
+
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
@@ -135,4 +140,7 @@ dependencies {
 // Allow references to generated code
 kapt {
     correctErrorTypes = true
+    arguments {
+        arg("dagger.hilt.disableModulesHaveInstallInCheck", "true")
+    }
 }

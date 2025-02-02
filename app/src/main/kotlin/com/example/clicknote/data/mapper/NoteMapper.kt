@@ -1,50 +1,51 @@
 package com.example.clicknote.data.mapper
 
 import com.example.clicknote.data.entity.NoteEntity
+import com.example.clicknote.data.entity.NoteWithFolderEntity
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import java.time.LocalDateTime
-import java.time.ZoneOffset
 
-fun NoteEntity.toNote(): Note {
-    return Note(
-        id = id,
-        title = title,
-        content = content,
-        timestamp = timestamp,
-        folderId = folderId,
-        hasAudio = hasAudio,
-        audioPath = audioPath,
-        isPinned = isPinned,
-        isInTrash = isInTrash,
-        deletedAt = deletedAt,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        source = source,
-        transcriptionSegments = transcriptionSegments
-    )
-}
+fun NoteEntity.toNote(): Note = Note(
+    id = id,
+    title = title,
+    content = content,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    isDeleted = isDeleted,
+    isPinned = isPinned,
+    hasAudio = hasAudio,
+    audioPath = audioPath,
+    source = source,
+    folderId = folderId,
+    summary = summary,
+    keyPoints = keyPoints,
+    speakers = speakers
+)
 
-fun Note.toNoteEntity(): NoteEntity {
-    return NoteEntity(
-        id = id,
-        title = title,
-        content = content,
-        timestamp = timestamp,
-        folderId = folderId,
-        hasAudio = hasAudio,
-        audioPath = audioPath,
-        isPinned = isPinned,
-        isInTrash = isInTrash,
-        deletedAt = deletedAt,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        source = source,
-        transcriptionSegments = transcriptionSegments
-    )
-}
+fun NoteWithFolderEntity.toNote(): Note = note.toNote().copy(
+    folderId = folder?.id
+)
+
+fun Note.toNoteEntity(): NoteEntity = NoteEntity(
+    id = id,
+    title = title,
+    content = content,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    isDeleted = isDeleted,
+    isPinned = isPinned,
+    hasAudio = hasAudio,
+    audioPath = audioPath,
+    source = source,
+    folderId = folderId,
+    summary = summary,
+    keyPoints = keyPoints,
+    speakers = speakers,
+    syncStatus = 0 // Default to pending sync
+)
 
 fun createNote(
     content: String,
@@ -54,21 +55,22 @@ fun createNote(
     audioPath: String? = null,
     source: NoteSource = NoteSource.VOICE
 ): Note {
+    val now = LocalDateTime.now()
     return Note(
         id = java.util.UUID.randomUUID().toString(),
         title = title,
         content = content,
-        timestamp = System.currentTimeMillis(),
-        folderId = folderId,
+        createdAt = now,
+        updatedAt = now,
+        deletedAt = null,
+        isDeleted = false,
+        isPinned = false,
         hasAudio = hasAudio,
         audioPath = audioPath,
-        isPinned = false,
-        isInTrash = false,
-        deletedAt = null,
+        source = source.toString(),
+        folderId = folderId,
         summary = null,
         keyPoints = emptyList(),
-        speakers = emptyList(),
-        source = source,
-        transcriptionSegments = emptyList()
+        speakers = emptyList()
     )
 } 

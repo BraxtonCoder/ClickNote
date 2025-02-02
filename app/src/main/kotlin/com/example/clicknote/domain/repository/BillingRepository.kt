@@ -1,15 +1,8 @@
 package com.example.clicknote.domain.repository
 
 import com.example.clicknote.domain.model.SubscriptionPlan
+import com.example.clicknote.domain.model.SubscriptionStatus
 import kotlinx.coroutines.flow.Flow
-
-enum class SubscriptionStatus {
-    FREE,
-    MONTHLY,
-    ANNUAL,
-    GRACE_PERIOD,
-    EXPIRED
-}
 
 data class SubscriptionDetails(
     val status: SubscriptionStatus,

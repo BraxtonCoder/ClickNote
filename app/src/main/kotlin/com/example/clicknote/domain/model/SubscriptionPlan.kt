@@ -24,12 +24,4 @@ enum class SubscriptionPlan {
         }
 
     fun isPremium(): Boolean = this == MONTHLY || this == ANNUAL
-}
-
-enum class SubscriptionStatus {
-    ACTIVE,
-    EXPIRED,
-    CANCELLED,
-    FREE_TRIAL,
-    NONE
 } 

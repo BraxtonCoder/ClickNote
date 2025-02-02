@@ -1,9 +1,10 @@
 package com.example.clicknote.di
 
+import com.example.clicknote.data.service.*
+import com.example.clicknote.domain.service.*
 import com.example.clicknote.domain.interfaces.*
 import com.example.clicknote.domain.service.WhisperTranscriptionService
 import com.example.clicknote.domain.service.WhisperOfflineTranscriptionService
-import com.example.clicknote.domain.service.PerformanceMonitor
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.service.impl.*
 import com.example.clicknote.data.preferences.UserPreferencesDataStoreImpl
@@ -18,15 +19,57 @@ import javax.inject.Singleton
 abstract class AppBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindTranscriptionEventHandler(
-        impl: TranscriptionEventHandlerImpl
-    ): TranscriptionEventHandler
+    abstract fun bindTranscriptionService(
+        impl: TranscriptionServiceImpl
+    ): TranscriptionService
 
     @Binds
     @Singleton
-    abstract fun bindTranscriptionStateManager(
-        impl: TranscriptionStateManagerImpl
-    ): TranscriptionStateManager
+    abstract fun bindAudioService(
+        impl: AudioServiceImpl
+    ): AudioService
+
+    @Binds
+    @Singleton
+    abstract fun bindStorageService(
+        impl: StorageServiceImpl
+    ): StorageService
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationService(
+        impl: NotificationServiceImpl
+    ): NotificationService
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthService(
+        impl: AuthServiceImpl
+    ): AuthService
+
+    @Binds
+    @Singleton
+    abstract fun bindAnalyticsService(
+        impl: AnalyticsServiceImpl
+    ): AnalyticsService
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupService(
+        impl: BackupServiceImpl
+    ): BackupService
+
+    @Binds
+    @Singleton
+    abstract fun bindBillingService(
+        impl: BillingServiceImpl
+    ): BillingService
+
+    @Binds
+    @Singleton
+    abstract fun bindTranscriptionEventHandler(
+        impl: TranscriptionEventHandlerImpl
+    ): TranscriptionEventHandler
 
     @Binds
     @Singleton
@@ -51,12 +94,6 @@ abstract class AppBindingsModule {
     abstract fun bindWhisperOfflineTranscriptionService(
         impl: WhisperOfflineTranscriptionServiceImpl
     ): WhisperOfflineTranscriptionService
-
-    @Binds
-    @Singleton
-    abstract fun bindPerformanceMonitor(
-        impl: PerformanceMonitorImpl
-    ): PerformanceMonitor
 
     @Binds
     @Singleton

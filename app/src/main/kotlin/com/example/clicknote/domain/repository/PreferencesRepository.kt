@@ -1,13 +1,13 @@
 package com.example.clicknote.domain.repository
 
 import kotlinx.coroutines.flow.Flow
-import com.example.clicknote.domain.model.Language
+import com.example.clicknote.domain.model.TranscriptionLanguage
 
 interface PreferencesRepository {
     suspend fun setOpenAIApiKey(apiKey: String)
     suspend fun getOpenAIApiKey(): String
-    suspend fun setTranscriptionLanguage(language: Language)
-    fun getTranscriptionLanguage(): Flow<Language>
+    suspend fun setTranscriptionLanguage(language: TranscriptionLanguage)
+    fun getTranscriptionLanguage(): Flow<TranscriptionLanguage>
     suspend fun setOnlineTranscriptionEnabled(enabled: Boolean)
     fun isOnlineTranscriptionEnabled(): Flow<Boolean>
     suspend fun setAudioSavingEnabled(enabled: Boolean)

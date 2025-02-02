@@ -2,13 +2,13 @@ package com.example.clicknote.service.api
 
 import kotlinx.coroutines.flow.Flow
 import java.io.File
-import com.example.clicknote.domain.model.Language
+import com.example.clicknote.domain.model.TranscriptionLanguage
 import com.example.clicknote.data.model.TranscriptionResult
 
 interface OpenAiService {
     suspend fun initialize()
     suspend fun transcribe(audioFile: File): String
-    suspend fun transcribeWithTimestamps(audioFile: File, language: Language? = null): TranscriptionResult
+    suspend fun transcribeWithTimestamps(audioFile: File, language: TranscriptionLanguage? = null): TranscriptionResult
     suspend fun transcribeStream(audioStream: Flow<ByteArray>): Flow<String>
     suspend fun detectSpeakers(audioFile: File): List<String>
     suspend fun summarize(text: String): String

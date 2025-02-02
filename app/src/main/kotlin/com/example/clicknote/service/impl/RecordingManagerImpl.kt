@@ -16,6 +16,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.io.File
 
 @Singleton
 class RecordingManagerImpl @Inject constructor(
@@ -111,7 +112,7 @@ class RecordingManagerImpl @Inject constructor(
         }
     }
 
-    override fun getAmplitude(): Float = _amplitude.value
+    private fun getAmplitude(): Float = _amplitude.value
 
     private fun initializeMediaRecorder(outputFile: File) {
         mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -133,7 +134,7 @@ class RecordingManagerImpl @Inject constructor(
     private fun handleRecordingError(e: Exception) {
         coroutineScope.launch {
             _error.emit(e)
-            eventHandler.onTranscriptionError(e)
+            eventHandler.handleEvent(TranscriptionEvent.Error(e.message ?: "Unknown error"))
         }
         cleanup()
     }

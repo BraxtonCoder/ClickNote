@@ -1,5 +1,7 @@
 package com.example.clicknote.domain.model
 
+import com.example.clicknote.domain.model.TranscriptionLanguage
+
 data class SummaryRequest(
     val text: String,
     val options: SummaryOptions = SummaryOptions()
@@ -18,20 +20,6 @@ data class TimelineEvent(
     val timestamp: String,
     val description: String
 )
-
-enum class Language {
-    ENGLISH,
-    SPANISH,
-    FRENCH,
-    GERMAN,
-    ITALIAN,
-    PORTUGUESE,
-    DUTCH,
-    RUSSIAN,
-    CHINESE,
-    JAPANESE,
-    KOREAN
-}
 
 enum class SummaryTemplate {
     MEETING_NOTES,
@@ -84,7 +72,7 @@ data class Entity(
 data class SummaryOptions(
     val template: SummaryTemplate? = null,
     val maxLength: Int = 500,
-    val language: Language = Language.ENGLISH,
+    val language: TranscriptionLanguage = TranscriptionLanguage.ENGLISH,
     val format: SummaryFormat = SummaryFormat.BULLET_POINTS,
     val style: SummaryStyle = SummaryStyle.CONCISE,
     val templateType: TemplateType = TemplateType.GENERAL,

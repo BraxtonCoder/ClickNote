@@ -2,7 +2,7 @@ package com.example.clicknote.service.transcription
 
 import android.content.Context
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
-import com.example.clicknote.domain.model.Language
+import com.example.clicknote.domain.model.TranscriptionLanguage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first

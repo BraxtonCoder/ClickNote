@@ -1,7 +1,6 @@
 package com.example.clicknote.service
 
 import com.example.clicknote.domain.model.TranscriptionEvent
-import com.example.clicknote.domain.model.TranscriptionState
 import kotlinx.coroutines.flow.Flow
 
 interface TranscriptionEventHandler {

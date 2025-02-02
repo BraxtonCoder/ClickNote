@@ -23,4 +23,5 @@ interface TranscriptionStateManager {
     suspend fun setTranscribing(isTranscribing: Boolean)
     suspend fun setCurrentFile(file: File?)
     suspend fun reset()
+    suspend fun setOfflineMode(isOffline: Boolean)
 } 

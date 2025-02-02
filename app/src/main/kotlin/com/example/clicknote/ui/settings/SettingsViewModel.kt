@@ -207,7 +207,14 @@ class SettingsViewModel @Inject constructor(
 
     // Transcription settings
     fun updateTranscriptionLanguage(language: TranscriptionLanguage) {
-        updateSetting { it.copy(transcriptionLanguage = language) }
+        viewModelScope.launch {
+            try {
+                settingsRepository.updateTranscriptionLanguage(language)
+                _uiState.update { it.copy(transcriptionLanguage = language) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to update language setting") }
+            }
+        }
     }
 
     fun toggleOfflineTranscription(enabled: Boolean) {

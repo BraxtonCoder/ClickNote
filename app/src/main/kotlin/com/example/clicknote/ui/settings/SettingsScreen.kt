@@ -174,13 +174,25 @@ fun SettingsScreen(
                     }
 
                     // Language selection
+                    var showLanguageDialog by remember { mutableStateOf(false) }
+                    
                     OutlinedButton(
-                        onClick = { /* TODO: Show language selection dialog */ },
+                        onClick = { showLanguageDialog = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Language, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Recognition Language")
+                        Text("Recognition Language (${uiState.transcriptionLanguage.displayName})")
+                    }
+
+                    if (showLanguageDialog) {
+                        LanguageSelectionDialog(
+                            currentLanguage = uiState.transcriptionLanguage,
+                            onLanguageSelected = { language ->
+                                viewModel.updateTranscriptionLanguage(language)
+                            },
+                            onDismiss = { showLanguageDialog = false }
+                        )
                     }
                 }
             }

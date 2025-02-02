@@ -1,6 +1,7 @@
 package com.example.clicknote.domain.preferences
 
 import com.example.clicknote.domain.model.CloudProvider
+import com.example.clicknote.domain.model.TranscriptionLanguage
 import kotlinx.coroutines.flow.Flow
 
 interface UserPreferencesDataStore {
@@ -13,7 +14,7 @@ interface UserPreferencesDataStore {
     val notificationActions: Flow<Boolean>
     val vibrationFeedback: Flow<Boolean>
     val highContrast: Flow<Boolean>
-    val selectedLanguage: Flow<String>
+    val transcriptionLanguage: Flow<TranscriptionLanguage>
     val cloudSyncEnabled: Flow<Boolean>
     val autoBackupEnabled: Flow<Boolean>
     val lastBackupTimestamp: Flow<Long>
@@ -29,7 +30,7 @@ interface UserPreferencesDataStore {
     suspend fun setNotificationActions(enabled: Boolean)
     suspend fun setVibrationFeedback(enabled: Boolean)
     suspend fun setHighContrast(enabled: Boolean)
-    suspend fun setSelectedLanguage(language: String)
+    suspend fun setTranscriptionLanguage(language: TranscriptionLanguage)
     suspend fun setCloudSyncEnabled(enabled: Boolean)
     suspend fun setAutoBackupEnabled(enabled: Boolean)
     suspend fun setLastBackupTimestamp(timestamp: Long)

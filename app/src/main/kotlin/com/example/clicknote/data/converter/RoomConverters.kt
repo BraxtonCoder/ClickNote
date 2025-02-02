@@ -6,6 +6,7 @@ import com.example.clicknote.data.entity.NoteSource
 import com.example.clicknote.data.entity.TranscriptionState
 import com.example.clicknote.data.model.SyncStatus
 import com.example.clicknote.data.entity.TranscriptionSegment
+import com.example.clicknote.domain.model.TranscriptionLanguage
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.time.Instant
@@ -85,6 +86,13 @@ class RoomConverters @Inject constructor() {
 
     @TypeConverter
     fun toSyncStatus(value: String): SyncStatus = SyncStatus.valueOf(value)
+
+    // TranscriptionLanguage conversions
+    @TypeConverter
+    fun fromTranscriptionLanguage(language: TranscriptionLanguage): String = language.code
+
+    @TypeConverter
+    fun toTranscriptionLanguage(value: String): TranscriptionLanguage = TranscriptionLanguage.fromCode(value)
 
     // TranscriptionSegment conversions
     @TypeConverter

@@ -1,6 +1,7 @@
 package com.example.clicknote.domain.model
 
 import kotlinx.coroutines.flow.StateFlow
+import com.example.clicknote.domain.model.SubscriptionPlan
 
 interface SubscriptionStateManager {
     val subscriptionState: StateFlow<SubscriptionStatus>
@@ -23,12 +24,4 @@ sealed class SubscriptionStatus {
     ) : SubscriptionStatus()
     object Loading : SubscriptionStatus()
     data class Error(val message: String) : SubscriptionStatus()
-}
-
-enum class SubscriptionPlan(val price: Float, val weeklyLimit: Int) {
-    FREE(0f, 3),
-    MONTHLY(9.99f, Int.MAX_VALUE),
-    ANNUAL(98f, Int.MAX_VALUE);
-
-    fun isPremium() = this == MONTHLY || this == ANNUAL
 } 

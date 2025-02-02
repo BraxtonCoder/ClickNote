@@ -2,6 +2,7 @@ package com.example.clicknote.data.entity
 
 import androidx.room.*
 import com.example.clicknote.data.converter.RoomConverters
+import com.example.clicknote.domain.model.TranscriptionLanguage
 import java.time.LocalDateTime
 
 @Entity(
@@ -27,7 +28,7 @@ data class TranscriptionMetadata(
     val noteId: String,
 
     @ColumnInfo(name = "language")
-    val language: String,
+    val language: TranscriptionLanguage = TranscriptionLanguage.ENGLISH,
 
     @ColumnInfo(name = "duration_ms")
     val durationMs: Long,

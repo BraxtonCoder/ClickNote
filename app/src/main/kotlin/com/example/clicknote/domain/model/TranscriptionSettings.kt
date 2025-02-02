@@ -1,7 +1,9 @@
 package com.example.clicknote.domain.model
 
+import com.example.clicknote.domain.model.TranscriptionLanguage
+
 data class TranscriptionSettings(
-    val language: String = "en",
+    val language: TranscriptionLanguage = TranscriptionLanguage.ENGLISH,
     val detectSpeakers: Boolean = false,
     val saveAudio: Boolean = true,
     val highQualityAudio: Boolean = false,

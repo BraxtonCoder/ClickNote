@@ -62,13 +62,8 @@ class LocalizationManager @Inject constructor(
     }
 
     fun getDeviceLanguage(): TranscriptionLanguage {
-        val locale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            context.resources.configuration.locales[0]
-        } else {
-            @Suppress("DEPRECATION")
-            context.resources.configuration.locale
-        }
-        return TranscriptionLanguage.fromCode(locale.language) ?: TranscriptionLanguage.EN
+        val locale = LocaleListCompat.getAdjustedDefault()[0]
+        return TranscriptionLanguage.fromCode(locale.language) ?: TranscriptionLanguage.ENGLISH
     }
 
     fun formatNumber(number: Number, locale: Locale = getCurrentLocale()): String {

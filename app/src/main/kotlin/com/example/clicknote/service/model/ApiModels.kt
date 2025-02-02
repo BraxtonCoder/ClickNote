@@ -7,15 +7,16 @@ import java.io.File
 
 data class TranscriptionRequest(
     val audioFile: File,
-    val language: TranscriptionLanguage? = null,
-    val detectSpeakers: Boolean = false,
-    val useTimestamps: Boolean = true
+    val language: TranscriptionLanguage = TranscriptionLanguage.ENGLISH,
+    val prompt: String? = null,
+    val temperature: Float = 0f,
+    val detectSpeakers: Boolean = false
 )
 
 data class TranscriptionResponse(
     val text: String,
     val segments: List<TranscriptionSegment> = emptyList(),
-    val speakers: List<String> = emptyList()
+    val language: TranscriptionLanguage = TranscriptionLanguage.ENGLISH
 )
 
 data class SummaryRequest(
@@ -51,4 +52,12 @@ enum class ChatRole {
     SYSTEM,
     USER,
     ASSISTANT
-} 
+}
+
+data class TranscriptionSegment(
+    val text: String,
+    val startTime: Long, // milliseconds
+    val endTime: Long, // milliseconds
+    val speaker: String? = null,
+    val confidence: Float = 0f
+) 

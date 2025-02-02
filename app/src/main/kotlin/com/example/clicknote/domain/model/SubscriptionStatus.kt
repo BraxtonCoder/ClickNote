@@ -2,6 +2,7 @@ package com.example.clicknote.domain.model
 
 import java.time.LocalDateTime
 import com.example.clicknote.domain.model.SubscriptionTier
+import com.example.clicknote.domain.model.SubscriptionPlan
 
 sealed class SubscriptionStatus {
     object Free : SubscriptionStatus()
@@ -12,10 +13,4 @@ sealed class SubscriptionStatus {
     ) : SubscriptionStatus()
     object Loading : SubscriptionStatus()
     data class Error(val message: String) : SubscriptionStatus()
-}
-
-enum class SubscriptionPlan {
-    FREE,
-    MONTHLY,
-    ANNUAL
 } 

@@ -30,7 +30,7 @@ data class SettingsUiState(
     val storageLocation: StorageLocation = StorageLocation.LOCAL,
     val autoBackup: Boolean = false,
     // Transcription settings
-    val transcriptionLanguage: TranscriptionLanguage = TranscriptionLanguage.ENGLISH,
+    val transcriptionLanguage: TranscriptionLanguage = TranscriptionLanguage.EN,
     val offlineTranscription: Boolean = true,
     val autoPunctuation: Boolean = true,
     // Notification settings

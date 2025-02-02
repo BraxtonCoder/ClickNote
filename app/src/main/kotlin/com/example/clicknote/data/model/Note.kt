@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import com.google.firebase.firestore.DocumentSnapshot
 import java.util.Date
 import java.util.UUID
+import com.example.clicknote.domain.model.SyncStatus
 
 @Entity(tableName = "notes")
 data class Note(
@@ -21,7 +22,7 @@ data class Note(
     val createdAt: Long = System.currentTimeMillis(),
     val modifiedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
-    val syncStatus: SyncStatus = SyncStatus.PENDING
+    val syncStatus: SyncStatus = SyncStatus.IDLE
 ) {
     fun toFirestoreMap(): Map<String, Any?> = mapOf(
         "id" to id,

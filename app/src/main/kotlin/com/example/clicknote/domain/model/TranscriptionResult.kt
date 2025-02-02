@@ -3,10 +3,11 @@ package com.example.clicknote.domain.model
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import java.time.LocalDateTime
+import com.example.clicknote.domain.model.TranscriptionLanguage
 
 data class TranscriptionResult(
     val text: String,
-    val language: String,
+    val language: TranscriptionLanguage,
     val speakers: List<String>
 )
 
@@ -44,7 +45,7 @@ data class TranscriptionSegment(
 }
 
 data class TranscriptionOptions(
-    val language: Language? = null,
+    val language: TranscriptionLanguage = TranscriptionLanguage.ENGLISH,
     val detectSpeakers: Boolean = false,
     val useTimestamps: Boolean = true,
     val useOffline: Boolean = false

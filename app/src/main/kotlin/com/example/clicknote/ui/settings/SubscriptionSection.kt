@@ -9,10 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-
-enum class SubscriptionPlan {
-    FREE, MONTHLY, ANNUAL
-}
+import com.example.clicknote.domain.model.SubscriptionPlan
 
 data class PlanDetails(
     val name: String,

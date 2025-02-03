@@ -5,21 +5,18 @@ import android.media.MediaRecorder
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import androidx.core.app.NotificationManagerCompat
+import com.example.clicknote.domain.interfaces.CallRecordingService
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.Speaker
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.domain.service.TranscriptionCapable
-import com.example.clicknote.domain.service.PerformanceMonitor
-import com.example.clicknote.service.CallRecordingService
 import com.example.clicknote.service.NotificationService
 import com.example.clicknote.util.AudioUtils
 import com.example.clicknote.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -40,129 +37,65 @@ class CallRecordingServiceImpl @Inject constructor(
     private var isRecording = false
 
     private val _recordingState = MutableStateFlow<RecordingState>(RecordingState.Idle)
-    override val recordingState: StateFlow<RecordingState> = _recordingState
+    val recordingState: StateFlow<RecordingState> = _recordingState
 
-    override fun onCallScreened(call: Call) {
-        when (call.state) {
-            Call.STATE_ACTIVE -> startRecording(call)
-            Call.STATE_DISCONNECTED -> stopRecording()
-            else -> {} // Handle other states if needed
-        }
-    }
-
-    private fun startRecording(call: Call) {
+    override suspend fun startRecording() {
         if (isRecording) return
-
         try {
             val outputFile = createOutputFile()
             currentRecordingFile = outputFile
-
             mediaRecorder = MediaRecorder(context).apply {
-                setAudioSource(MediaRecorder.AudioSource.VOICE_CALL)
+                setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setAudioChannels(2) // Stereo for better speaker separation
-                setAudioSamplingRate(44100)
-                setAudioEncodingBitRate(128000)
                 setOutputFile(outputFile.absolutePath)
                 prepare()
                 start()
             }
-
             isRecording = true
-            _recordingState.value = RecordingState.Recording(
-                startTime = LocalDateTime.now(),
-                phoneNumber = call.details.handle?.schemeSpecificPart
-            )
-
-            // Show recording notification
-            notificationService.showCallRecordingNotification()
-
+            _recordingState.value = RecordingState.Recording(LocalDateTime.now())
         } catch (e: Exception) {
             _recordingState.value = RecordingState.Error(e.message ?: "Failed to start recording")
         }
     }
 
-    private fun stopRecording() {
-        if (!isRecording) return
-
-        try {
+    override suspend fun stopRecording(): String {
+        if (!isRecording) return ""
+        return try {
             mediaRecorder?.apply {
                 stop()
                 release()
             }
             mediaRecorder = null
             isRecording = false
-
-            // Process the recording
-            currentRecordingFile?.let { file ->
-                processRecording(file)
-            }
-
             _recordingState.value = RecordingState.Idle
-            notificationService.cancelCallRecordingNotification()
-
+            currentRecordingFile?.absolutePath ?: ""
         } catch (e: Exception) {
             _recordingState.value = RecordingState.Error(e.message ?: "Failed to stop recording")
+            ""
         }
     }
 
-    private fun processRecording(audioFile: File) {
-        coroutineScope.launch {
-            try {
-                // Show transcribing notification
-                notificationService.showTranscribingNotification()
+    override suspend fun isRecording(): Boolean = isRecording
 
-                // Detect speakers and transcribe
-                val speakerSegments = audioUtils.detectSpeakers(audioFile.absolutePath)
-                val transcription = transcriptionService.transcribeAudio(
-                    audioFile.absolutePath,
-                    detectSpeakers = true
-                )
-
-                // Create note with speaker information
-                val note = Note(
-                    id = audioFile.nameWithoutExtension,
-                    title = "Call Recording - ${LocalDateTime.now()}",
-                    content = formatTranscriptionWithSpeakers(transcription, speakerSegments),
-                    timestamp = LocalDateTime.now(),
-                    audioPath = audioFile.absolutePath,
-                    type = Note.Type.CALL,
-                    duration = audioUtils.getAudioDuration(audioFile.absolutePath)
-                )
-
-                // Save note
-                noteRepository.saveNote(note)
-
-                // Show completion notification
-                notificationService.showTranscriptionCompleteNotification(note)
-
-            } catch (e: Exception) {
-                _recordingState.value = RecordingState.Error(e.message ?: "Failed to process recording")
-                notificationService.showTranscriptionErrorNotification()
-            } finally {
-                notificationService.cancelTranscribingNotification()
-            }
-        }
+    override suspend fun requestPermissions() {
+        // Implementation
     }
+
+    override suspend fun hasRequiredPermissions(): Boolean {
+        // Implementation
+        return false
+    }
+
+    override suspend fun getRecordingState(): Boolean = isRecording
+
+    override suspend fun getAudioFilePath(): String? = currentRecordingFile?.absolutePath
 
     private fun createOutputFile(): File {
-        val recordingsDir = File(context.filesDir, "call_recordings").apply {
+        val recordingsDir = File(context.filesDir, "recordings").apply {
             if (!exists()) mkdirs()
         }
-        return File(recordingsDir, "call_${System.currentTimeMillis()}.m4a")
-    }
-
-    private fun formatTranscriptionWithSpeakers(
-        transcription: String,
-        speakerSegments: List<Pair<Speaker, String>>
-    ): String {
-        return buildString {
-            speakerSegments.forEach { (speaker, text) ->
-                appendLine("${speaker.label}: $text")
-                appendLine()
-            }
-        }
+        return File(recordingsDir, "recording_${System.currentTimeMillis()}.m4a")
     }
 
     sealed class RecordingState {

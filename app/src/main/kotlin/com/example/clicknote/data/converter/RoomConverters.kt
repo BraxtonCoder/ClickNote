@@ -127,4 +127,43 @@ class RoomConverters @Inject constructor() {
     fun zonedDateTimeToString(date: ZonedDateTime?): String? {
         return date?.toString()
     }
+
+    @TypeConverter
+    fun fromString(value: String?): List<String>? {
+        if (value == null) return null
+        val listType = object : TypeToken<List<String>>() {}.type
+        return gson.fromJson(value, listType)
+    }
+
+    @TypeConverter
+    fun fromList(list: List<String>?): String? {
+        if (list == null) return null
+        return gson.toJson(list)
+    }
+
+    @TypeConverter
+    fun fromIntString(value: String?): List<Int>? {
+        if (value == null) return null
+        val listType = object : TypeToken<List<Int>>() {}.type
+        return gson.fromJson(value, listType)
+    }
+
+    @TypeConverter
+    fun fromIntList(list: List<Int>?): String? {
+        if (list == null) return null
+        return gson.toJson(list)
+    }
+
+    @TypeConverter
+    fun mapToString(map: Map<String, String>?): String? {
+        if (map == null) return null
+        return gson.toJson(map)
+    }
+
+    @TypeConverter
+    fun stringToMap(value: String?): Map<String, String>? {
+        if (value == null) return null
+        val mapType = object : TypeToken<Map<String, String>>() {}.type
+        return gson.fromJson(value, mapType)
+    }
 } 

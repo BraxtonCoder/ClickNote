@@ -16,4 +16,8 @@ interface TranscriptionCapable {
     suspend fun detectSpeakers(audioData: ByteArray): Result<Int>
     suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>>
     suspend fun generateSummary(text: String, template: SummaryTemplate?): Result<Summary>
+    suspend fun transcribe(audioFilePath: String): String
+    suspend fun transcribeStream(audioStream: ByteArray): String
+    suspend fun isAvailable(): Boolean
+    suspend fun initialize()
 }

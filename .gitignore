@@ -26,3 +26,6 @@ app/google-services.json
 
 # Release files
 app/release/
+
+# Keep Room schemas
+!/app/schemas/

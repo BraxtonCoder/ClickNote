@@ -1,11 +1,15 @@
 package com.example.clicknote.service.impl
 
 import android.content.Context
+import com.example.clicknote.domain.service.TranscriptionCapable
 import com.example.clicknote.domain.service.WhisperTranscriptionService
 import com.example.clicknote.di.ApplicationScope
 import com.example.clicknote.service.TranscriptionService
 import com.example.clicknote.service.TranscriptionSegment
 import com.example.clicknote.service.Speaker
+import com.example.clicknote.domain.model.Summary
+import com.example.clicknote.domain.model.SummaryTemplate
+import com.example.clicknote.domain.model.TranscriptionSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -14,13 +18,14 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.min
 
 @Singleton
-class WhisperTranscriptionService @Inject constructor(
+class WhisperTranscriptionServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     @ApplicationScope private val coroutineScope: CoroutineScope
-) : WhisperTranscriptionService {
+) : WhisperTranscriptionService, TranscriptionCapable {
 
     private var classifier: AudioClassifier? = null
     private var isTranscribing = false
@@ -33,6 +38,8 @@ class WhisperTranscriptionService @Inject constructor(
 
     private val speakerMap = mutableMapOf<String, Speaker>()
     private var nextSpeakerId = 1
+
+    override val id: String = "whisper"
 
     init {
         initializeModel()
@@ -165,6 +172,69 @@ class WhisperTranscriptionService @Inject constructor(
 
     private fun loadAudioFile(file: File): List<Byte> {
         return file.readBytes().toList()
+    }
+
+    override suspend fun cleanup() {
+        // Implementation
+    }
+
+    override fun isInitialized(): Boolean {
+        // Implementation
+        return false
+    }
+
+    override suspend fun transcribeAudio(audioData: ByteArray, settings: TranscriptionSettings): Result<String> {
+        // Implementation
+        return Result.success("")
+    }
+
+    override suspend fun transcribeFile(file: File, settings: TranscriptionSettings): Result<String> {
+        // Implementation
+        return Result.success("")
+    }
+
+    override suspend fun detectLanguage(audioData: ByteArray): Result<String> {
+        // Implementation
+        return Result.success("")
+    }
+
+    override suspend fun getAvailableLanguages(): Result<List<String>> {
+        // Implementation
+        return Result.success(emptyList())
+    }
+
+    override suspend fun detectSpeakers(audioData: ByteArray): Result<Int> {
+        // Implementation
+        return Result.success(1)
+    }
+
+    override suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>> {
+        // Implementation
+        return Result.success(emptyMap())
+    }
+
+    override suspend fun generateSummary(text: String, template: SummaryTemplate?): Result<Summary> {
+        // Implementation
+        return Result.success(Summary("", emptyList()))
+    }
+
+    override suspend fun transcribe(audioFilePath: String): String {
+        // Implementation
+        return ""
+    }
+
+    override suspend fun transcribeStream(audioStream: ByteArray): String {
+        // Implementation
+        return ""
+    }
+
+    override suspend fun isAvailable(): Boolean {
+        // Implementation
+        return true
+    }
+
+    override suspend fun initialize() {
+        // Implementation
     }
 
     companion object {

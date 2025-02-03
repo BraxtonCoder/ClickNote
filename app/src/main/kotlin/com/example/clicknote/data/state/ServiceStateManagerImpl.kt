@@ -1,43 +1,25 @@
 package com.example.clicknote.data.state
 
-import com.example.clicknote.domain.state.ServiceState
+import com.example.clicknote.domain.service.TranscriptionService
 import com.example.clicknote.domain.state.ServiceStateManager
-import com.example.clicknote.domain.service.TranscriptionCapable
-import com.example.clicknote.di.qualifiers.Primary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
-class ServiceStateManagerImpl @Inject constructor(
-    @Primary private val primaryService: Provider<TranscriptionCapable>
-) : ServiceStateManager {
-    private val _state = MutableStateFlow<ServiceState>(ServiceState.Idle)
-    override val state: StateFlow<ServiceState> = _state.asStateFlow()
+class ServiceStateManagerImpl @Inject constructor() : ServiceStateManager {
+    private val _activeService = MutableStateFlow<TranscriptionService?>(null)
+    override val activeService: StateFlow<TranscriptionService?> = _activeService.asStateFlow()
 
-    private val _currentService = MutableStateFlow<TranscriptionCapable?>(null)
-    override val currentService: StateFlow<TranscriptionCapable?> = _currentService.asStateFlow()
-
-    init {
-        // Initialize with primary service
-        _currentService.value = primaryService.get()
-        _state.value = ServiceState.Active(primaryService.get())
+    override fun setActiveService(service: TranscriptionService?) {
+        _activeService.value = service
     }
 
-    override suspend fun activateService(service: TranscriptionCapable) {
-        _currentService.value = service
-        _state.value = ServiceState.Active(service)
+    override fun clearActiveService() {
+        _activeService.value = null
     }
 
-    override suspend fun deactivateService() {
-        // Reset to primary service when deactivating
-        val primary = primaryService.get()
-        _currentService.value = primary
-        _state.value = ServiceState.Active(primary)
-    }
-
-    override fun getCurrentService(): TranscriptionCapable? = currentService.value
+    override fun getActiveService(): TranscriptionService? = _activeService.value
 } 

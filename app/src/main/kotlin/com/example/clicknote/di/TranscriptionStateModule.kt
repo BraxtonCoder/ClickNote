@@ -1,36 +1,29 @@
 package com.example.clicknote.di
 
-import com.example.clicknote.data.state.TranscriptionServiceStateImpl
-import com.example.clicknote.data.state.ActiveServiceStateImpl
-import com.example.clicknote.domain.state.TranscriptionServiceState
-import com.example.clicknote.domain.state.ActiveServiceState
+import com.example.clicknote.data.state.ServiceStateManagerImpl
+import com.example.clicknote.domain.state.ServiceStateManager
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
-import dagger.Binds
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class TranscriptionStateModule {
-    @Binds
-    @Singleton
-    abstract fun bindTranscriptionServiceState(
-        impl: TranscriptionServiceStateImpl
-    ): TranscriptionServiceState
 
     @Binds
     @Singleton
-    abstract fun bindActiveServiceState(
-        impl: ActiveServiceStateImpl
-    ): ActiveServiceState
+    abstract fun bindServiceStateManager(
+        impl: ServiceStateManagerImpl
+    ): ServiceStateManager
 
     companion object {
         @Provides
         @Singleton
-        fun provideTranscriptionStateFlow(): MutableStateFlow<TranscriptionServiceState?> = 
+        fun provideServiceStateFlow(): MutableStateFlow<ServiceState?> =
             MutableStateFlow(null)
     }
 } 

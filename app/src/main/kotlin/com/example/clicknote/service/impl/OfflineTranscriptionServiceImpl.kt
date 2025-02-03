@@ -2,7 +2,7 @@ package com.example.clicknote.service.impl
 
 import android.content.Context
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
-import com.example.clicknote.domain.service.TranscriptionCapable
+import com.example.clicknote.domain.service.TranscriptionService
 import com.example.clicknote.domain.model.Summary
 import com.example.clicknote.domain.model.SummaryTemplate
 import com.example.clicknote.domain.model.TranscriptionSettings
@@ -20,7 +20,7 @@ class OfflineTranscriptionServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val userPreferences: UserPreferencesDataStore,
     private val performanceMonitor: Provider<PerformanceMonitor>
-) : TranscriptionCapable {
+) : TranscriptionService {
 
     override val id: String = "offline_service"
 
@@ -83,7 +83,9 @@ class OfflineTranscriptionServiceImpl @Inject constructor(
                 keyPoints = listOf("Key point 1", "Key point 2"),
                 actionItems = listOf("Action 1", "Action 2"),
                 categories = listOf("Category 1", "Category 2"),
-                timestamp = System.currentTimeMillis()
+                timestamp = System.currentTimeMillis(),
+                wordCount = 0,
+                sourceWordCount = 0
             ))
         } finally {
             performanceMonitor.get().endOperation("offline_generate_summary")

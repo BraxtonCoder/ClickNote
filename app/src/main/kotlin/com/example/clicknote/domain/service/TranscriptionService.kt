@@ -55,3 +55,16 @@ interface SummaryService : BaseService {
 interface OnlineCapableService : TranscriptionCapable
 
 interface OfflineCapableService : TranscriptionCapable
+
+interface TranscriptionService {
+    val id: String
+    suspend fun transcribeAudio(audioData: ByteArray, settings: TranscriptionSettings): Result<String>
+    suspend fun transcribeFile(file: File, settings: TranscriptionSettings): Result<String>
+    suspend fun detectLanguage(audioData: ByteArray): Result<String>
+    suspend fun getAvailableLanguages(): Result<List<String>>
+    suspend fun detectSpeakers(audioData: ByteArray): Result<Int>
+    suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>>
+    suspend fun generateSummary(text: String, template: SummaryTemplate?): Result<Summary>
+    suspend fun cleanup()
+    fun isInitialized(): Boolean
+}

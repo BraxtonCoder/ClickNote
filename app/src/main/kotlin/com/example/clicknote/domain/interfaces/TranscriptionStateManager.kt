@@ -1,19 +1,18 @@
 package com.example.clicknote.domain.interfaces
 
-import com.example.clicknote.domain.state.TranscriptionServiceState
+import com.example.clicknote.domain.state.ServiceState
 import kotlinx.coroutines.flow.StateFlow
 
 interface TranscriptionStateManager {
-    val currentState: StateFlow<TranscriptionServiceState?>
+    val currentState: StateFlow<ServiceState?>
     
-    fun startTranscription()
-    fun stopTranscription()
-    fun pauseTranscription()
-    fun resumeTranscription()
+    fun startRecording()
+    fun stopRecording()
+    fun startProcessing()
+    fun finishProcessing()
+    fun handleError(error: Throwable)
+    fun updateServiceState(state: ServiceState)
     
-    fun updateTranscriptionState(state: TranscriptionServiceState)
-    fun clearTranscriptionState()
-    
-    fun isTranscribing(): Boolean
-    fun isPaused(): Boolean
+    fun isRecording(): Boolean
+    fun isProcessing(): Boolean
 } 

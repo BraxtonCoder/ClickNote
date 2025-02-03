@@ -1,48 +1,40 @@
 package com.example.clicknote.service.impl
 
 import com.example.clicknote.domain.interfaces.TranscriptionStateManager
-import com.example.clicknote.domain.state.TranscriptionServiceState
+import com.example.clicknote.domain.state.ServiceStateManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DefaultTranscriptionStateManager @Inject constructor() : TranscriptionStateManager {
-    private val _currentState = MutableStateFlow<TranscriptionServiceState?>(null)
-    override val currentState: StateFlow<TranscriptionServiceState?> = _currentState
-    
-    private var isActive = false
-    private var isPausedState = false
-    
-    override fun startTranscription() {
-        isActive = true
-        isPausedState = false
+class DefaultTranscriptionStateManager @Inject constructor(
+    private val serviceStateManager: ServiceStateManager
+) : TranscriptionStateManager {
+    private val _currentState = MutableStateFlow<ServiceState?>(null)
+    override val currentState: StateFlow<ServiceState?> = _currentState
+
+    override fun startRecording() {
+        _currentState.value = ServiceState.Recording
     }
-    
-    override fun stopTranscription() {
-        isActive = false
-        isPausedState = false
-        clearTranscriptionState()
+
+    override fun stopRecording() {
+        _currentState.value = ServiceState.Idle
     }
-    
-    override fun pauseTranscription() {
-        isPausedState = true
+
+    override fun startProcessing() {
+        _currentState.value = ServiceState.Processing
     }
-    
-    override fun resumeTranscription() {
-        isPausedState = false
+
+    override fun finishProcessing() {
+        _currentState.value = ServiceState.Idle
     }
-    
-    override fun updateTranscriptionState(state: TranscriptionServiceState) {
+
+    override fun handleError(error: Throwable) {
+        _currentState.value = ServiceState.Error(error)
+    }
+
+    override fun updateServiceState(state: ServiceState) {
         _currentState.value = state
     }
-    
-    override fun clearTranscriptionState() {
-        _currentState.value = null
-    }
-    
-    override fun isTranscribing(): Boolean = isActive && !isPausedState
-    
-    override fun isPaused(): Boolean = isPausedState
 } 

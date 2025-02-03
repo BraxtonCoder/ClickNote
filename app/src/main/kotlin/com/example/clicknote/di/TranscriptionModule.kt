@@ -12,7 +12,7 @@ import com.example.clicknote.data.selector.TranscriptionServiceSelectorImpl
 import com.example.clicknote.domain.factory.TranscriptionServiceFactory
 import com.example.clicknote.domain.provider.TranscriptionServiceProvider
 import com.example.clicknote.domain.selector.TranscriptionServiceSelector
-import com.example.clicknote.domain.service.TranscriptionCapable
+import com.example.clicknote.domain.service.TranscriptionService
 import com.example.clicknote.service.impl.OnlineTranscriptionServiceImpl
 import com.example.clicknote.service.impl.OfflineTranscriptionServiceImpl
 import com.example.clicknote.service.impl.CombinedTranscriptionServiceImpl
@@ -58,21 +58,21 @@ abstract class TranscriptionModule {
     @Online
     abstract fun bindOnlineTranscriptionService(
         impl: OnlineTranscriptionServiceImpl
-    ): TranscriptionCapable
+    ): TranscriptionService
 
     @Binds
     @Singleton
     @Offline
     abstract fun bindOfflineTranscriptionService(
         impl: OfflineTranscriptionServiceImpl
-    ): TranscriptionCapable
+    ): TranscriptionService
 
     @Binds
     @Singleton
     @Combined
     abstract fun bindCombinedTranscriptionService(
         impl: CombinedTranscriptionServiceImpl
-    ): TranscriptionCapable
+    ): TranscriptionService
 
     companion object {
         @Provides
@@ -85,12 +85,5 @@ abstract class TranscriptionModule {
         ): TranscriptionUseCase {
             return TranscriptionUseCase(repository, serviceProvider, serviceSelector, scope)
         }
-
-        @Provides
-        @Singleton
-        @Primary
-        fun providePrimaryTranscriptionService(
-            @Combined combinedService: Provider<TranscriptionCapable>
-        ): TranscriptionCapable = combinedService.get()
     }
 } 

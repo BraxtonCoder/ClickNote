@@ -11,12 +11,14 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
+import com.example.clicknote.domain.state.ActiveServiceState
 
 @Singleton
 class TranscriptionRepositoryImpl @Inject constructor(
     private val serviceProvider: Provider<TranscriptionServiceProvider>,
     private val serviceSelector: Provider<TranscriptionServiceSelector>,
-    private val eventDispatcher: Provider<TranscriptionEventDispatcher>
+    private val eventDispatcher: Provider<TranscriptionEventDispatcher>,
+    private val activeServiceState: Provider<ActiveServiceState>
 ) : TranscriptionRepository {
 
     override val events: Flow<TranscriptionEvent> = eventDispatcher.get().events
@@ -54,11 +56,8 @@ class TranscriptionRepositoryImpl @Inject constructor(
             serviceSelector.get().getOfflineService().getAvailableLanguages()
         }
 
-    override fun cancelTranscription() {
-        serviceProvider.get().getActiveService()?.cancelTranscription()
-        runCatching {
-            eventDispatcher.get().emit(TranscriptionEvent.Cancelled)
-        }
+    override suspend fun cancelTranscription() {
+        activeServiceState.get().activeService.value?.cleanup()
     }
 
     override suspend fun cleanup() {

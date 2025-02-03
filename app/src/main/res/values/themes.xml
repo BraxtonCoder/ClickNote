@@ -2,21 +2,15 @@
 <resources>
     <style name="Theme.ClickNote" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowBackground">@color/background</item>
-        
-        <!-- Material3 color attributes -->
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryContainer">@color/primary_dark</item>
-        <item name="colorSecondary">@color/secondary</item>
-        <item name="colorAccent">@color/accent</item>
-        
-        <!-- Enable RTL support -->
-        <item name="android:supportsRtl">true</item>
-        <item name="android:textAlignment">viewStart</item>
-        <item name="android:layoutDirection">inherit</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.ClickNote.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/white</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+        <item name="postSplashScreenTheme">@style/Theme.ClickNote</item>
     </style>
 
     <style name="Theme.ClickNote.Splash" parent="Theme.SplashScreen">

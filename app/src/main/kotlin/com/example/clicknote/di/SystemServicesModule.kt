@@ -1,11 +1,10 @@
 package com.example.clicknote.di
 
+import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import android.os.PowerManager
 import android.os.Vibrator
-import android.os.VibratorManager
-import android.app.NotificationManager
 import android.content.ClipboardManager
 import dagger.Module
 import dagger.Provides
@@ -16,8 +15,8 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object SystemServiceModule {
-
+object SystemServicesModule {
+    
     @Provides
     @Singleton
     fun provideVibrator(@ApplicationContext context: Context): Vibrator {
@@ -46,11 +45,5 @@ object SystemServiceModule {
     @Singleton
     fun providePowerManager(@ApplicationContext context: Context): PowerManager {
         return context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    }
-
-    @Provides
-    @Singleton
-    fun provideContext(@ApplicationContext context: Context): Context {
-        return context
     }
 } 

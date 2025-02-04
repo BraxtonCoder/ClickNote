@@ -5,19 +5,21 @@ import com.example.clicknote.domain.event.ServiceEventHandler
 import com.example.clicknote.domain.registry.ServiceRegistry
 import com.example.clicknote.domain.state.ServiceStateManager
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
+import com.example.clicknote.di.ApplicationScope
+import com.example.clicknote.di.InternalEventFlow
+import dagger.Lazy
 
 @Singleton
 class ServiceEventHandlerImpl @Inject constructor(
-    private val stateManager: Provider<ServiceStateManager>,
-    private val registry: Provider<ServiceRegistry>,
-    private val events: Flow<ServiceEvent>,
-    private val coroutineScope: CoroutineScope
+    private val stateManager: Lazy<ServiceStateManager>,
+    private val registry: Lazy<ServiceRegistry>,
+    @InternalEventFlow private val events: SharedFlow<ServiceEvent>,
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) : ServiceEventHandler {
 
     init {
@@ -42,12 +44,10 @@ class ServiceEventHandlerImpl @Inject constructor(
 
     private suspend fun handleServiceInitialized(event: ServiceEvent.ServiceInitialized) {
         val service = registry.get().getService(event.serviceId)
-        val manager = stateManager.get()
-        
         service?.let {
-            manager.getCurrentService()?.let { currentService ->
+            stateManager.get().getCurrentService()?.let { currentService ->
                 if (currentService.id == service.id) {
-                    manager.activateService(service)
+                    stateManager.get().activateService(service)
                 }
             }
         }
@@ -55,8 +55,7 @@ class ServiceEventHandlerImpl @Inject constructor(
 
     private suspend fun handleServiceActivated(event: ServiceEvent.ServiceActivated) {
         val service = registry.get().getService(event.serviceId)
-        val manager = stateManager.get()
-        service?.let { manager.activateService(it) }
+        service?.let { stateManager.get().activateService(it) }
     }
 
     private suspend fun handleServiceReleased(event: ServiceEvent.ServiceReleased) {

@@ -7,20 +7,21 @@ import com.example.clicknote.domain.event.ServiceEventBus
 import com.example.clicknote.domain.event.ServiceEvent
 import javax.inject.Inject
 import javax.inject.Singleton
+import dagger.Lazy
 
 @Singleton
 class ServiceMediatorImpl @Inject constructor(
-    private val eventBus: ServiceEventBus
+    private val eventBus: Lazy<ServiceEventBus>
 ) : ServiceMediator {
     override suspend fun initializeService(service: TranscriptionService, context: TranscriptionServiceContext) {
-        eventBus.emit(ServiceEvent.ServiceInitialized(service.id, context))
+        eventBus.get().emit(ServiceEvent.ServiceInitialized(service.id, context))
     }
 
     override suspend fun releaseService(service: TranscriptionService) {
-        eventBus.emit(ServiceEvent.ServiceReleased(service.id))
+        eventBus.get().emit(ServiceEvent.ServiceReleased(service.id))
     }
 
     override suspend fun releaseAll() {
-        eventBus.emit(ServiceEvent.AllServicesReleased)
+        eventBus.get().emit(ServiceEvent.AllServicesReleased)
     }
 } 

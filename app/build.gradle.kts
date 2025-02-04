@@ -141,4 +141,7 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // MixPanel
+    implementation("com.mixpanel.android:mixpanel-android:7.3.1")
 }

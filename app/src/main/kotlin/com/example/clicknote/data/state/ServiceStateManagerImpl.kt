@@ -1,6 +1,7 @@
 package com.example.clicknote.data.state
 
-import com.example.clicknote.domain.service.TranscriptionService
+import com.example.clicknote.domain.service.TranscriptionCapable
+import com.example.clicknote.domain.state.ServiceState
 import com.example.clicknote.domain.state.ServiceStateManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,16 +11,21 @@ import javax.inject.Singleton
 
 @Singleton
 class ServiceStateManagerImpl @Inject constructor() : ServiceStateManager {
-    private val _activeService = MutableStateFlow<TranscriptionService?>(null)
-    override val activeService: StateFlow<TranscriptionService?> = _activeService.asStateFlow()
+    private val _state = MutableStateFlow<ServiceState>(ServiceState.Idle)
+    override val state: StateFlow<ServiceState> = _state.asStateFlow()
 
-    override fun setActiveService(service: TranscriptionService?) {
-        _activeService.value = service
+    private val _currentService = MutableStateFlow<TranscriptionCapable?>(null)
+    override val currentService: StateFlow<TranscriptionCapable?> = _currentService.asStateFlow()
+
+    override suspend fun activateService(service: TranscriptionCapable) {
+        _currentService.value = service
+        _state.value = ServiceState.Active(service)
     }
 
-    override fun clearActiveService() {
-        _activeService.value = null
+    override suspend fun deactivateService() {
+        _currentService.value = null
+        _state.value = ServiceState.Idle
     }
 
-    override fun getActiveService(): TranscriptionService? = _activeService.value
+    override fun getCurrentService(): TranscriptionCapable? = _currentService.value
 } 

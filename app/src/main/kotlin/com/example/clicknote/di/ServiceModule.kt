@@ -10,32 +10,50 @@ import com.example.clicknote.domain.mediator.ServiceMediator
 import com.example.clicknote.domain.registry.ServiceRegistry
 import com.example.clicknote.domain.service.EventMappingService
 import com.example.clicknote.domain.service.ServiceStrategy
-import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import dagger.Lazy
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class ServiceModule {
-    @Binds
+object ServiceModule {
+    @Provides
     @Singleton
-    abstract fun bindServiceRegistry(impl: ServiceRegistryImpl): ServiceRegistry
+    fun provideServiceRegistry(): ServiceRegistry {
+        return ServiceRegistryImpl()
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindServiceLifecycleManager(impl: ServiceLifecycleManagerImpl): ServiceLifecycleManager
+    fun provideServiceStrategy(): ServiceStrategy {
+        return ServiceStrategyImpl()
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindServiceMediator(impl: ServiceMediatorImpl): ServiceMediator
+    fun provideServiceMediator(
+        registry: Lazy<ServiceRegistry>,
+        strategy: Lazy<ServiceStrategy>
+    ): ServiceMediator {
+        return ServiceMediatorImpl(registry, strategy)
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindServiceStrategy(impl: ServiceStrategyImpl): ServiceStrategy
+    fun provideServiceLifecycleManager(
+        registry: Lazy<ServiceRegistry>,
+        mediator: Lazy<ServiceMediator>,
+        strategy: Lazy<ServiceStrategy>
+    ): ServiceLifecycleManager {
+        return ServiceLifecycleManagerImpl(registry, mediator, strategy)
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindEventMappingService(impl: EventMappingServiceImpl): EventMappingService
+    fun provideEventMappingService(): EventMappingService {
+        return EventMappingServiceImpl()
+    }
 }

@@ -8,34 +8,35 @@ import com.example.clicknote.domain.strategy.ServiceStrategy
 import com.example.clicknote.domain.model.TranscriptionServiceContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import dagger.Lazy
 
 @Singleton
 class ServiceLifecycleManagerImpl @Inject constructor(
-    private val strategy: ServiceStrategy,
-    private val registry: ServiceRegistry,
-    private val eventBus: ServiceEventBus
+    private val strategy: Lazy<ServiceStrategy>,
+    private val registry: Lazy<ServiceRegistry>,
+    private val eventBus: Lazy<ServiceEventBus>
 ) : ServiceLifecycleManager {
 
     override suspend fun initializeService(context: TranscriptionServiceContext) {
-        strategy.determineServiceType(context).let { serviceType ->
-            registry.getService(serviceType)?.let { service ->
+        strategy.get().determineServiceType(context).let { serviceType ->
+            registry.get().getService(serviceType)?.let { service ->
                 service.initialize(context)
-                eventBus.emit(ServiceEvent.ServiceInitialized(service.id, context))
+                eventBus.get().emit(ServiceEvent.ServiceInitialized(service.id, context))
             }
         }
     }
 
     override suspend fun activateService(serviceId: String) {
-        registry.getService(serviceId)?.let { service ->
+        registry.get().getService(serviceId)?.let { service ->
             service.activate()
-            eventBus.emit(ServiceEvent.ServiceActivated(service.id))
+            eventBus.get().emit(ServiceEvent.ServiceActivated(service.id))
         }
     }
 
     override suspend fun deactivateService(serviceId: String) {
-        registry.getService(serviceId)?.let { service ->
+        registry.get().getService(serviceId)?.let { service ->
             service.deactivate()
-            eventBus.emit(ServiceEvent.ServiceReleased(service.id))
+            eventBus.get().emit(ServiceEvent.ServiceReleased(service.id))
         }
     }
 } 

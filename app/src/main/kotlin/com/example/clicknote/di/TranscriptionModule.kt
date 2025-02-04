@@ -12,10 +12,6 @@ import com.example.clicknote.data.selector.TranscriptionServiceSelectorImpl
 import com.example.clicknote.domain.factory.TranscriptionServiceFactory
 import com.example.clicknote.domain.provider.TranscriptionServiceProvider
 import com.example.clicknote.domain.selector.TranscriptionServiceSelector
-import com.example.clicknote.domain.service.TranscriptionService
-import com.example.clicknote.service.impl.OnlineTranscriptionServiceImpl
-import com.example.clicknote.service.impl.OfflineTranscriptionServiceImpl
-import com.example.clicknote.service.impl.CombinedTranscriptionServiceImpl
 import com.example.clicknote.domain.provider.TranscriptionEventHandlerProvider
 import com.example.clicknote.service.impl.DefaultTranscriptionEventHandlerProvider
 import com.example.clicknote.di.qualifiers.*
@@ -24,28 +20,44 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
+import dagger.Lazy
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class TranscriptionModule {
-    @Binds
+object TranscriptionModule {
+    @Provides
     @Singleton
-    abstract fun bindTranscriptionRepository(impl: TranscriptionRepositoryImpl): TranscriptionRepository
+    fun provideTranscriptionServiceSelector(): TranscriptionServiceSelector {
+        return TranscriptionServiceSelectorImpl()
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindTranscriptionServiceFactory(impl: TranscriptionServiceFactoryImpl): TranscriptionServiceFactory
+    fun provideTranscriptionServiceProvider(
+        selector: Lazy<TranscriptionServiceSelector>
+    ): TranscriptionServiceProvider {
+        return TranscriptionServiceProviderImpl(selector)
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindTranscriptionServiceProvider(impl: TranscriptionServiceProviderImpl): TranscriptionServiceProvider
+    fun provideTranscriptionServiceFactory(
+        provider: Lazy<TranscriptionServiceProvider>
+    ): TranscriptionServiceFactory {
+        return TranscriptionServiceFactoryImpl(provider)
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindTranscriptionServiceSelector(impl: TranscriptionServiceSelectorImpl): TranscriptionServiceSelector
+    fun provideTranscriptionRepository(
+        factory: Lazy<TranscriptionServiceFactory>,
+        provider: Lazy<TranscriptionServiceProvider>,
+        selector: Lazy<TranscriptionServiceSelector>
+    ): TranscriptionRepository {
+        return TranscriptionRepositoryImpl(factory, provider, selector)
+    }
 
     @Binds
     @Singleton
@@ -78,9 +90,9 @@ abstract class TranscriptionModule {
         @Provides
         @Singleton
         fun provideTranscriptionUseCase(
-            repository: TranscriptionRepository,
-            serviceProvider: TranscriptionServiceProvider,
-            serviceSelector: TranscriptionServiceSelector,
+            repository: Lazy<TranscriptionRepository>,
+            serviceProvider: Lazy<TranscriptionServiceProvider>,
+            serviceSelector: Lazy<TranscriptionServiceSelector>,
             @ApplicationScope scope: CoroutineScope
         ): TranscriptionUseCase {
             return TranscriptionUseCase(repository, serviceProvider, serviceSelector, scope)

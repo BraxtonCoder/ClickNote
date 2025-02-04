@@ -8,10 +8,11 @@ import com.example.clicknote.domain.model.TranscriptionSettings
 import com.example.clicknote.domain.event.ServiceEvent
 import javax.inject.Inject
 import javax.inject.Singleton
+import dagger.Lazy
 
 @Singleton
 class ServiceStrategyImpl @Inject constructor(
-    private val eventBus: ServiceEventBus
+    private val eventBus: Lazy<ServiceEventBus>
 ) : ServiceStrategy {
 
     override fun determineServiceType(context: TranscriptionServiceContext): ServiceType {
@@ -38,11 +39,11 @@ class ServiceStrategyImpl @Inject constructor(
     override suspend fun validateServiceContext(context: TranscriptionServiceContext): Boolean {
         return when {
             context.requiresOnline && !context.settings.isNetworkAvailable -> {
-                eventBus.emit(ServiceEvent.ServiceError("", IllegalStateException("Network unavailable for online service")))
+                eventBus.get().emit(ServiceEvent.ServiceError("", IllegalStateException("Network unavailable for online service")))
                 false
             }
             !context.requiresOnline && !context.settings.preferOfflineMode -> {
-                eventBus.emit(ServiceEvent.ServiceError("", IllegalStateException("Offline service not initialized")))
+                eventBus.get().emit(ServiceEvent.ServiceError("", IllegalStateException("Offline service not initialized")))
                 false
             }
             else -> true

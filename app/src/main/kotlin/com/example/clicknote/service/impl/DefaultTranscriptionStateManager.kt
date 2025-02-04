@@ -6,10 +6,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
+import dagger.Lazy
 
 @Singleton
 class DefaultTranscriptionStateManager @Inject constructor(
-    private val serviceStateManager: ServiceStateManager
+    private val serviceStateManager: Lazy<ServiceStateManager>
 ) : TranscriptionStateManager {
     private val _currentState = MutableStateFlow<ServiceState?>(null)
     override val currentState: StateFlow<ServiceState?> = _currentState

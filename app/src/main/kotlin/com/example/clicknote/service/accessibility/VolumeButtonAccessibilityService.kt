@@ -1,73 +1,39 @@
 package com.example.clicknote.service.accessibility
 
 import android.accessibilityservice.AccessibilityService
-import android.content.Context
-import android.media.AudioManager
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
-import android.app.NotificationManager
-import com.example.clicknote.data.repository.NoteRepository
-import com.example.clicknote.data.repository.UserPreferencesDataStore
-import com.example.clicknote.service.AudioRecorder
-import com.example.clicknote.service.NotificationHandler
 import com.example.clicknote.service.RecordingManager
-import com.example.clicknote.service.WhisperService
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.components.SingletonComponent
+import com.example.clicknote.service.VolumeButtonHandler
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface VolumeButtonAccessibilityServiceEntryPoint {
-    fun recordingManager(): RecordingManager
-    fun audioRecorder(): AudioRecorder
-    fun whisperService(): WhisperService
-    fun noteRepository(): NoteRepository
-    fun notificationHandler(): NotificationHandler
-    fun userPreferences(): UserPreferencesDataStore
-    fun vibrator(): Vibrator
-    fun notificationManager(): NotificationManager
-}
-
+@AndroidEntryPoint
 class VolumeButtonAccessibilityService : AccessibilityService() {
 
-    private lateinit var recordingManager: RecordingManager
-    private lateinit var audioRecorder: AudioRecorder
-    private lateinit var whisperService: WhisperService
-    private lateinit var noteRepository: NoteRepository
-    private lateinit var notificationHandler: NotificationHandler
-    private lateinit var userPreferences: UserPreferencesDataStore
-    private lateinit var vibrator: Vibrator
-    private lateinit var notificationManager: NotificationManager
+    @Inject
+    lateinit var volumeButtonHandler: VolumeButtonHandler
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    @Inject
+    lateinit var recordingManager: RecordingManager
+    
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var lastVolumeUpTime = 0L
     private var lastVolumeDownTime = 0L
     private val triggerWindow = 750L // 750ms window for sequential clicks
 
-    override fun onCreate() {
-        super.onCreate()
-        val entryPoint = EntryPointAccessors.fromApplication(
-            applicationContext,
-            VolumeButtonAccessibilityServiceEntryPoint::class.java
-        )
-        recordingManager = entryPoint.recordingManager()
-        audioRecorder = entryPoint.audioRecorder()
-        whisperService = entryPoint.whisperService()
-        noteRepository = entryPoint.noteRepository()
-        notificationHandler = entryPoint.notificationHandler()
-        userPreferences = entryPoint.userPreferences()
-        vibrator = entryPoint.vibrator()
-        notificationManager = entryPoint.notificationManager()
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.launch {
+            stopRecording()
+        }
+        serviceScope.cancel()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -75,8 +41,8 @@ class VolumeButtonAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        scope.launch {
-            recordingManager.stopRecording()
+        serviceScope.launch {
+            stopRecording()
         }
     }
 
@@ -93,6 +59,7 @@ class VolumeButtonAccessibilityService : AccessibilityService() {
                     }
                     lastVolumeUpTime = currentTime
                 }
+                return volumeButtonHandler.handleVolumeButton(event)
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 if (event.action == KeyEvent.ACTION_DOWN) {
@@ -103,72 +70,35 @@ class VolumeButtonAccessibilityService : AccessibilityService() {
                     }
                     lastVolumeDownTime = currentTime
                 }
+                return volumeButtonHandler.handleVolumeButton(event)
             }
         }
-
-        // Let the system handle volume changes if no trigger detected
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        when (event.keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
-                }
-                return true
-            }
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-                }
-                return true
-            }
-        }
-
         return false
     }
 
     private fun handleVolumeButtonTrigger() {
-        scope.launch {
-            val isRecording = recordingManager.isRecording.first()
-            if (isRecording) {
-                recordingManager.stopRecording()
-                vibrateDouble()
+        serviceScope.launch {
+            toggleRecording()
+        }
+    }
+
+    private suspend fun toggleRecording() {
+        val isRecording = recordingManager.isRecording.first()
+        if (isRecording) {
+            stopRecording()
+            volumeButtonHandler.vibrateDouble()
+        } else {
+            if (recordingManager.canStartRecording()) {
+                recordingManager.startRecording()
+                volumeButtonHandler.vibrateSingle()
             } else {
-                if (recordingManager.canStartRecording()) {
-                    recordingManager.startRecording()
-                    vibrateSingle()
-                } else {
-                    // Free user has exceeded weekly limit
-                    vibrateError()
-                }
+                volumeButtonHandler.vibrateError()
             }
         }
     }
 
-    private fun vibrateSingle(duration: Long = 100) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(duration)
-        }
-    }
-
-    private fun vibrateDouble() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 100, 100), -1))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(longArrayOf(0, 100, 100, 100), -1)
-        }
-    }
-
-    private fun vibrateError() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 100, 100, 100, 100), -1))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(longArrayOf(0, 100, 100, 100, 100, 100), -1)
-        }
+    private suspend fun stopRecording() {
+        recordingManager.stopRecording()
     }
 
     override fun onServiceConnected() {

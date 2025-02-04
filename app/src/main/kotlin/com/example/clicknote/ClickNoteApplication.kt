@@ -11,6 +11,12 @@ import com.mixpanel.android.mpmetrics.MixpanelAPI
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Provider
+import com.example.clicknote.domain.analytics.AnalyticsService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class ClickNoteApplication : Application(), Configuration.Provider {
@@ -19,30 +25,53 @@ class ClickNoteApplication : Application(), Configuration.Provider {
     lateinit var workerFactory: HiltWorkerFactory
 
     @Inject
-    lateinit var serviceStateEventMapper: ServiceStateEventMapper
+    lateinit var serviceStateEventMapperProvider: Provider<ServiceStateEventMapper>
+
+    @Inject
+    lateinit var analyticsServiceProvider: Provider<AnalyticsService>
+
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
-        private const val MIXPANEL_TOKEN = "your_mixpanel_token_here"
+        private const val MIXPANEL_TOKEN = "a96f70206257896eabf7625522d7c8c9"
+        private var instance: ClickNoteApplication? = null
+
+        fun getInstance(): ClickNoteApplication {
+            return instance ?: throw IllegalStateException("Application not initialized")
+        }
     }
 
     override fun onCreate() {
         super.onCreate()
-        setupWeeklyTranscriptionReset()
-        setupCloudBackup()
+        instance = this
         
+        applicationScope.launch {
+            initializeComponents()
+        }
+    }
+
+    private suspend fun initializeComponents() {
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
         
         // Initialize MixPanel
         MixpanelAPI.getInstance(this, MIXPANEL_TOKEN)
 
+        // Setup WorkManager tasks
+        setupWeeklyTranscriptionReset()
+        setupCloudBackup()
+
         // Start observing service state changes
-        serviceStateEventMapper.startObserving()
+        serviceStateEventMapperProvider.get().startObserving()
+
+        // Initialize analytics tracking
+        analyticsServiceProvider.get().trackEvent("App Initialized")
     }
 
     override fun getWorkManagerConfiguration(): Configuration {
         return Configuration.Builder()
             .setWorkerFactory(workerFactory)
+            .setMinimumLoggingLevel(android.util.Log.INFO)
             .build()
     }
 
@@ -55,6 +84,11 @@ class ClickNoteApplication : Application(), Configuration.Provider {
             7, TimeUnit.DAYS
         )
             .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.LINEAR,
+                PeriodicWorkRequest.MIN_BACKOFF_MILLIS,
+                TimeUnit.MILLISECONDS
+            )
             .build()
 
         WorkManager.getInstance(this)
@@ -67,5 +101,10 @@ class ClickNoteApplication : Application(), Configuration.Provider {
 
     private fun setupCloudBackup() {
         CloudBackupWorker.schedule(this)
+    }
+
+    override fun onTerminate() {
+        instance = null
+        super.onTerminate()
     }
 } 

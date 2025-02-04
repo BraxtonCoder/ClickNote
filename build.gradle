@@ -1,8 +1,8 @@
 buildscript {
     ext {
-        compose_version = '1.5.4'
-        kotlin_version = '1.9.21'
-        hilt_version = '2.49'
+        compose_version = "1.5.4"
+        kotlin_version = "1.9.21"
+        hilt_version = "2.49"
         agp_version = '8.2.0'
         ksp_version = '1.9.21-1.0.15'
     }
@@ -12,7 +12,7 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:$agp_version"
+        classpath 'com.android.tools.build:gradle:8.2.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "com.google.dagger:hilt-android-gradle-plugin:$hilt_version"
         classpath 'com.google.gms:google-services:4.4.0'
@@ -21,10 +21,10 @@ buildscript {
 }
 
 plugins {
-    id 'com.android.application' version "$agp_version" apply false
-    id 'com.android.library' version "$agp_version" apply false
+    id 'com.android.application' version '8.2.2' apply false
+    id 'com.android.library' version '8.2.2' apply false
     id 'org.jetbrains.kotlin.android' version "$kotlin_version" apply false
-    id 'com.google.devtools.ksp' version "$ksp_version" apply false
+    id 'com.google.devtools.ksp' version "$kotlin_version-1.0.15" apply false
     id 'com.google.dagger.hilt.android' version "$hilt_version" apply false
 }
 

@@ -3,23 +3,21 @@ package com.example.clicknote
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import androidx.work.Constraints
-import androidx.work.NetworkType
+import androidx.work.WorkManager
 import com.google.firebase.FirebaseApp
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.mixpanel.android.mpmetrics.MixpanelAPI
-import dagger.hilt.android.HiltAndroidApplication
+import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
-import java.util.concurrent.TimeUnit
 
-@HiltAndroidApplication
-class ClickNoteApplication : Application(), Configuration.Provider {
+@HiltAndroidApp
+class ClickNoteApplication : Application(), androidx.work.Configuration.Provider {
     
     companion object {
         private const val MIXPANEL_TOKEN = "a96f70206257896eabf7625522d7c8c9"
-        private const val MIN_BACKOFF_MILLIS = TimeUnit.SECONDS.toMillis(30)
-        private const val MAX_BACKOFF_MILLIS = TimeUnit.HOURS.toMillis(2)
+        private const val MIN_BACKOFF_MILLIS = 30_000L // 30 seconds in milliseconds
+        private const val MAX_BACKOFF_MILLIS = 7_200_000L // 2 hours in milliseconds
     }
     
     @Inject
@@ -41,21 +39,20 @@ class ClickNoteApplication : Application(), Configuration.Provider {
             MIXPANEL_TOKEN,
             true
         )
+        
+        // Initialize WorkManager with custom configuration
+        WorkManager.initialize(
+            this,
+            getWorkManagerConfiguration()
+        )
     }
     
-    override fun getWorkManagerConfiguration(): Configuration {
-        return Configuration.Builder()
+    override fun getWorkManagerConfiguration(): androidx.work.Configuration {
+        return androidx.work.Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(android.util.Log.INFO)
             .setDefaultProcessName("${packageName}.background")
-            .setExecutor(androidx.work.WorkManager.getInstance(this).configuration.executor)
-            .setTaskExecutor(androidx.work.WorkManager.getInstance(this).configuration.taskExecutor)
             .setJobSchedulerJobIdRange(1000, 20000)
-            .setDefaultConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
-            )
             .build()
     }
     

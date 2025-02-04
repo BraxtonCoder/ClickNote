@@ -1,5 +1,6 @@
 package com.example.clicknote.domain.model
 
+import com.example.clicknote.data.model.SyncStatus
 import java.io.File
 import java.time.LocalDateTime
 import java.util.UUID
@@ -15,11 +16,12 @@ data class Note(
     val isPinned: Boolean = false,
     val hasAudio: Boolean = false,
     val audioPath: String? = null,
-    val source: String = "MANUAL",
+    val source: NoteSource = NoteSource.MANUAL,
     val folderId: String? = null,
     val summary: String? = null,
     val keyPoints: List<String> = emptyList(),
-    val speakers: List<String> = emptyList()
+    val speakers: List<String> = emptyList(),
+    val syncStatus: SyncStatus = SyncStatus.PENDING
 ) {
     companion object {
         fun create(
@@ -39,7 +41,7 @@ data class Note(
                 folderId = folderId,
                 hasAudio = hasAudio,
                 audioPath = audioPath,
-                source = source.toString()
+                source = source
             )
         }
     }

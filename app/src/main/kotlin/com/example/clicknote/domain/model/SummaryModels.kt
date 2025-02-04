@@ -21,16 +21,6 @@ data class TimelineEvent(
     val description: String
 )
 
-enum class SummaryTemplate {
-    MEETING_NOTES,
-    LECTURE_NOTES,
-    INTERVIEW,
-    RESEARCH_PAPER,
-    ARTICLE,
-    CONVERSATION,
-    CUSTOM
-}
-
 data class Summary(
     val id: String,
     val noteId: String,

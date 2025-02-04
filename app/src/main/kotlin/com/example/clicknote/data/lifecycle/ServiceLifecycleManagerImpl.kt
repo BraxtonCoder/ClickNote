@@ -6,9 +6,11 @@ import com.example.clicknote.domain.event.ServiceEventBus
 import com.example.clicknote.domain.registry.ServiceRegistry
 import com.example.clicknote.domain.strategy.ServiceStrategy
 import com.example.clicknote.domain.model.TranscriptionServiceContext
+import com.example.clicknote.domain.model.ServiceType
+import com.example.clicknote.domain.model.Service
 import javax.inject.Inject
 import javax.inject.Singleton
-import dagger.Provider
+import javax.inject.Provider
 
 @Singleton
 class ServiceLifecycleManagerImpl @Inject constructor(
@@ -18,25 +20,24 @@ class ServiceLifecycleManagerImpl @Inject constructor(
 ) : ServiceLifecycleManager {
 
     override suspend fun initializeService(context: TranscriptionServiceContext) {
-        strategy.get().determineServiceType(context).let { serviceType ->
-            registry.get().getService(serviceType)?.let { service ->
-                service.initialize(context)
-                eventBus.get().emit(ServiceEvent.ServiceInitialized(service.id, context))
-            }
+        val serviceType = strategy.get().determineServiceType(context)
+        registry.get().getServiceByType(serviceType)?.let { service ->
+            service.initialize(context)
+            eventBus.get().emitEvent(ServiceEvent.ServiceInitialized(service.serviceId, context))
         }
     }
 
     override suspend fun activateService(serviceId: String) {
-        registry.get().getService(serviceId)?.let { service ->
+        registry.get().getServiceById(serviceId)?.let { service ->
             service.activate()
-            eventBus.get().emit(ServiceEvent.ServiceActivated(service.id))
+            eventBus.get().emitEvent(ServiceEvent.ServiceActivated(service.serviceId))
         }
     }
 
     override suspend fun deactivateService(serviceId: String) {
-        registry.get().getService(serviceId)?.let { service ->
+        registry.get().getServiceById(serviceId)?.let { service ->
             service.deactivate()
-            eventBus.get().emit(ServiceEvent.ServiceReleased(service.id))
+            eventBus.get().emitEvent(ServiceEvent.ServiceReleased(service.serviceId))
         }
     }
 } 

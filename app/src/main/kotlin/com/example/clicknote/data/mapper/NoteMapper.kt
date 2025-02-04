@@ -4,6 +4,7 @@ import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.data.entity.NoteWithFolderEntity
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
+import com.example.clicknote.data.model.SyncStatus
 import java.time.LocalDateTime
 
 fun NoteEntity.toNote(): Note = Note(
@@ -17,7 +18,7 @@ fun NoteEntity.toNote(): Note = Note(
     isPinned = isPinned,
     hasAudio = hasAudio,
     audioPath = audioPath,
-    source = source,
+    source = NoteSource.valueOf(source),
     folderId = folderId,
     summary = summary,
     keyPoints = keyPoints,
@@ -39,12 +40,12 @@ fun Note.toNoteEntity(): NoteEntity = NoteEntity(
     isPinned = isPinned,
     hasAudio = hasAudio,
     audioPath = audioPath,
-    source = source,
+    source = source.name,
     folderId = folderId,
     summary = summary,
     keyPoints = keyPoints,
     speakers = speakers,
-    syncStatus = 0 // Default to pending sync
+    syncStatus = SyncStatus.PENDING
 )
 
 fun createNote(
@@ -67,7 +68,7 @@ fun createNote(
         isPinned = false,
         hasAudio = hasAudio,
         audioPath = audioPath,
-        source = source.toString(),
+        source = source,
         folderId = folderId,
         summary = null,
         keyPoints = emptyList(),

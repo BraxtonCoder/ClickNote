@@ -2,15 +2,16 @@ package com.example.clicknote.data
 
 import com.example.clicknote.data.entity.FolderEntity
 import com.example.clicknote.domain.model.Folder
-import java.time.LocalDateTime
 
 fun FolderEntity.toFolder(): Folder {
     return Folder(
         id = id,
         name = name,
         color = color,
+        sortOrder = sortOrder,
+        syncStatus = syncStatus,
         createdAt = createdAt,
-        modifiedAt = modifiedAt,
+        modifiedAt = updatedAt,
         isDeleted = isDeleted,
         deletedAt = deletedAt
     )
@@ -21,8 +22,10 @@ fun Folder.toEntity(): FolderEntity {
         id = id,
         name = name,
         color = color,
+        sortOrder = sortOrder,
+        syncStatus = syncStatus,
         createdAt = createdAt,
-        modifiedAt = modifiedAt,
+        updatedAt = modifiedAt,
         isDeleted = isDeleted,
         deletedAt = deletedAt
     )
@@ -32,13 +35,13 @@ fun FolderEntity.Companion.create(
     name: String,
     color: Int
 ): FolderEntity {
-    val now = LocalDateTime.now()
+    val now = System.currentTimeMillis()
     return FolderEntity(
         id = java.util.UUID.randomUUID().toString(),
         name = name,
         color = color,
         createdAt = now,
-        modifiedAt = now,
+        updatedAt = now,
         isDeleted = false,
         deletedAt = null
     )

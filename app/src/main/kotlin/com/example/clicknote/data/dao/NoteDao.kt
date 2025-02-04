@@ -149,7 +149,7 @@ interface NoteDao {
             insertAll(serverNotes)
             updateSyncStatus(localNotes.map { it.id }, SyncStatus.SYNCED)
         } catch (e: Exception) {
-            updateSyncStatus(localNotes.map { it.id }, SyncStatus.ERROR)
+            updateSyncStatus(localNotes.map { it.id }, SyncStatus.FAILED)
             throw e
         }
     }

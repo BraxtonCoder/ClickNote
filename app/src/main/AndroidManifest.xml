@@ -18,6 +18,7 @@
     <!-- Storage Permissions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     
     <!-- Phone Permissions -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -27,6 +28,7 @@
     
     <!-- Foreground Service Permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     
@@ -51,7 +53,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.ClickNote.Starting">
+            android:theme="@style/Theme.ClickNote"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -79,8 +82,8 @@
 
         <!-- Services -->
         <service
-            android:name=".service.accessibility.VolumeButtonAccessibilityService"
-            android:exported="true"
+            android:name=".service.VolumeButtonAccessibilityService"
+            android:exported="false"
             android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
@@ -92,10 +95,8 @@
         </service>
 
         <service
-            android:name=".service.recording.CallRecordingService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="microphone|phoneCall" />
+            android:name=".service.RecordingService"
+            android:foregroundServiceType="mediaProjection" />
 
         <service
             android:name=".service.recording.InternalAudioCaptureService"
@@ -113,13 +114,7 @@
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
-        </provider>
+            tools:node="remove" />
 
         <!-- Firebase Configuration -->
         <meta-data

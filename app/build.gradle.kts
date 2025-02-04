@@ -10,6 +10,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -32,6 +38,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        buildConfigField("String", "MIXPANEL_TOKEN", "\"${localProperties.getProperty("mixpanel.token", "")}\"")
+        buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${localProperties.getProperty("stripe.publishable.key", "")}\"")
 
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
@@ -63,6 +72,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        viewBinding = true
     }
 
     composeOptions {
@@ -126,7 +136,7 @@ dependencies {
     implementation("androidx.compose.material3:material3-window-size-class:1.2.1")
     implementation("com.google.android.material:material:1.11.0")
 
-    // WorkManager
+    // WorkManager with Hilt
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     // Java 8+ API desugaring
@@ -143,4 +153,22 @@ dependencies {
 
     // MixPanel
     implementation("com.mixpanel.android:mixpanel-android:7.3.1")
+
+    // Firebase and Google Sign-In
+    implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    implementation("com.google.firebase:firebase-analytics-ktx:21.5.0")
+    implementation("com.google.android.gms:play-services-auth-api-phone:18.0.1")
+    implementation("com.google.android.gms:play-services-base:18.3.0")
+
+    // DataStore
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Retrofit for API calls
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")  // For logging network calls
+    
+    // Stripe
+    implementation("com.stripe:stripe-android:20.38.0")
 }

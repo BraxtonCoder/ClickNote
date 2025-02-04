@@ -1,19 +1,17 @@
 package com.example.clicknote.domain.repository
 
-import com.example.clicknote.data.entity.FolderEntity
+import com.example.clicknote.domain.model.Folder
 import kotlinx.coroutines.flow.Flow
 
 interface FolderRepository {
-    fun getAllFolders(): Flow<List<FolderEntity>>
-    fun getDeletedFolders(): Flow<List<FolderEntity>>
-    suspend fun getFolderById(id: String): FolderEntity?
-    suspend fun insertFolder(folder: FolderEntity)
-    suspend fun updateFolder(folder: FolderEntity)
-    suspend fun moveToTrash(id: String)
-    suspend fun restoreFromTrash(id: String)
-    suspend fun deleteFolder(id: String)
-    suspend fun deleteExpiredFolders(timestamp: Long)
-    suspend fun folderExists(name: String): Boolean
-    fun getTotalFoldersCount(): Int
-    fun getDeletedFoldersCount(): Int
+    fun getAllFolders(): Flow<List<Folder>>
+    suspend fun getFolderById(id: String): Folder?
+    suspend fun insertFolder(folder: Folder): String
+    suspend fun updateFolder(folder: Folder)
+    suspend fun deleteFolder(folder: Folder)
+    suspend fun permanentlyDeleteFolder(folder: Folder)
+    fun searchFolders(query: String): Flow<List<Folder>>
+    suspend fun incrementNoteCount(folderId: String)
+    suspend fun decrementNoteCount(folderId: String)
+    suspend fun folderNameExists(name: String): Boolean
 } 

@@ -1,7 +1,8 @@
 package com.example.clicknote.domain.model
 
 enum class CloudProvider {
-    NONE,
+    FIREBASE,
+    AWS,
     GOOGLE_CLOUD,
-    LOCAL_CLOUD
+    LOCAL
 } 

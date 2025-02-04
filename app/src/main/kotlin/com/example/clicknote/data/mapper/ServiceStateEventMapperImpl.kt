@@ -11,10 +11,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 import com.example.clicknote.di.ApplicationScope
-import dagger.Lazy
-import dagger.Provider
 
 @Singleton
 class ServiceStateEventMapperImpl @Inject constructor(
@@ -27,17 +26,24 @@ class ServiceStateEventMapperImpl @Inject constructor(
     override fun startObserving() {
         if (stateObservingJob == null) {
             stateObservingJob = coroutineScope.launch {
-                stateManager.get().state
+                stateManager.get().observeState()
                     .onEach { state ->
                         when (state) {
                             is ServiceState.Active -> {
-                                eventBus.get().emit(ServiceEvent.ServiceActivated(state.service.id))
+                                eventBus.get().emitEvent(ServiceEvent.ServiceActivated(
+                                    name = state.service.name
+                                ))
                             }
                             is ServiceState.Idle -> {
-                                eventBus.get().emit(ServiceEvent.ServiceReleased(""))
+                                eventBus.get().emitEvent(ServiceEvent.ServiceReleased(
+                                    name = "Idle"
+                                ))
                             }
                             is ServiceState.Error -> {
-                                eventBus.get().emit(ServiceEvent.ServiceError(state.error.message ?: "", state.error))
+                                eventBus.get().emitEvent(ServiceEvent.ServiceError(
+                                    name = "Error",
+                                    error = state.error
+                                ))
                             }
                         }
                     }

@@ -18,6 +18,6 @@ class TranscriptionEventDispatcherImpl @Inject constructor() : TranscriptionEven
     }
 
     override suspend fun emitError(error: Throwable) {
-        emit(TranscriptionEvent.Error(error))
+        emit(TranscriptionEvent.Error(error.message ?: "Unknown error occurred"))
     }
 } 

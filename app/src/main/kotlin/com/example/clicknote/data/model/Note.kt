@@ -54,15 +54,8 @@ data class Note(
                 createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                 modifiedAt = doc.getLong("modifiedAt") ?: System.currentTimeMillis(),
                 deletedAt = doc.getLong("deletedAt"),
-                syncStatus = SyncStatus.SYNCED
+                syncStatus = SyncStatus.COMPLETED
             )
         }
     }
-}
-
-enum class SyncStatus {
-    PENDING,
-    SYNCING,
-    SYNCED,
-    ERROR
 } 

@@ -5,25 +5,25 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.Uri
 import androidx.work.*
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
-import com.example.clicknote.domain.model.Folder
-import com.example.clicknote.domain.model.Note
-import com.example.clicknote.domain.model.SyncStatus
-import com.example.clicknote.domain.model.NoteSummary
+import com.example.clicknote.domain.model.*
 import com.example.clicknote.domain.repository.CloudSyncRepository
 import com.example.clicknote.domain.service.CloudStorageService
 import com.example.clicknote.domain.service.FirestoreService
 import com.example.clicknote.worker.SyncWorker
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
+import java.io.File
+import java.util.*
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.io.File
 
 @Singleton
 class CloudSyncRepositoryImpl @Inject constructor(
@@ -38,7 +38,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
     companion object {
         private const val SYNC_WORK_NAME = "sync_work"
         private const val PERIODIC_SYNC_WORK_NAME = "periodic_sync_work"
-        private const val MIN_SYNC_INTERVAL = 15 // minutes
+        private const val MIN_SYNC_INTERVAL = 15L // minutes
         private const val AUDIO_FOLDER = "audio"
         private const val SUMMARY_FOLDER = "summaries"
     }
@@ -47,7 +47,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
     override val syncStatus: Flow<SyncStatus> = _syncStatus.asStateFlow()
 
     private val _syncErrors = MutableStateFlow<List<String>>(emptyList())
-    override fun getSyncErrors(): Flow<List<String>> = _syncErrors.asStateFlow()
+    override val syncErrors: Flow<List<String>> = _syncErrors.asStateFlow()
 
     private var currentWorkId: UUID? = null
 
@@ -86,7 +86,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
             }
 
             // Check if sync is enabled
-            if (!userPreferences.isCloudSyncEnabled.first()) {
+            if (!userPreferences.cloudSyncEnabled.first()) {
                 _syncStatus.value = SyncStatus.DISABLED
                 return
             }
@@ -140,13 +140,14 @@ class CloudSyncRepositoryImpl @Inject constructor(
     override suspend fun cancelSync() {
         currentWorkId?.let { workId ->
             workManager.cancelWorkById(workId)
+            currentWorkId = null
         }
         _syncStatus.value = SyncStatus.IDLE
     }
 
     override suspend fun uploadNote(note: Note): Result<Unit> = runCatching {
         if (_syncStatus.value == SyncStatus.OFFLINE) {
-            userPreferences.addPendingNote(note.id)
+            addPendingNote(note.id)
             return@runCatching
         }
 
@@ -169,15 +170,12 @@ class CloudSyncRepositoryImpl @Inject constructor(
 
         // Upload summary if exists
         note.summary?.let { summary ->
-            firestoreService.runTransaction { 
-                val summaryPath = "$SUMMARY_FOLDER/${note.id}"
-                val summaryData = NoteSummary(
-                    noteId = note.id,
-                    summary = summary,
-                    updatedAt = System.currentTimeMillis()
-                )
-                firestoreService.saveNoteSummary(userId, summaryPath, summaryData).getOrThrow()
-            }.getOrThrow()
+            val summaryPath = "$SUMMARY_FOLDER/${note.id}"
+            val summaryData = NoteSummary(
+                noteId = note.id,
+                summary = summary
+            )
+            firestoreService.saveNoteSummary(userId, summaryPath, summaryData).getOrThrow()
         }
     }
 
@@ -187,11 +185,20 @@ class CloudSyncRepositoryImpl @Inject constructor(
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not signed in")
         firestoreService.saveNotes(userId, notes).getOrThrow()
 
-        notes.filter { it.audioPath != null }.forEach { note ->
-            try {
-                cloudStorageService.uploadFile(userId, "audio/${note.id}", android.net.Uri.parse(note.audioPath!!)).getOrThrow()
-            } catch (e: Exception) {
-                _syncErrors.update { it + "Failed to upload audio for note ${note.id}: ${e.message}" }
+        notes.forEach { note ->
+            note.audioPath?.let { path ->
+                try {
+                    val audioFile = File(path)
+                    if (audioFile.exists()) {
+                        cloudStorageService.uploadFile(
+                            userId,
+                            "$AUDIO_FOLDER/${note.id}",
+                            audioFile
+                        ).getOrThrow()
+                    }
+                } catch (e: Exception) {
+                    _syncErrors.update { it + "Failed to upload audio for note ${note.id}: ${e.message}" }
+                }
             }
         }
     }
@@ -206,22 +213,20 @@ class CloudSyncRepositoryImpl @Inject constructor(
     override suspend fun deleteNote(noteId: String): Result<Unit> = runCatching {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not signed in")
         
-        firestoreService.runTransaction {
-            // Delete note data
-            firestoreService.deleteNote(userId, noteId).getOrThrow()
-            
-            // Delete audio file
-            cloudStorageService.deleteFile(userId, "$AUDIO_FOLDER/$noteId")
-                .onFailure { e -> 
-                    _syncErrors.update { it + "Failed to delete audio for note $noteId: ${e.message}" }
-                }
-            
-            // Delete summary
-            firestoreService.deleteNoteSummary(userId, "$SUMMARY_FOLDER/$noteId")
-                .onFailure { e ->
-                    _syncErrors.update { it + "Failed to delete summary for note $noteId: ${e.message}" }
-                }
-        }.getOrThrow()
+        // Delete note data
+        firestoreService.deleteNote(userId, noteId).getOrThrow()
+        
+        // Delete audio file
+        cloudStorageService.deleteFile(userId, "$AUDIO_FOLDER/$noteId")
+            .onFailure { e -> 
+                _syncErrors.update { it + "Failed to delete audio for note $noteId: ${e.message}" }
+            }
+        
+        // Delete summary
+        firestoreService.deleteNoteSummary(userId, "$SUMMARY_FOLDER/$noteId")
+            .onFailure { e ->
+                _syncErrors.update { it + "Failed to delete summary for note $noteId: ${e.message}" }
+            }
     }
 
     override suspend fun deleteFolder(folderId: String): Result<Unit> = runCatching {
@@ -249,8 +254,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
 
         // Get summary if exists
         if (note.hasSummary) {
-            val summaryPath = "$SUMMARY_FOLDER/$noteId"
-            val summary = firestoreService.getNoteSummary(userId, summaryPath).getOrNull()
+            val summary = firestoreService.getNoteSummary(userId, "$SUMMARY_FOLDER/$noteId").getOrNull()
             summary?.let {
                 note.summary = it.summary
             }
@@ -259,48 +263,31 @@ class CloudSyncRepositoryImpl @Inject constructor(
         note
     }
 
-    override suspend fun downloadFolder(folderId: String): Result<Folder> = runCatching {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not signed in")
-        firestoreService.getFolder(userId, folderId).getOrThrow()
-    }
+    override suspend fun syncPendingChanges() {
+        if (_syncStatus.value == SyncStatus.SYNCING) return
 
-    override suspend fun getStorageUsage(): Result<Long> = runCatching {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not signed in")
-        cloudStorageService.getStorageUsage(userId).getOrThrow()
-    }
+        try {
+            val pendingNotes = getPendingNotes()
+            if (pendingNotes.isEmpty()) return
 
-    override suspend fun getStorageLimit(): Result<Long> = runCatching {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not signed in")
-        firestoreService.getUserStorageLimit(userId).getOrThrow()
-    }
+            _syncStatus.value = SyncStatus.SYNCING
 
-    override suspend fun setCloudStoragePreference(enabled: Boolean) {
-        userPreferences.setCloudSyncEnabled(enabled)
-        if (!enabled) {
-            _syncStatus.value = SyncStatus.DISABLED
-        } else if (_syncStatus.value == SyncStatus.DISABLED) {
+            pendingNotes.forEach { noteId ->
+                firestoreService.getNote(auth.currentUser?.uid ?: return, noteId)
+                    .onSuccess { cloudNote ->
+                        val localNote = firestoreService.getNote(auth.currentUser?.uid ?: return, noteId).getOrNull()
+                        if (localNote != null && localNote.updatedAt > cloudNote.updatedAt) {
+                            uploadNote(localNote)
+                        }
+                    }
+            }
+
+            clearPendingNotes()
             _syncStatus.value = SyncStatus.IDLE
+        } catch (e: Exception) {
+            _syncStatus.value = SyncStatus.ERROR
+            _syncErrors.update { it + e.message.orEmpty() }
         }
-    }
-
-    override fun getCloudStoragePreference(): Flow<Boolean> = userPreferences.isCloudSyncEnabled
-
-    override fun getLastSyncTime(): Flow<Long?> = userPreferences.lastSyncTime
-
-    override suspend fun setSyncInterval(intervalMinutes: Int) {
-        if (intervalMinutes < MIN_SYNC_INTERVAL) {
-            throw IllegalArgumentException("Sync interval must be at least $MIN_SYNC_INTERVAL minutes")
-        }
-        userPreferences.setSyncInterval(intervalMinutes)
-        schedulePeriodicSync()
-    }
-
-    override fun getSyncInterval(): Flow<Int> = userPreferences.syncInterval
-
-    override fun isSyncing(): Flow<Boolean> = syncStatus.map { it == SyncStatus.SYNCING }
-
-    override suspend fun clearSyncErrors() {
-        _syncErrors.value = emptyList()
     }
 
     override suspend fun schedulePeriodicSync() {
@@ -308,8 +295,8 @@ class CloudSyncRepositoryImpl @Inject constructor(
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val syncWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
-            MIN_SYNC_INTERVAL.toLong(),
+        val periodicWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
+            MIN_SYNC_INTERVAL,
             TimeUnit.MINUTES
         )
             .setConstraints(constraints)
@@ -317,8 +304,8 @@ class CloudSyncRepositoryImpl @Inject constructor(
 
         workManager.enqueueUniquePeriodicWork(
             PERIODIC_SYNC_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            syncWorkRequest
+            ExistingPeriodicWorkPolicy.REPLACE,
+            periodicWorkRequest
         )
     }
 
@@ -326,56 +313,23 @@ class CloudSyncRepositoryImpl @Inject constructor(
         workManager.cancelUniqueWork(PERIODIC_SYNC_WORK_NAME)
     }
 
-    private suspend fun syncPendingChanges() {
-        if (_syncStatus.value == SyncStatus.SYNCING) return
+    private suspend fun addPendingNote(noteId: String) {
+        userPreferences.addPendingNote(noteId)
+    }
 
-        try {
-            val pendingNotes = userPreferences.getPendingNotes().first()
-            if (pendingNotes.isEmpty()) return
+    private suspend fun getPendingNotes(): List<String> {
+        return userPreferences.pendingNotes.first()
+    }
 
-            if (!networkStatus.first()) return
+    private suspend fun clearPendingNotes() {
+        userPreferences.clearPendingNotes()
+    }
 
-            _syncStatus.value = SyncStatus.SYNCING
+    private suspend fun getStorageUsage(): Result<Long> = runCatching {
+        cloudStorageService.getStorageUsage(auth.currentUser?.uid ?: throw IllegalStateException("User not signed in"))
+    }
 
-            val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not signed in")
-
-            // Get local notes that need syncing
-            val localNotes = pendingNotes.mapNotNull { noteId ->
-                try {
-                    downloadNote(noteId).getOrNull()
-                } catch (e: Exception) {
-                    _syncErrors.update { it + "Failed to get local note $noteId: ${e.message}" }
-                    null
-                }
-            }
-
-            // Get remote notes to check for conflicts
-            val remoteNotes = pendingNotes.mapNotNull { noteId ->
-                try {
-                    firestoreService.getNote(userId, noteId).getOrNull()
-                } catch (e: Exception) {
-                    _syncErrors.update { it + "Failed to get remote note $noteId: ${e.message}" }
-                    null
-                }
-            }
-
-            // Handle conflicts and sync
-            localNotes.forEach { localNote ->
-                val remoteNote = remoteNotes.find { it.id == localNote.id }
-                if (remoteNote == null || localNote.updatedAt > remoteNote.updatedAt) {
-                    try {
-                        uploadNote(localNote).getOrThrow()
-                    } catch (e: Exception) {
-                        _syncErrors.update { it + "Failed to sync note ${localNote.id}: ${e.message}" }
-                    }
-                }
-            }
-
-            userPreferences.clearPendingNotes()
-        } catch (e: Exception) {
-            _syncErrors.update { it + "Failed to sync pending changes: ${e.message}" }
-        } finally {
-            _syncStatus.value = SyncStatus.IDLE
-        }
+    private suspend fun getStorageLimit(): Result<Long> = runCatching {
+        cloudStorageService.getStorageLimit(auth.currentUser?.uid ?: throw IllegalStateException("User not signed in"))
     }
 } 

@@ -3,6 +3,8 @@ package com.example.clicknote.data.entity
 import androidx.room.Embedded
 import androidx.room.Relation
 import com.example.clicknote.domain.model.Note
+import com.example.clicknote.data.mapper.toNote
+import com.example.clicknote.data.mapper.toNoteEntity
 
 data class NoteWithFolderEntity(
     @Embedded

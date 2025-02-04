@@ -1,7 +1,7 @@
 package com.example.clicknote.data.registry
 
 import com.example.clicknote.domain.registry.ServiceRegistry
-import com.example.clicknote.domain.service.TranscriptionService
+import com.example.clicknote.domain.service.TranscriptionCapable
 import com.example.clicknote.domain.service.OnlineCapableService
 import com.example.clicknote.domain.service.OfflineCapableService
 import com.example.clicknote.domain.model.ServiceType
@@ -17,17 +17,19 @@ class ServiceRegistryImpl @Inject constructor(
     @Offline private val offlineService: Lazy<OfflineCapableService>
 ) : ServiceRegistry {
     
-    override fun getService(serviceId: String): TranscriptionService? =
+    override fun getService(serviceId: String): TranscriptionCapable? =
         when (serviceId) {
             onlineService.get().id -> onlineService.get()
             offlineService.get().id -> offlineService.get()
             else -> null
         }
 
-    override fun getService(serviceType: ServiceType): TranscriptionService? =
+    override fun getService(serviceType: ServiceType): TranscriptionCapable? =
         when (serviceType) {
             ServiceType.ONLINE -> onlineService.get()
             ServiceType.OFFLINE -> offlineService.get()
+            ServiceType.COMBINED -> null // TODO: Implement combined service if needed
+            else -> null
         }
 
     override fun getOnlineService(): OnlineCapableService = onlineService.get()

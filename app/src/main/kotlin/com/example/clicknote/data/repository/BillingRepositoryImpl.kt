@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import com.android.billingclient.api.*
 import com.example.clicknote.domain.model.SubscriptionPlan
+import com.example.clicknote.domain.model.SubscriptionStatus
+import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.repository.BillingRepository
 import com.example.clicknote.domain.repository.SubscriptionDetails
 import com.example.clicknote.domain.repository.SubscriptionStatus
@@ -27,11 +29,11 @@ class BillingRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
     @ApplicationScope private val coroutineScope: CoroutineScope,
     private val billingClient: BillingClient,
-    private val preferences: UserPreferencesDataStore
+    private val userPreferences: UserPreferencesDataStore
 ) : BillingRepository {
 
-    private val _subscriptionStatus = MutableStateFlow(SubscriptionStatus.FREE)
-    override val subscriptionStatus = _subscriptionStatus.asStateFlow()
+    private val _subscriptionStatus = MutableStateFlow<SubscriptionStatus>(SubscriptionStatus.NONE)
+    override val subscriptionStatus: Flow<SubscriptionStatus> = _subscriptionStatus.asStateFlow()
 
     private val _subscriptionDetails = MutableStateFlow(SubscriptionDetails(SubscriptionStatus.FREE))
     override val subscriptionDetails = _subscriptionDetails.asStateFlow()
@@ -44,6 +46,9 @@ class BillingRepositoryImpl @Inject constructor(
     private val _subscriptionPlans = MutableStateFlow<List<ProductDetails>>(emptyList())
     private val _currentPlan = MutableStateFlow<SubscriptionPlan?>(null)
 
+    private val _availablePlans = MutableStateFlow<List<SubscriptionPlan>>(emptyList())
+    override val availablePlans: Flow<List<SubscriptionPlan>> = _availablePlans.asStateFlow()
+
     private val purchasesUpdatedListener = PurchasesUpdatedListener { billingResult, purchases ->
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
             coroutineScope.launch(Dispatchers.IO) {
@@ -55,19 +60,21 @@ class BillingRepositoryImpl @Inject constructor(
     }
 
     init {
+        setupBillingClient()
+    }
+
+    private fun setupBillingClient() {
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    coroutineScope.launch {
-                        querySubscriptions()
-                        restorePurchases()
-                    }
+                    queryAvailableSubscriptions()
+                    checkSubscriptionStatus()
                 }
             }
 
             override fun onBillingServiceDisconnected() {
                 // Retry connection
-                billingClient.startConnection(this)
+                setupBillingClient()
             }
         })
     }
@@ -94,82 +101,101 @@ class BillingRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun purchaseSubscription(planId: String): Result<Unit> = runCatching {
-        val productDetails = _subscriptionPlans.value.find { it.productId == planId }
-            ?: throw IllegalArgumentException("Invalid plan ID")
+    override suspend fun launchBillingFlow(activity: Activity, plan: SubscriptionPlan) {
+        val productDetails = getProductDetails(plan.id)
+        if (productDetails != null) {
+            val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken
+            if (offerToken != null) {
+                val billingFlowParams = BillingFlowParams.newBuilder()
+                    .setProductDetailsParamsList(
+                        listOf(
+                            BillingFlowParams.ProductDetailsParams.newBuilder()
+                                .setProductDetails(productDetails)
+                                .setOfferToken(offerToken)
+                                .build()
+                        )
+                    )
+                    .build()
+                billingClient.launchBillingFlow(activity, billingFlowParams)
+            }
+        }
+    }
 
-        val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken
-            ?: throw IllegalStateException("No offer token available")
-
-        val billingFlowParams = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(
+    private suspend fun getProductDetails(productId: String): ProductDetails? {
+        val params = QueryProductDetailsParams.newBuilder()
+            .setProductList(
                 listOf(
-                    BillingFlowParams.ProductDetailsParams.newBuilder()
-                        .setProductDetails(productDetails)
-                        .setOfferToken(offerToken)
+                    QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId(productId)
+                        .setProductType(BillingClient.ProductType.SUBS)
                         .build()
                 )
             )
             .build()
 
-        // Launch billing flow
-        val activity = context as? Activity
-            ?: throw IllegalStateException("Context is not an activity")
-        
-        val responseCode = billingClient.launchBillingFlow(activity, billingFlowParams).responseCode
-        if (responseCode != BillingClient.BillingResponseCode.OK) {
-            throw IllegalStateException("Failed to launch billing flow")
-        }
+        return billingClient.queryProductDetails(params).productDetailsList?.firstOrNull()
     }
 
-    override suspend fun cancelSubscription(): Result<Unit> = runCatching {
-        // Implementation depends on your backend service
-        // You'll need to call your server to cancel the subscription
-    }
-
-    override suspend fun acknowledgeSubscription(purchaseToken: String) {
-        val params = AcknowledgePurchaseParams.newBuilder()
-            .setPurchaseToken(purchaseToken)
+    private fun queryAvailableSubscriptions() {
+        val params = QueryProductDetailsParams.newBuilder()
+            .setProductList(
+                listOf(
+                    QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId("monthly_subscription")
+                        .setProductType(BillingClient.ProductType.SUBS)
+                        .build(),
+                    QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId("annual_subscription")
+                        .setProductType(BillingClient.ProductType.SUBS)
+                        .build()
+                )
+            )
             .build()
-        billingClient.acknowledgePurchase(params)
-    }
 
-    override suspend fun consumePurchase(purchaseToken: String) {
-        val params = ConsumeParams.newBuilder()
-            .setPurchaseToken(purchaseToken)
-            .build()
-        billingClient.consumePurchase(params)
-    }
-
-    override suspend fun restorePurchases(): Result<Unit> = runCatching {
-        val params = QueryPurchasesParams.newBuilder()
-            .setProductType(BillingClient.ProductType.SUBS)
-            .build()
-        
-        val result = billingClient.queryPurchases(params)
-        if (result.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-            result.purchasesList.forEach { purchase ->
-                if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-                    coroutineScope.launch {
-                        handlePurchase(purchase.purchaseToken)
-                    }
+        billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                _availablePlans.value = productDetailsList.map { details ->
+                    SubscriptionPlan(
+                        id = details.productId,
+                        name = details.title,
+                        description = details.description,
+                        price = details.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice ?: "",
+                        period = when {
+                            details.productId.contains("monthly") -> SubscriptionPeriod.MONTHLY
+                            details.productId.contains("annual") -> SubscriptionPeriod.ANNUAL
+                            else -> SubscriptionPeriod.MONTHLY
+                        },
+                        type = SubscriptionType.PREMIUM
+                    )
                 }
             }
         }
     }
 
-    override suspend fun handlePurchase(purchaseToken: String) {
-        // Verify purchase with backend
-        // Update subscription status
-        updateSubscriptionStatus(SubscriptionStatus.MONTHLY) // or ANNUAL based on purchase
+    private fun checkSubscriptionStatus() {
+        billingClient.queryPurchasesAsync(
+            QueryPurchasesParams.newBuilder()
+                .setProductType(BillingClient.ProductType.SUBS)
+                .build()
+        ) { billingResult, purchases ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                val activePurchase = purchases.firstOrNull { purchase ->
+                    purchase.purchaseState == Purchase.PurchaseState.PURCHASED
+                }
+
+                if (activePurchase != null) {
+                    verifySubscription(activePurchase.purchaseToken)
+                } else {
+                    updateSubscriptionStatus(SubscriptionStatus.FREE)
+                }
+            }
+        }
     }
 
-    override suspend fun handleSubscriptionCanceled() {
-        updateSubscriptionStatus(SubscriptionStatus.GRACE_PERIOD)
-    }
-
-    override suspend fun handleSubscriptionExpired() {
-        updateSubscriptionStatus(SubscriptionStatus.EXPIRED)
+    private fun verifySubscription(purchaseToken: String) {
+        // Here you would typically verify the purchase with your backend
+        // For now, we'll just assume it's valid
+        updateSubscriptionStatus(SubscriptionStatus.MONTHLY)
     }
 
     private fun updateSubscriptionStatus(status: SubscriptionStatus) {
@@ -226,8 +252,20 @@ class BillingRepositoryImpl @Inject constructor(
 
     override fun getCurrentPlan(): Flow<SubscriptionPlan?> = _currentPlan
 
+    override suspend fun checkWeeklyTranscriptionLimit(): Boolean {
+        return when (_subscriptionStatus.value) {
+            SubscriptionStatus.FREE -> {
+                val count = userPreferences.weeklyTranscriptionCount.first()
+                count < FREE_WEEKLY_LIMIT
+            }
+            SubscriptionStatus.MONTHLY, SubscriptionStatus.ANNUAL -> true
+            else -> false
+        }
+    }
+
     companion object {
         private const val GRACE_PERIOD_DURATION = 7 * 24 * 60 * 60 * 1000L // 7 days in milliseconds
         private const val SUBSCRIPTION_DURATION = 30 * 24 * 60 * 60 * 1000L // 30 days in milliseconds
+        private const val FREE_WEEKLY_LIMIT = 3
     }
 } 

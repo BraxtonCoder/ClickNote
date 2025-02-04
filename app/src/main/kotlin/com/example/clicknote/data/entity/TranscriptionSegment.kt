@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
 import com.example.clicknote.domain.model.TranscriptionSegment as DomainSegment
+import java.util.UUID
 
 @Entity(
     tableName = "transcription_segments",
@@ -23,7 +24,7 @@ import com.example.clicknote.domain.model.TranscriptionSegment as DomainSegment
 )
 data class TranscriptionSegment(
     @PrimaryKey
-    val id: String,
+    val id: String = UUID.randomUUID().toString(),
 
     @ColumnInfo(name = "note_id")
     val noteId: String,
@@ -50,28 +51,21 @@ data class TranscriptionSegment(
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain() = DomainSegment(
-        id = id,
-        noteId = noteId,
         text = content,
         startTime = startTime,
         endTime = endTime,
-        speakerId = speakerId,
-        confidence = confidence,
-        createdAt = createdAt,
-        updatedAt = updatedAt
+        speaker = speakerId,
+        confidence = confidence
     )
 
     companion object {
-        fun fromDomain(segment: DomainSegment) = TranscriptionSegment(
-            id = segment.id,
-            noteId = segment.noteId,
+        fun fromDomain(noteId: String, segment: DomainSegment) = TranscriptionSegment(
+            noteId = noteId,
             content = segment.text,
             startTime = segment.startTime,
             endTime = segment.endTime,
-            speakerId = segment.speakerId,
-            confidence = segment.confidence,
-            createdAt = segment.createdAt,
-            updatedAt = segment.updatedAt
+            speakerId = segment.speaker,
+            confidence = segment.confidence
         )
     }
 } 

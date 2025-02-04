@@ -29,6 +29,8 @@ import javax.inject.Inject
 import com.google.firebase.auth.FirebaseAuth
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.example.clicknote.service.AuthService
 import kotlinx.coroutines.CoroutineScope
@@ -46,9 +48,18 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var authService: AuthService
 
+    private lateinit var googleSignInClient: GoogleSignInClient
+
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize Google Sign-In
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
         
         var startDestination by mutableStateOf<String?>(null)
         
@@ -124,7 +135,8 @@ class MainActivity : ComponentActivity() {
                             Box(modifier = Modifier.padding(paddingValues)) {
                                 NavGraph(
                                     navController = navController,
-                                    startDestination = startDestination ?: Screen.Notes.route
+                                    startDestination = startDestination ?: Screen.Notes.route,
+                                    userPreferences = userPreferences
                                 )
                             }
                         }

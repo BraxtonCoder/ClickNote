@@ -6,13 +6,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.example.clicknote.BuildConfig
 
 @Singleton
 class AnalyticsTracker @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val mixpanel: MixpanelAPI by lazy {
-        MixpanelAPI.getInstance(context, MIXPANEL_TOKEN)
+        MixpanelAPI.getInstance(context, BuildConfig.MIXPANEL_TOKEN, false)
     }
 
     // Permission Events
@@ -162,6 +163,6 @@ class AnalyticsTracker @Inject constructor(
     }
 
     companion object {
-        private const val MIXPANEL_TOKEN = "YOUR_MIXPANEL_TOKEN" // Replace with your actual token
+        // Remove the MIXPANEL_TOKEN constant as we're using BuildConfig now
     }
 } 

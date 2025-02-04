@@ -1,29 +1,99 @@
 package com.example.clicknote.data.repository
 
 import com.example.clicknote.data.dao.FolderDao
-import com.example.clicknote.data.entity.Folder
+import com.example.clicknote.data.entity.FolderEntity
+import com.example.clicknote.domain.model.Folder
+import com.example.clicknote.domain.repository.FolderRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class FolderRepository @Inject constructor(
+class FolderRepositoryImpl @Inject constructor(
     private val folderDao: FolderDao
-) {
-    fun getAllFolders(): Flow<List<Folder>> = folderDao.getAllFolders()
+) : FolderRepository {
 
-    suspend fun getFolderById(id: Long): Folder? = folderDao.getFolderById(id)
+    override fun getAllFolders(): Flow<List<Folder>> =
+        folderDao.getAllFolders().map { entities ->
+            entities.map { it.toDomain() }
+        }
 
-    suspend fun insertFolder(folder: Folder): Long = folderDao.insert(folder)
+    override suspend fun getFolderById(id: String): Folder? =
+        folderDao.getFolderById(id)?.toDomain()
 
-    suspend fun updateFolder(folder: Folder) = folderDao.update(folder)
+    override suspend fun insertFolder(folder: Folder): String {
+        val entity = FolderEntity(
+            name = folder.name,
+            color = folder.color,
+            noteCount = folder.noteCount,
+            createdAt = folder.createdAt,
+            updatedAt = folder.updatedAt,
+            isDeleted = folder.isDeleted,
+            deletedAt = folder.deletedAt
+        )
+        folderDao.insertFolder(entity)
+        return entity.id
+    }
 
-    suspend fun deleteFolder(folder: Folder) = folderDao.delete(folder)
+    override suspend fun updateFolder(folder: Folder) {
+        folderDao.updateFolder(
+            FolderEntity(
+                id = folder.id,
+                name = folder.name,
+                color = folder.color,
+                noteCount = folder.noteCount,
+                createdAt = folder.createdAt,
+                updatedAt = System.currentTimeMillis(),
+                isDeleted = folder.isDeleted,
+                deletedAt = folder.deletedAt
+            )
+        )
+    }
 
-    fun searchFolders(query: String): Flow<List<Folder>> = folderDao.searchFolders(query)
+    override suspend fun deleteFolder(folder: Folder) {
+        folderDao.deleteFolder(
+            FolderEntity(
+                id = folder.id,
+                name = folder.name,
+                color = folder.color,
+                noteCount = folder.noteCount,
+                createdAt = folder.createdAt,
+                updatedAt = System.currentTimeMillis(),
+                isDeleted = true,
+                deletedAt = System.currentTimeMillis()
+            )
+        )
+    }
 
-    suspend fun updateNoteCount(folderId: Long, change: Int) = folderDao.updateNoteCount(folderId, change)
+    override suspend fun permanentlyDeleteFolder(folder: Folder) {
+        folderDao.permanentlyDeleteFolder(folder.id)
+    }
 
-    suspend fun folderNameExists(name: String, excludeId: Long = 0): Boolean =
-        folderDao.folderNameExists(name, excludeId)
+    override fun searchFolders(query: String): Flow<List<Folder>> =
+        folderDao.searchFolders(query).map { entities ->
+            entities.map { it.toDomain() }
+        }
+
+    override suspend fun incrementNoteCount(folderId: String) {
+        folderDao.updateNoteCount(folderId, 1)
+    }
+
+    override suspend fun decrementNoteCount(folderId: String) {
+        folderDao.updateNoteCount(folderId, -1)
+    }
+
+    override suspend fun folderNameExists(name: String): Boolean =
+        folderDao.folderNameExists(name)
+
+    private fun FolderEntity.toDomain() = Folder(
+        id = id,
+        name = name,
+        color = color,
+        noteCount = noteCount,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        isDeleted = isDeleted,
+        deletedAt = deletedAt
+    )
 } 

@@ -8,9 +8,8 @@ import java.util.UUID
 @Entity(
     tableName = "folders",
     indices = [
-        Index(value = ["name"], unique = true),
-        Index("created_at"),
-        Index("sync_status")
+        Index("name", unique = true),
+        Index("created_at")
     ]
 )
 @TypeConverters(RoomConverters::class)
@@ -25,11 +24,8 @@ data class FolderEntity(
     @ColumnInfo(name = "color")
     val color: Int,
     
-    @ColumnInfo(name = "sort_order")
-    val sortOrder: Int = 0,
-    
-    @ColumnInfo(name = "sync_status")
-    val syncStatus: Int = 0,
+    @ColumnInfo(name = "note_count")
+    val noteCount: Int = 0,
     
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
@@ -47,8 +43,7 @@ data class FolderEntity(
         id = id,
         name = name,
         color = color,
-        sortOrder = sortOrder,
-        syncStatus = syncStatus,
+        noteCount = noteCount,
         createdAt = createdAt,
         modifiedAt = updatedAt,
         isDeleted = isDeleted,
@@ -60,8 +55,7 @@ data class FolderEntity(
             id = folder.id,
             name = folder.name,
             color = folder.color,
-            sortOrder = folder.sortOrder,
-            syncStatus = folder.syncStatus,
+            noteCount = folder.noteCount,
             createdAt = folder.createdAt,
             updatedAt = folder.modifiedAt,
             isDeleted = folder.isDeleted,

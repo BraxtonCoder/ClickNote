@@ -1,9 +1,13 @@
 package com.example.clicknote.data.api
 
+import androidx.activity.ComponentActivity
+import com.example.clicknote.data.api.model.*
+import com.example.clicknote.data.api.service.StripeBackendApi
+import com.example.clicknote.data.api.service.StripeService
 import com.example.clicknote.domain.model.SubscriptionPlan
 import com.stripe.android.Stripe
 import com.stripe.android.model.ConfirmPaymentIntentParams
-import com.stripe.android.model.PaymentMethod
+import dagger.hilt.android.qualifiers.ActivityContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
@@ -14,7 +18,8 @@ import javax.inject.Singleton
 class StripeApiImpl @Inject constructor(
     private val stripe: Stripe,
     private val stripeBackendApi: StripeBackendApi,
-    private val stripeService: StripeService
+    private val stripeService: StripeService,
+    @ActivityContext private val activity: ComponentActivity
 ) : StripeApi {
 
     override suspend fun createCustomer(email: String): Result<String> = runCatching {
@@ -32,13 +37,11 @@ class StripeApiImpl @Inject constructor(
 
         // Confirm payment if required
         if (response.clientSecret != null) {
-            val paymentMethod = stripe.retrievePaymentMethod(paymentMethodId)
             val params = ConfirmPaymentIntentParams.createWithPaymentMethodId(
                 paymentMethodId = paymentMethodId,
-                clientSecret = response.clientSecret,
-                paymentMethodType = PaymentMethod.Type.Card
+                clientSecret = response.clientSecret
             )
-            stripe.confirmPayment(params)
+            stripe.confirmPayment(activity, params)
         }
 
         return@withContext StripeSubscription(

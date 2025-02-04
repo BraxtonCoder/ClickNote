@@ -8,14 +8,22 @@ fun FolderEntity.toFolder(): Folder = Folder(
     id = id,
     name = name,
     color = color,
+    sortOrder = sortOrder,
+    syncStatus = syncStatus,
     createdAt = createdAt,
-    modifiedAt = modifiedAt
+    modifiedAt = updatedAt,
+    isDeleted = isDeleted,
+    deletedAt = deletedAt
 )
 
 fun Folder.toFolderEntity(): FolderEntity = FolderEntity(
     id = id,
     name = name,
     color = color,
+    sortOrder = sortOrder,
+    syncStatus = syncStatus,
     createdAt = createdAt,
-    modifiedAt = modifiedAt
+    updatedAt = modifiedAt,
+    isDeleted = isDeleted,
+    deletedAt = deletedAt
 ) 

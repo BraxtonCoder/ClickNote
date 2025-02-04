@@ -2,6 +2,7 @@ package com.example.clicknote.data.repository
 
 import com.example.clicknote.data.dao.CallRecordingDao
 import com.example.clicknote.data.entity.CallRecordingEntity
+import com.example.clicknote.data.entity.toCallRecordingEntity
 import com.example.clicknote.domain.model.CallRecording
 import com.example.clicknote.domain.repository.CallRecordingRepository
 import kotlinx.coroutines.flow.Flow

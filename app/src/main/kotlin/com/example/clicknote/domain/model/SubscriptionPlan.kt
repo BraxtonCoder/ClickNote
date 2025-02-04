@@ -5,6 +5,26 @@ package com.example.clicknote.domain.model
  * @property price The price of the subscription in GBP
  * @property weeklyLimit The number of transcriptions allowed per week (null for unlimited)
  */
+data class SubscriptionPlan(
+    val id: String,
+    val name: String,
+    val description: String,
+    val price: String,
+    val period: SubscriptionPeriod,
+    val type: SubscriptionType
+)
+
+enum class SubscriptionPeriod {
+    WEEKLY,
+    MONTHLY,
+    ANNUAL
+}
+
+enum class SubscriptionType {
+    FREE,
+    PREMIUM
+}
+
 enum class SubscriptionPlan {
     FREE,
     MONTHLY,

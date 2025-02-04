@@ -14,6 +14,8 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.example.clicknote.MainActivity
 import com.example.clicknote.R
+import com.example.clicknote.di.ServiceNotificationManager
+import com.example.clicknote.di.ServicePowerManager
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.repository.NoteRepository
@@ -21,22 +23,15 @@ import com.example.clicknote.service.transcription.TranscriptionManager
 import com.example.clicknote.util.NotificationHelper
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
+import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.io.File
 import java.time.LocalDateTime
 import java.util.*
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
+import javax.inject.Inject
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -47,14 +42,15 @@ interface RecordingServiceEntryPoint {
     fun notificationHelper(): NotificationHelper
 }
 
-class RecordingService : Service() {
-
-    private lateinit var userPreferences: UserPreferencesDataStore
-    private lateinit var noteRepository: NoteRepository
-    private lateinit var transcriptionManager: TranscriptionManager
-    private lateinit var powerManager: PowerManager
-    private lateinit var notificationHelper: NotificationHelper
-
+@AndroidEntryPoint
+class RecordingService @Inject constructor(
+    @ServicePowerManager private val powerManager: PowerManager,
+    @ServiceNotificationManager private val notificationManager: NotificationManager,
+    private val userPreferences: UserPreferencesDataStore,
+    private val noteRepository: NoteRepository,
+    private val transcriptionManager: TranscriptionManager,
+    private val notificationHelper: NotificationHelper
+) : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
@@ -82,16 +78,6 @@ class RecordingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val entryPoint = EntryPointAccessors.fromApplication(
-            applicationContext,
-            RecordingServiceEntryPoint::class.java
-        )
-        userPreferences = entryPoint.userPreferences()
-        noteRepository = entryPoint.noteRepository()
-        transcriptionManager = entryPoint.transcriptionManager()
-        powerManager = applicationContext.getSystemService(POWER_SERVICE) as PowerManager
-        notificationHelper = entryPoint.notificationHelper()
-        
         createNotificationChannel()
     }
 
@@ -241,7 +227,6 @@ class RecordingService : Service() {
                 description = "Recording notification channel"
                 setShowBadge(false)
             }
-            val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
     }

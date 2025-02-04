@@ -37,9 +37,8 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
             arg("room.incremental", "true")
             arg("room.expandProjection", "true")
-            arg("dagger.hilt.disableModulesHaveInstallInCheck", "true")
-            arg("dagger.fastInit", "enabled")
             arg("dagger.experimentalDaggerErrorMessages", "enabled")
+            arg("dagger.fullBindingGraphValidation", "ERROR")
         }
     }
 

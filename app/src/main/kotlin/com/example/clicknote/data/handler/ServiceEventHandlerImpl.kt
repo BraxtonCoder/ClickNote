@@ -13,12 +13,13 @@ import javax.inject.Singleton
 import com.example.clicknote.di.ApplicationScope
 import com.example.clicknote.di.InternalEventFlow
 import dagger.Lazy
+import dagger.Provider
 
 @Singleton
 class ServiceEventHandlerImpl @Inject constructor(
-    private val stateManager: Lazy<ServiceStateManager>,
-    private val registry: Lazy<ServiceRegistry>,
-    @InternalEventFlow private val events: SharedFlow<ServiceEvent>,
+    private val stateManager: Provider<ServiceStateManager>,
+    private val registry: Provider<ServiceRegistry>,
+    @InternalEventFlow private val events: Provider<SharedFlow<ServiceEvent>>,
     @ApplicationScope private val coroutineScope: CoroutineScope
 ) : ServiceEventHandler {
 
@@ -27,7 +28,7 @@ class ServiceEventHandlerImpl @Inject constructor(
     }
 
     private fun observeEvents() {
-        events
+        events.get()
             .onEach { event -> handleEvent(event) }
             .launchIn(coroutineScope)
     }

@@ -14,11 +14,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.example.clicknote.di.ApplicationScope
 import dagger.Lazy
+import dagger.Provider
 
 @Singleton
 class ServiceStateEventMapperImpl @Inject constructor(
-    private val stateManager: Lazy<ServiceStateManager>,
-    private val eventBus: Lazy<ServiceEventBus>,
+    private val stateManager: Provider<ServiceStateManager>,
+    private val eventBus: Provider<ServiceEventBus>,
     @ApplicationScope private val coroutineScope: CoroutineScope
 ) : ServiceStateEventMapper {
     private var stateObservingJob: Job? = null

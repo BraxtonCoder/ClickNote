@@ -16,7 +16,10 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Qualifier
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.CoroutineScope
 import dagger.Lazy
+import dagger.Provider
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -35,15 +38,15 @@ object EventModule {
     @Provides
     @Singleton
     fun provideServiceEventBus(
-        @InternalEventFlow eventFlow: MutableSharedFlow<ServiceEvent>
+        @InternalEventFlow eventFlow: Provider<MutableSharedFlow<ServiceEvent>>
     ): ServiceEventBus {
-        return ServiceEventBusImpl(eventFlow)
+        return ServiceEventBusImpl(eventFlow.get())
     }
 
     @Provides
     @Singleton
     fun provideServiceEventDispatcher(
-        eventBus: Lazy<ServiceEventBus>
+        eventBus: Provider<ServiceEventBus>
     ): ServiceEventDispatcher {
         return ServiceEventDispatcherImpl(eventBus)
     }
@@ -51,18 +54,21 @@ object EventModule {
     @Provides
     @Singleton
     fun provideServiceStateEventMapper(
-        eventBus: Lazy<ServiceEventBus>,
-        dispatcher: Lazy<ServiceEventDispatcher>
+        stateManager: Provider<ServiceStateManager>,
+        eventBus: Provider<ServiceEventBus>,
+        @ApplicationScope coroutineScope: CoroutineScope
     ): ServiceStateEventMapper {
-        return ServiceStateEventMapperImpl(eventBus, dispatcher)
+        return ServiceStateEventMapperImpl(stateManager, eventBus, coroutineScope)
     }
 
     @Provides
     @Singleton
     fun provideServiceEventHandler(
-        eventBus: Lazy<ServiceEventBus>,
-        mapper: Lazy<ServiceStateEventMapper>
+        stateManager: Provider<ServiceStateManager>,
+        registry: Provider<ServiceRegistry>,
+        @InternalEventFlow eventFlow: Provider<SharedFlow<ServiceEvent>>,
+        @ApplicationScope coroutineScope: CoroutineScope
     ): ServiceEventHandler {
-        return ServiceEventHandlerImpl(eventBus, mapper)
+        return ServiceEventHandlerImpl(stateManager, registry, eventFlow, coroutineScope)
     }
 } 

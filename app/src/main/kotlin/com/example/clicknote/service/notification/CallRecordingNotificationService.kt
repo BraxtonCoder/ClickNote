@@ -9,20 +9,20 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.example.clicknote.R
 import com.example.clicknote.ui.MainActivity
+import com.example.clicknote.di.ServiceNotificationManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class CallRecordingNotificationService @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    @ServiceNotificationManager private val notificationManager: NotificationManager
 ) {
     companion object {
         private const val CHANNEL_ID = "call_recording_channel"
         private const val NOTIFICATION_ID = 1001
     }
-
-    private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     init {
         createNotificationChannel()

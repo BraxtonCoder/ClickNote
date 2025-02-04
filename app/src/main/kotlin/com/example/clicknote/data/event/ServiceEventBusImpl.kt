@@ -7,10 +7,11 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import com.example.clicknote.di.InternalEventFlow
 
 @Singleton
 class ServiceEventBusImpl @Inject constructor(
-    private val eventFlow: MutableSharedFlow<ServiceEvent>
+    @InternalEventFlow private val eventFlow: MutableSharedFlow<ServiceEvent>
 ) : ServiceEventBus {
     override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
 

@@ -16,6 +16,8 @@ import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.example.clicknote.R
+import com.example.clicknote.di.ServiceNotificationManager
+import com.example.clicknote.di.ServicePowerManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import java.io.File
@@ -24,7 +26,10 @@ import java.nio.ByteBuffer
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class InternalAudioCaptureService : Service() {
+class InternalAudioCaptureService @Inject constructor(
+    @ServicePowerManager private val powerManager: PowerManager,
+    @ServiceNotificationManager private val notificationManager: NotificationManager
+) : Service() {
     private var mediaProjection: MediaProjection? = null
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
@@ -51,9 +56,6 @@ class InternalAudioCaptureService : Service() {
         const val ACTION_STOP_RECORDING = "STOP_INTERNAL_RECORDING"
     }
 
-    @Inject
-    lateinit var powerManager: PowerManager
-
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -74,7 +76,7 @@ class InternalAudioCaptureService : Service() {
     private fun startInternalRecording(resultData: Intent) {
         if (isRecording) return
 
-        val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val projectionManager = applicationContext.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = projectionManager.getMediaProjection(RESULT_OK, resultData)
 
         wakeLock = powerManager.newWakeLock(
@@ -152,7 +154,7 @@ class InternalAudioCaptureService : Service() {
 
     private fun createOutputFile(): File {
         val fileName = "internal_recording_${System.currentTimeMillis()}.pcm"
-        return File(getExternalFilesDir(null), fileName)
+        return File(applicationContext.getExternalFilesDir(null), fileName)
     }
 
     private fun createNotificationChannel() {
@@ -165,12 +167,11 @@ class InternalAudioCaptureService : Service() {
                 description = "Internal audio capture notification channel"
                 setShowBadge(false)
             }
-            val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
     }
 
-    private fun createNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun createNotification() = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
         .setContentTitle(getString(R.string.recording_internal_audio))
         .setSmallIcon(R.drawable.ic_mic)
         .setPriority(NotificationCompat.PRIORITY_LOW)

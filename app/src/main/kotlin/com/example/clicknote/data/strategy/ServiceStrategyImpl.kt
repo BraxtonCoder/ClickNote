@@ -8,11 +8,11 @@ import com.example.clicknote.domain.model.TranscriptionSettings
 import com.example.clicknote.domain.event.ServiceEvent
 import javax.inject.Inject
 import javax.inject.Singleton
-import dagger.Lazy
+import javax.inject.Provider
 
 @Singleton
 class ServiceStrategyImpl @Inject constructor(
-    private val eventBus: Lazy<ServiceEventBus>
+    private val eventBus: Provider<ServiceEventBus>
 ) : ServiceStrategy {
 
     override fun determineServiceType(context: TranscriptionServiceContext): ServiceType {

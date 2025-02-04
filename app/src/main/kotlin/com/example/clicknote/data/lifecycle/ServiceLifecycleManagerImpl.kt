@@ -8,13 +8,13 @@ import com.example.clicknote.domain.strategy.ServiceStrategy
 import com.example.clicknote.domain.model.TranscriptionServiceContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import dagger.Lazy
+import dagger.Provider
 
 @Singleton
 class ServiceLifecycleManagerImpl @Inject constructor(
-    private val strategy: Lazy<ServiceStrategy>,
-    private val registry: Lazy<ServiceRegistry>,
-    private val eventBus: Lazy<ServiceEventBus>
+    private val strategy: Provider<ServiceStrategy>,
+    private val registry: Provider<ServiceRegistry>,
+    private val eventBus: Provider<ServiceEventBus>
 ) : ServiceLifecycleManager {
 
     override suspend fun initializeService(context: TranscriptionServiceContext) {

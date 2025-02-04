@@ -7,11 +7,11 @@ import com.example.clicknote.domain.event.ServiceEventBus
 import com.example.clicknote.domain.event.ServiceEvent
 import javax.inject.Inject
 import javax.inject.Singleton
-import dagger.Lazy
+import javax.inject.Provider
 
 @Singleton
 class ServiceMediatorImpl @Inject constructor(
-    private val eventBus: Lazy<ServiceEventBus>
+    private val eventBus: Provider<ServiceEventBus>
 ) : ServiceMediator {
     override suspend fun initializeService(service: TranscriptionService, context: TranscriptionServiceContext) {
         eventBus.get().emit(ServiceEvent.ServiceInitialized(service.id, context))

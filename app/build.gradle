@@ -27,9 +27,6 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
             arg("room.incremental", "true")
             arg("room.expandProjection", "true")
-            arg("dagger.fastInit", "enabled")
-            arg("dagger.fullBindingGraphValidation", "NONE")
-            arg("dagger.hilt.android.internal.disableAndroidSuperclassValidation", "true")
         }
     }
 
@@ -48,10 +45,20 @@ android {
     kotlinOptions {
         jvmTarget = '17'
         freeCompilerArgs += [
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
-            "-Xjvm-default=all"
+            "-opt-in=kotlin.RequiresOptIn",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=kotlinx.coroutines.FlowPreview",
+            "-Xjvm-default=all",
+            "-Xskip-prerelease-check",
+            "-Xuse-k2"
         ]
+    }
+
+    ksp {
+        arg("dagger.fullBindingGraphValidation", "ERROR")
+        arg("room.incremental", "true")
+        arg("room.expandProjection", "true")
+        arg("room.schemaLocation", "$projectDir/schemas")
     }
 
     buildFeatures {

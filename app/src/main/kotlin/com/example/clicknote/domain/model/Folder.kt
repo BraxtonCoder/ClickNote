@@ -2,15 +2,19 @@ package com.example.clicknote.domain.model
 
 import java.time.LocalDateTime
 
+/**
+ * Domain model representing a folder that can contain notes
+ */
 data class Folder(
     val id: String,
     val name: String,
     val color: Int,
-    val noteCount: Int = 0,
     val createdAt: LocalDateTime,
     val modifiedAt: LocalDateTime,
     val deletedAt: LocalDateTime? = null,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val sortOrder: Int = 0,
+    val noteCount: Int = 0
 ) {
     companion object {
         fun create(
@@ -26,7 +30,8 @@ data class Folder(
                 createdAt = now,
                 modifiedAt = now,
                 deletedAt = null,
-                isDeleted = false
+                isDeleted = false,
+                sortOrder = 0
             )
         }
     }

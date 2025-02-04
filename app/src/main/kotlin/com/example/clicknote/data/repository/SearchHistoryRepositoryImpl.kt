@@ -34,8 +34,7 @@ class SearchHistoryRepositoryImpl @Inject constructor(
             query = query,
             type = type.name,
             useCount = 1,
-            lastUsed = LocalDateTime.now(),
-            createdAt = LocalDateTime.now()
+            lastUsed = LocalDateTime.now()
         )
         searchHistoryDao.insert(search)
     }
@@ -47,9 +46,7 @@ class SearchHistoryRepositoryImpl @Inject constructor(
                 query = search.query,
                 type = search.type.name,
                 useCount = search.useCount,
-                lastUsed = LocalDateTime.now(),
-                createdAt = search.createdAt,
-                isDeleted = search.isDeleted
+                lastUsed = LocalDateTime.now()
             )
         )
     }
@@ -89,8 +86,6 @@ class SearchHistoryRepositoryImpl @Inject constructor(
         query = query,
         type = SearchType.valueOf(type),
         useCount = useCount,
-        timestamp = lastUsed.toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
-        createdAt = createdAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
-        isDeleted = isDeleted
+        timestamp = lastUsed.toEpochSecond(java.time.ZoneOffset.UTC) * 1000
     )
 } 

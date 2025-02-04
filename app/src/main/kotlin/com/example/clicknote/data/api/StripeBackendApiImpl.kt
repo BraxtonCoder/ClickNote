@@ -1,21 +1,28 @@
 package com.example.clicknote.data.api
 
+import com.example.clicknote.data.api.model.*
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class StripeBackendApiImpl @Inject constructor(
-    private val stripeService: StripeService
-) : StripeBackendApi {
-    override suspend fun createSubscription(request: CreateSubscriptionRequest): CreateSubscriptionResponse {
-        // TODO: Implement actual backend API call
-        return CreateSubscriptionResponse(
-            subscriptionId = "sub_123",
-            status = "active",
-            currentPeriodEnd = "2024-12-31T23:59:59",
-            clientSecret = null
-        )
-    }
+    private val stripeService: StripeBackendApi
+) {
+    suspend fun createSubscription(request: CreateSubscriptionRequest): CreateSubscriptionResponse =
+        stripeService.createSubscription(request)
 
-    override suspend fun cancelSubscription() {
-        // TODO: Implement actual backend API call
-    }
+    suspend fun cancelSubscription(subscriptionId: String): CancelSubscriptionResponse =
+        stripeService.cancelSubscription(subscriptionId)
+
+    suspend fun createCustomer(request: CreateCustomerRequest): CreateCustomerResponse =
+        stripeService.createCustomer(request)
+
+    suspend fun createPaymentIntent(request: CreatePaymentIntentRequest): CreatePaymentIntentResponse =
+        stripeService.createPaymentIntent(request)
+
+    suspend fun createEphemeralKey(request: GetEphemeralKeyRequest): GetEphemeralKeyResponse =
+        stripeService.createEphemeralKey(request)
+
+    suspend fun getSubscriptionPlans(): GetSubscriptionPlansResponse =
+        stripeService.getSubscriptionPlans()
 } 

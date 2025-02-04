@@ -3,12 +3,14 @@ package com.example.clicknote.data.entity
 import androidx.room.*
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import com.example.clicknote.domain.model.Folder
 
 @Entity(
     tableName = "folders",
     indices = [
         Index("name", unique = true),
-        Index("created_at")
+        Index("created_at"),
+        Index("sort_order")
     ]
 )
 data class FolderEntity(
@@ -35,9 +37,41 @@ data class FolderEntity(
     val deletedAt: Long? = null,
 
     @ColumnInfo(name = "is_deleted")
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+
+    @ColumnInfo(name = "sort_order")
+    val sortOrder: Int = 0
 ) {
+    fun toDomain(): Folder {
+        return Folder(
+            id = id,
+            name = name,
+            color = color,
+            createdAt = java.time.Instant.ofEpochMilli(createdAt).atZone(ZoneOffset.UTC),
+            modifiedAt = java.time.Instant.ofEpochMilli(modifiedAt).atZone(ZoneOffset.UTC),
+            deletedAt = java.time.Instant.ofEpochMilli(deletedAt ?: 0).atZone(ZoneOffset.UTC),
+            isDeleted = isDeleted,
+            sortOrder = sortOrder,
+            noteCount = noteCount
+        )
+    }
+
     companion object {
+        fun fromDomain(domain: Folder): FolderEntity {
+            val now = System.currentTimeMillis()
+            return FolderEntity(
+                id = domain.id,
+                name = domain.name,
+                color = domain.color,
+                noteCount = domain.noteCount,
+                createdAt = domain.createdAt.toEpochSecond() * 1000,
+                modifiedAt = domain.modifiedAt.toEpochSecond() * 1000,
+                deletedAt = domain.deletedAt?.toEpochSecond()?.times(1000),
+                isDeleted = domain.isDeleted,
+                sortOrder = domain.sortOrder
+            )
+        }
+
         fun create(
             name: String,
             color: Int
@@ -51,7 +85,8 @@ data class FolderEntity(
                 createdAt = now,
                 modifiedAt = now,
                 deletedAt = null,
-                isDeleted = false
+                isDeleted = false,
+                sortOrder = 0
             )
         }
     }

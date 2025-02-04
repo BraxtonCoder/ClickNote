@@ -39,13 +39,13 @@ data class NoteEntity(
     val content: String,
 
     @ColumnInfo(name = "created_at")
-    val createdAt: Long,
+    val createdAt: LocalDateTime,
 
     @ColumnInfo(name = "modified_at")
-    val modifiedAt: Long,
+    val modifiedAt: LocalDateTime,
 
     @ColumnInfo(name = "deleted_at")
-    val deletedAt: Long? = null,
+    val deletedAt: LocalDateTime? = null,
 
     @ColumnInfo(name = "is_deleted")
     val isDeleted: Boolean = false,
@@ -66,7 +66,7 @@ data class NoteEntity(
     val duration: Long = 0,
 
     @ColumnInfo(name = "source")
-    val source: String,
+    val source: String = NoteSource.MANUAL.name,
 
     @ColumnInfo(name = "folder_id")
     val folderId: String? = null,
@@ -88,9 +88,9 @@ data class NoteEntity(
             id = id,
             title = title,
             content = content,
-            createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
-            modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-            deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
+            createdAt = createdAt,
+            modifiedAt = modifiedAt,
+            deletedAt = deletedAt,
             isDeleted = isDeleted,
             isPinned = isPinned,
             isLongForm = isLongForm,
@@ -112,9 +112,9 @@ data class NoteEntity(
                 id = domain.id,
                 title = domain.title,
                 content = domain.content,
-                createdAt = DateTimeUtils.localDateTimeToTimestamp(domain.createdAt),
-                modifiedAt = DateTimeUtils.localDateTimeToTimestamp(domain.modifiedAt),
-                deletedAt = domain.deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
+                createdAt = domain.createdAt,
+                modifiedAt = domain.modifiedAt,
+                deletedAt = domain.deletedAt,
                 isDeleted = domain.isDeleted,
                 isPinned = domain.isPinned,
                 isLongForm = domain.isLongForm,

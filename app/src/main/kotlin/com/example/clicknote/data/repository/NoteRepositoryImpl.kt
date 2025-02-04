@@ -4,18 +4,20 @@ import com.example.clicknote.data.dao.NoteDao
 import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.repository.NoteRepository
+import com.example.clicknote.util.DateTimeUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.util.UUID
 
 @Singleton
 class NoteRepositoryImpl @Inject constructor(
     private val noteDao: NoteDao
 ) : NoteRepository {
 
-    override fun getAllNotes(): Flow<List<Note>> =
+    override fun getNotes(): Flow<List<Note>> =
         noteDao.getAllNotes().map { entities ->
             entities.map { it.toDomain() }
         }
@@ -35,8 +37,11 @@ class NoteRepositoryImpl @Inject constructor(
             entities.map { it.toDomain() }
         }
 
-    override fun getNotesByDateRange(startTimestamp: Long, endTimestamp: Long): Flow<List<Note>> =
-        noteDao.getNotesByDateRange(startTimestamp, endTimestamp).map { entities ->
+    override fun getNotesByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<Note>> =
+        noteDao.getNotesByDateRange(
+            DateTimeUtils.localDateTimeToTimestamp(startDate),
+            DateTimeUtils.localDateTimeToTimestamp(endDate)
+        ).map { entities ->
             entities.map { it.toDomain() }
         }
 
@@ -44,92 +49,115 @@ class NoteRepositoryImpl @Inject constructor(
         noteDao.getNoteById(id)?.toDomain()
 
     override suspend fun insertNote(note: Note): String {
-        val entity = NoteEntity.fromDomain(note)
-        noteDao.insertNote(entity)
+        val now = System.currentTimeMillis()
+        val entity = NoteEntity(
+            id = UUID.randomUUID().toString(),
+            title = note.title,
+            content = note.content,
+            createdAt = now,
+            modifiedAt = now,
+            isDeleted = false,
+            deletedAt = null,
+            isPinned = note.isPinned,
+            isLongForm = note.isLongForm,
+            hasAudio = note.hasAudio,
+            audioPath = note.audioPath,
+            duration = note.duration,
+            source = note.source.name,
+            folderId = note.folderId,
+            summary = note.summary,
+            keyPoints = note.keyPoints,
+            speakers = note.speakers,
+            syncStatus = note.syncStatus.name
+        )
+        noteDao.insert(entity)
         return entity.id
     }
 
     override suspend fun updateNote(note: Note) {
-        noteDao.updateNote(NoteEntity.fromDomain(note))
+        val now = System.currentTimeMillis()
+        noteDao.update(
+            NoteEntity(
+                id = note.id,
+                title = note.title,
+                content = note.content,
+                createdAt = DateTimeUtils.localDateTimeToTimestamp(note.createdAt),
+                modifiedAt = now,
+                isDeleted = note.isDeleted,
+                deletedAt = note.deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
+                isPinned = note.isPinned,
+                isLongForm = note.isLongForm,
+                hasAudio = note.hasAudio,
+                audioPath = note.audioPath,
+                duration = note.duration,
+                source = note.source.name,
+                folderId = note.folderId,
+                summary = note.summary,
+                keyPoints = note.keyPoints,
+                speakers = note.speakers,
+                syncStatus = note.syncStatus.name
+            )
+        )
     }
 
-    override suspend fun delete(id: String) {
-        noteDao.delete(id)
+    override suspend fun deleteNote(note: Note) {
+        val now = System.currentTimeMillis()
+        noteDao.moveToTrash(note.id, now)
     }
 
-    override suspend fun deleteBulk(ids: List<String>) {
-        ids.forEach { noteDao.delete(it) }
+    override suspend fun permanentlyDeleteNote(note: Note) {
+        noteDao.delete(note.id)
     }
 
-    override suspend fun moveToTrash(id: String) {
-        val timestamp = System.currentTimeMillis()
-        noteDao.moveToTrash(id, timestamp)
-    }
-
-    override suspend fun moveToTrashBulk(ids: List<String>) {
-        val timestamp = System.currentTimeMillis()
-        ids.forEach { noteDao.moveToTrash(it, timestamp) }
-    }
-
-    override suspend fun restoreFromTrash(id: String) {
-        noteDao.restoreFromTrash(id)
-    }
-
-    override suspend fun restoreFromTrashBulk(ids: List<String>) {
-        ids.forEach { noteDao.restoreFromTrash(it) }
+    override suspend fun restoreNote(note: Note) {
+        noteDao.restoreFromTrash(note.id)
     }
 
     override suspend fun moveToFolder(noteId: String, folderId: String?) {
-        noteDao.updateNoteFolder(noteId, folderId)
+        noteDao.updateFolder(noteId, folderId)
     }
 
-    override suspend fun moveToFolderBulk(noteIds: List<String>, folderId: String?) {
-        noteDao.moveNotesToFolder(noteIds, folderId)
+    override suspend fun pinNote(noteId: String, isPinned: Boolean) {
+        noteDao.updatePinned(noteId, isPinned)
     }
 
-    override suspend fun togglePin(id: String) {
-        val note = noteDao.getNoteById(id) ?: return
-        noteDao.updateNote(note.copy(
-            isPinned = !note.isPinned,
-            updatedAt = System.currentTimeMillis()
-        ))
+    override suspend fun updateSpeakers(noteId: String, speakers: List<String>) {
+        noteDao.updateSpeakers(noteId, speakers)
     }
 
-    override suspend fun togglePinBulk(ids: List<String>) {
-        ids.forEach { id ->
-            val note = noteDao.getNoteById(id) ?: return@forEach
-            noteDao.updateNote(note.copy(
-                isPinned = !note.isPinned,
-                updatedAt = System.currentTimeMillis()
-            ))
-        }
+    override suspend fun updateSummary(noteId: String, summary: String?) {
+        noteDao.updateSummary(noteId, summary)
     }
 
-    override suspend fun updateSummary(id: String, summary: String) {
-        val note = noteDao.getNoteById(id) ?: return
-        noteDao.updateNote(note.copy(
-            summary = summary,
-            updatedAt = System.currentTimeMillis()
-        ))
+    override suspend fun updateKeyPoints(noteId: String, keyPoints: List<String>) {
+        noteDao.updateKeyPoints(noteId, keyPoints)
     }
 
-    override suspend fun updateKeyPoints(id: String, keyPoints: List<String>) {
-        val note = noteDao.getNoteById(id) ?: return
-        noteDao.updateNote(note.copy(
-            keyPoints = keyPoints,
-            updatedAt = System.currentTimeMillis()
-        ))
+    override suspend fun deleteExpiredNotes(expirationDate: LocalDateTime) {
+        noteDao.deleteExpiredNotes(DateTimeUtils.localDateTimeToTimestamp(expirationDate))
     }
 
-    override suspend fun updateSpeakers(id: String, speakers: List<String>) {
-        val note = noteDao.getNoteById(id) ?: return
-        noteDao.updateNote(note.copy(
-            speakers = speakers,
-            updatedAt = System.currentTimeMillis()
-        ))
-    }
+    override suspend fun noteExists(id: String): Boolean =
+        noteDao.noteExists(id)
 
-    override suspend fun deleteExpiredNotes(expirationTime: Long) {
-        noteDao.deleteExpiredNotes(expirationTime)
-    }
+    private fun NoteEntity.toDomain() = Note(
+        id = id,
+        title = title,
+        content = content,
+        createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
+        modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
+        deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
+        isDeleted = isDeleted,
+        isPinned = isPinned,
+        isLongForm = isLongForm,
+        hasAudio = hasAudio,
+        audioPath = audioPath,
+        duration = duration,
+        source = com.example.clicknote.domain.model.NoteSource.valueOf(source),
+        folderId = folderId,
+        summary = summary,
+        keyPoints = keyPoints,
+        speakers = speakers,
+        syncStatus = com.example.clicknote.domain.model.SyncStatus.valueOf(syncStatus)
+    )
 } 

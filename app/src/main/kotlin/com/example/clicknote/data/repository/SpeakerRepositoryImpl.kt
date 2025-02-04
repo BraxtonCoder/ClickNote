@@ -4,8 +4,7 @@ import com.example.clicknote.data.dao.SpeakerDao
 import com.example.clicknote.data.entity.Speaker as SpeakerEntity
 import com.example.clicknote.domain.model.Speaker
 import com.example.clicknote.domain.repository.SpeakerRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
@@ -22,12 +21,12 @@ class SpeakerRepositoryImpl @Inject constructor(
         }
     }
     
-    override fun getSpeakerById(id: String): Flow<Speaker?> {
-        return speakerDao.getSpeakerById(id).map { it?.toDomain() }
+    override suspend fun getSpeakerById(id: String): Speaker? {
+        return speakerDao.getSpeakerById(id)?.toDomain()
     }
     
-    override fun getSpeakerByVoiceSignature(voiceSignature: String): Flow<Speaker?> {
-        return speakerDao.getSpeakerByVoiceSignature(voiceSignature).map { it?.toDomain() }
+    override suspend fun getSpeakerByVoiceSignature(voiceSignature: String): Speaker? {
+        return speakerDao.getSpeakerByVoiceSignature(voiceSignature)?.toDomain()
     }
     
     override suspend fun insertSpeaker(speaker: Speaker) {
@@ -89,19 +88,23 @@ class SpeakerRepositoryImpl @Inject constructor(
     private fun SpeakerEntity.toDomain() = Speaker(
         id = id,
         name = name,
+        voiceSignature = voiceSignature,
+        color = color,
+        isCustomName = isCustomName,
         confidence = 1.0f, // Default confidence for existing speakers
-        startTime = lastUsed.toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
-        endTime = updatedAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        lastUsed = lastUsed
     )
 
     private fun Speaker.toEntity() = SpeakerEntity(
         id = id,
         name = name,
-        voiceSignature = null, // Voice signature is managed separately
-        color = generateRandomColor(),
-        isCustomName = true,
-        createdAt = LocalDateTime.now(),
-        updatedAt = LocalDateTime.now(),
-        lastUsed = LocalDateTime.now()
+        voiceSignature = voiceSignature,
+        color = color ?: generateRandomColor(),
+        isCustomName = isCustomName,
+        createdAt = createdAt ?: LocalDateTime.now(),
+        updatedAt = updatedAt ?: LocalDateTime.now(),
+        lastUsed = lastUsed ?: LocalDateTime.now()
     )
 } 

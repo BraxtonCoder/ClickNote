@@ -4,9 +4,9 @@ import android.content.Context
 import com.example.clicknote.data.dao.NoteDao
 import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.domain.model.Note
+import com.example.clicknote.domain.model.SyncStatus
 import com.example.clicknote.domain.repository.AuthService
 import com.example.clicknote.domain.repository.SyncRepository
-import com.example.clicknote.domain.repository.SyncStatus
 import com.example.clicknote.worker.SyncWorker
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,7 +34,7 @@ class SyncRepositoryImpl @Inject constructor(
 
     override fun getPendingNotes(): Flow<List<Note>> = flow {
         withContext(Dispatchers.IO) {
-            val notes = noteDao.getNotesBySyncStatus(SyncStatus.SYNCING.ordinal)
+            val notes = noteDao.getNotesBySyncStatus(SyncStatus.SYNCING)
             emit(notes.map { it.toDomain() })
         }
     }
@@ -43,7 +44,7 @@ class SyncRepositoryImpl @Inject constructor(
             _syncStatus.value = SyncStatus.SYNCING
             
             val userId = authService.userId.first() ?: throw IllegalStateException("User not signed in")
-            val pendingNotes = noteDao.getNotesBySyncStatus(SyncStatus.SYNCING.ordinal)
+            val pendingNotes = noteDao.getNotesBySyncStatus(SyncStatus.SYNCING)
             
             pendingNotes.forEach { note ->
                 try {
@@ -54,9 +55,9 @@ class SyncRepositoryImpl @Inject constructor(
                         .set(note)
                         .await()
                     
-                    noteDao.updateSyncStatus(note.id, SyncStatus.SUCCESS.ordinal)
+                    noteDao.updateSyncStatus(note.id, SyncStatus.SUCCESS)
                 } catch (e: Exception) {
-                    noteDao.updateSyncStatus(note.id, SyncStatus.ERROR.ordinal)
+                    noteDao.updateSyncStatus(note.id, SyncStatus.ERROR)
                 }
             }
             
@@ -81,10 +82,10 @@ class SyncRepositoryImpl @Inject constructor(
                 .set(note)
                 .await()
             
-            noteDao.updateSyncStatus(noteId, SyncStatus.SUCCESS.ordinal)
+            noteDao.updateSyncStatus(noteId, SyncStatus.SUCCESS)
             Result.success(Unit)
         } catch (e: Exception) {
-            noteDao.updateSyncStatus(noteId, SyncStatus.ERROR.ordinal)
+            noteDao.updateSyncStatus(noteId, SyncStatus.ERROR)
             Result.failure(e)
         }
     }
@@ -102,7 +103,7 @@ class SyncRepositoryImpl @Inject constructor(
                 .mapNotNull { it.toObject(NoteEntity::class.java) }
             
             cloudNotes.forEach { note ->
-                noteDao.insert(note.copy(syncStatus = SyncStatus.SUCCESS.ordinal))
+                noteDao.insertNote(note.copy(syncStatus = SyncStatus.SUCCESS))
             }
             
             Result.success(Unit)
@@ -111,7 +112,7 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateNoteStatus(noteId: String, status: Int) = withContext(Dispatchers.IO) {
+    override suspend fun updateNoteStatus(noteId: String, status: SyncStatus) = withContext(Dispatchers.IO) {
         noteDao.updateSyncStatus(noteId, status)
     }
 
@@ -129,15 +130,19 @@ class SyncRepositoryImpl @Inject constructor(
             title = title,
             content = content,
             createdAt = createdAt,
-            updatedAt = updatedAt,
+            modifiedAt = modifiedAt,
             folderId = folderId,
             isDeleted = isDeleted,
             isPinned = isPinned,
+            isLongForm = isLongForm,
+            hasAudio = hasAudio,
             audioPath = audioPath,
-            transcriptionPath = transcriptionPath,
-            summaryPath = summaryPath,
             duration = duration,
-            speakerId = speakerId
+            source = source,
+            summary = summary,
+            keyPoints = keyPoints,
+            speakers = speakers,
+            syncStatus = syncStatus
         )
     }
 } 

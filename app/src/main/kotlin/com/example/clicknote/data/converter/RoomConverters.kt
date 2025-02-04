@@ -4,8 +4,8 @@ import androidx.room.ProvidedTypeConverter
 import androidx.room.TypeConverter
 import com.example.clicknote.data.entity.NoteSource
 import com.example.clicknote.data.entity.TranscriptionState
-import com.example.clicknote.data.model.SyncStatus
 import com.example.clicknote.data.entity.TranscriptionSegment
+import com.example.clicknote.domain.model.SyncStatus
 import com.example.clicknote.domain.model.TranscriptionLanguage
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -26,14 +26,12 @@ class RoomConverters @Inject constructor() {
     // DateTime conversions
     @TypeConverter
     fun fromTimestamp(value: Long?): LocalDateTime? {
-        return value?.let {
-            LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
-        }
+        return value?.let { LocalDateTime.ofEpochSecond(it / 1000, 0, ZoneOffset.UTC) }
     }
 
     @TypeConverter
-    fun toTimestamp(date: LocalDateTime?): Long? {
-        return date?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+    fun dateToTimestamp(date: LocalDateTime?): Long? {
+        return date?.toEpochSecond(ZoneOffset.UTC)?.times(1000)
     }
 
     // Date conversions
@@ -50,7 +48,9 @@ class RoomConverters @Inject constructor() {
     // Simple List conversions using Gson
     @TypeConverter
     fun fromStringList(value: String?): List<String> {
-        if (value == null) return emptyList()
+        if (value == null) {
+            return emptyList()
+        }
         val listType = object : TypeToken<List<String>>() {}.type
         return gson.fromJson(value, listType)
     }

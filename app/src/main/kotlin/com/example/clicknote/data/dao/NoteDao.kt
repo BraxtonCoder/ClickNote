@@ -147,10 +147,24 @@ interface NoteDao {
 
         try {
             insertAll(serverNotes)
-            updateSyncStatus(localNotes.map { it.id }, SyncStatus.SYNCED)
+            updateSyncStatus(localNotes.map { it.id }, SyncStatus.SUCCESS)
         } catch (e: Exception) {
-            updateSyncStatus(localNotes.map { it.id }, SyncStatus.FAILED)
+            updateSyncStatus(localNotes.map { it.id }, SyncStatus.ERROR)
             throw e
         }
     }
+
+    @Query("""
+        SELECT * FROM note_entity 
+        WHERE sync_status = 'SUCCESS'
+        ORDER BY modified_at DESC
+    """)
+    fun getSyncedNotes(): Flow<List<NoteEntity>>
+
+    @Query("""
+        SELECT * FROM note_entity 
+        WHERE sync_status = 'ERROR'
+        ORDER BY modified_at DESC
+    """)
+    fun getFailedSyncNotes(): Flow<List<NoteEntity>>
 } 

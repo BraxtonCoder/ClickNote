@@ -7,6 +7,9 @@ interface StripeApi {
     @POST("customers")
     suspend fun createCustomer(@Body request: CreateCustomerRequest): CreateCustomerResponse
 
+    @POST("subscriptions")
+    suspend fun createSubscription(@Body request: CreateSubscriptionRequest): CreateSubscriptionResponse
+
     @POST("ephemeral-keys")
     suspend fun createEphemeralKey(@Body request: GetEphemeralKeyRequest): GetEphemeralKeyResponse
 
@@ -18,4 +21,7 @@ interface StripeApi {
 
     @GET("subscription-plans")
     suspend fun getSubscriptionPlans(): GetSubscriptionPlansResponse
+
+    @POST("subscriptions/{subscriptionId}/cancel")
+    suspend fun cancelSubscription(@Path("subscriptionId") subscriptionId: String): CancelSubscriptionResponse
 } 

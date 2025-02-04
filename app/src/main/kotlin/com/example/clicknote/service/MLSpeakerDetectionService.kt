@@ -949,6 +949,123 @@ class MLSpeakerDetectionService @Inject constructor(
         }
     }
 
+    /**
+     * Compares two voice signatures and returns a confidence score between 0 and 1.
+     * The higher the score, the more likely the signatures are from the same speaker.
+     *
+     * @param signature1 The first voice signature to compare
+     * @param signature2 The second voice signature to compare
+     * @return A confidence score between 0 and 1
+     */
+    fun compareVoiceSignatures(signature1: String, signature2: String): Float {
+        try {
+            if (signature1.isEmpty() || signature2.isEmpty()) {
+                return 0f
+            }
+
+            val startTime = System.currentTimeMillis()
+
+            // Convert signatures to feature vectors
+            val features1 = extractFeatureVector(signature1)
+            val features2 = extractFeatureVector(signature2)
+
+            // Calculate cosine similarity between feature vectors
+            val similarity = calculateCosineSimilarity(features1, features2)
+
+            analyticsTracker.trackPerformanceMetric(
+                metricName = "voice_signature_comparison",
+                durationMs = System.currentTimeMillis() - startTime,
+                success = true,
+                additionalData = mapOf(
+                    "similarity_score" to similarity
+                )
+            )
+
+            return similarity
+        } catch (e: Exception) {
+            Log.e(TAG, "Error comparing voice signatures", e)
+            analyticsTracker.trackPerformanceMetric(
+                metricName = "voice_signature_comparison",
+                durationMs = 0,
+                success = false,
+                additionalData = mapOf(
+                    "error_message" to (e.message ?: "Unknown error")
+                )
+            )
+            return 0f
+        }
+    }
+
+    private fun extractFeatureVector(signature: String): FloatArray {
+        // Convert the signature string to a feature vector
+        return signature.split(",")
+            .mapNotNull { it.toFloatOrNull() }
+            .toFloatArray()
+    }
+
+    private fun calculateCosineSimilarity(v1: FloatArray, v2: FloatArray): Float {
+        if (v1.isEmpty() || v2.isEmpty() || v1.size != v2.size) {
+            return 0f
+        }
+
+        var dotProduct = 0f
+        var norm1 = 0f
+        var norm2 = 0f
+
+        for (i in v1.indices) {
+            dotProduct += v1[i] * v2[i]
+            norm1 += v1[i] * v1[i]
+            norm2 += v2[i] * v2[i]
+        }
+
+        if (norm1 <= 0 || norm2 <= 0) {
+            return 0f
+        }
+
+        val similarity = dotProduct / (sqrt(norm1) * sqrt(norm2))
+        return max(0f, min(1f, similarity))
+    }
+
+    /**
+     * Extracts a voice signature from audio data.
+     * This is a placeholder implementation - in production, this would use
+     * actual voice feature extraction algorithms.
+     *
+     * @param audioData The raw audio data to process
+     * @return A string representation of the voice signature
+     */
+    fun extractVoiceSignature(audioData: ByteArray): String {
+        try {
+            val startTime = System.currentTimeMillis()
+
+            // This is a simplified implementation - in production, this would use
+            // actual voice feature extraction algorithms from a ML model
+            val signature = "1.0,0.8,0.6,0.4,0.2"
+
+            analyticsTracker.trackPerformanceMetric(
+                metricName = "voice_signature_extraction",
+                durationMs = System.currentTimeMillis() - startTime,
+                success = true,
+                additionalData = mapOf(
+                    "audio_size" to audioData.size
+                )
+            )
+
+            return signature
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting voice signature", e)
+            analyticsTracker.trackPerformanceMetric(
+                metricName = "voice_signature_extraction",
+                durationMs = 0,
+                success = false,
+                additionalData = mapOf(
+                    "error_message" to (e.message ?: "Unknown error")
+                )
+            )
+            return ""
+        }
+    }
+
     companion object {
         private const val TAG = "MLSpeakerDetectionService"
     }

@@ -4,5 +4,6 @@ enum class NoteSource {
     MANUAL,
     VOICE,
     CALL,
-    IMPORT
+    IMPORT,
+    SHARE
 } 

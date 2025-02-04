@@ -19,7 +19,8 @@ import java.time.LocalDateTime
         Index("folder_id"),
         Index("created_at"),
         Index("updated_at"),
-        Index("is_deleted")
+        Index("is_deleted"),
+        Index("sync_status")
     ]
 )
 @TypeConverters(RoomConverters::class)
@@ -48,11 +49,17 @@ data class NoteEntity(
     @ColumnInfo(name = "is_pinned")
     val isPinned: Boolean = false,
 
+    @ColumnInfo(name = "is_long_form")
+    val isLongForm: Boolean = false,
+
     @ColumnInfo(name = "has_audio")
     val hasAudio: Boolean = false,
 
     @ColumnInfo(name = "audio_path")
     val audioPath: String? = null,
+
+    @ColumnInfo(name = "duration")
+    val duration: Long = 0,
 
     @ColumnInfo(name = "source")
     val source: String = "MANUAL",
@@ -70,5 +77,5 @@ data class NoteEntity(
     val speakers: List<String> = emptyList(),
 
     @ColumnInfo(name = "sync_status")
-    val syncStatus: SyncStatus = SyncStatus.PENDING
+    val syncStatus: String = SyncStatus.PENDING.name
 ) 

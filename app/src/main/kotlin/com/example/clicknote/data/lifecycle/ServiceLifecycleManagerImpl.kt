@@ -1,43 +1,90 @@
 package com.example.clicknote.data.lifecycle
 
 import com.example.clicknote.domain.lifecycle.ServiceLifecycleManager
-import com.example.clicknote.domain.event.ServiceEvent
-import com.example.clicknote.domain.event.ServiceEventBus
-import com.example.clicknote.domain.registry.ServiceRegistry
-import com.example.clicknote.domain.strategy.ServiceStrategy
-import com.example.clicknote.domain.model.TranscriptionServiceContext
 import com.example.clicknote.domain.model.ServiceType
-import com.example.clicknote.domain.model.Service
+import com.example.clicknote.domain.registry.ServiceRegistry
+import com.example.clicknote.domain.service.Service
+import com.example.clicknote.domain.handler.ServiceEventHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
-import javax.inject.Provider
 
 @Singleton
 class ServiceLifecycleManagerImpl @Inject constructor(
-    private val strategy: Provider<ServiceStrategy>,
-    private val registry: Provider<ServiceRegistry>,
-    private val eventBus: Provider<ServiceEventBus>
+    private val serviceRegistry: ServiceRegistry,
+    private val eventHandler: ServiceEventHandler,
+    private val scope: CoroutineScope
 ) : ServiceLifecycleManager {
 
-    override suspend fun initializeService(context: TranscriptionServiceContext) {
-        val serviceType = strategy.get().determineServiceType(context)
-        registry.get().getServiceByType(serviceType)?.let { service ->
-            service.initialize(context)
-            eventBus.get().emitEvent(ServiceEvent.ServiceInitialized(service.serviceId, context))
+    override suspend fun initializeService(type: ServiceType) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val service = serviceRegistry.getServiceByType(type)
+                if (!service.isInitialized()) {
+                    service.initialize()
+                }
+                eventHandler.handleServiceInitialized(service)
+            } catch (e: Exception) {
+                handleServiceError(type.name, e)
+            }
         }
     }
 
-    override suspend fun activateService(serviceId: String) {
-        registry.get().getServiceById(serviceId)?.let { service ->
-            service.activate()
-            eventBus.get().emitEvent(ServiceEvent.ServiceActivated(service.serviceId))
+    override suspend fun activateService(id: String) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val service = serviceRegistry.getServiceById(id)
+                if (service != null) {
+                    if (!service.isInitialized()) {
+                        service.initialize()
+                    }
+                    eventHandler.handleServiceActivated(service)
+                }
+            } catch (e: Exception) {
+                handleServiceError(id, e)
+            }
         }
     }
 
-    override suspend fun deactivateService(serviceId: String) {
-        registry.get().getServiceById(serviceId)?.let { service ->
-            service.deactivate()
-            eventBus.get().emitEvent(ServiceEvent.ServiceReleased(service.serviceId))
+    override suspend fun deactivateService(id: String) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val service = serviceRegistry.getServiceById(id)
+                if (service != null) {
+                    eventHandler.handleServiceDeactivated(service)
+                }
+            } catch (e: Exception) {
+                handleServiceError(id, e)
+            }
+        }
+    }
+
+    override suspend fun cleanupService(id: String) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val service = serviceRegistry.getServiceById(id)
+                if (service != null) {
+                    service.cleanup()
+                    eventHandler.handleServiceCleanup(service)
+                }
+            } catch (e: Exception) {
+                handleServiceError(id, e)
+            }
+        }
+    }
+
+    override suspend fun handleServiceError(id: String, error: Throwable) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val service = serviceRegistry.getServiceById(id)
+                if (service != null) {
+                    eventHandler.handleServiceError(service, error)
+                }
+            } catch (e: Exception) {
+                // Log error but don't propagate to avoid infinite error loop
+            }
         }
     }
 } 

@@ -1,46 +1,32 @@
 package com.example.clicknote.domain.model
 
-import com.example.clicknote.data.entity.FolderEntity
+import java.time.LocalDateTime
 
 data class Folder(
     val id: String,
     val name: String,
     val color: Int,
-    val sortOrder: Int = 0,
-    val syncStatus: Int = 0,
-    val createdAt: Long,
-    val modifiedAt: Long,
+    val noteCount: Int = 0,
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val modifiedAt: LocalDateTime = LocalDateTime.now(),
     val isDeleted: Boolean = false,
-    val deletedAt: Long? = null
+    val deletedAt: LocalDateTime? = null
 ) {
-    fun toEntity() = FolderEntity(
-        id = id,
-        name = name,
-        color = color,
-        sortOrder = sortOrder,
-        syncStatus = syncStatus,
-        createdAt = createdAt,
-        modifiedAt = modifiedAt,
-        isDeleted = isDeleted,
-        deletedAt = deletedAt
-    )
-
     companion object {
         fun create(
             name: String,
-            color: Int,
-            sortOrder: Int = 0,
-            syncStatus: Int = 0
+            color: Int
         ): Folder {
-            val now = System.currentTimeMillis()
+            val now = LocalDateTime.now()
             return Folder(
                 id = java.util.UUID.randomUUID().toString(),
                 name = name,
                 color = color,
-                sortOrder = sortOrder,
-                syncStatus = syncStatus,
+                noteCount = 0,
                 createdAt = now,
-                modifiedAt = now
+                modifiedAt = now,
+                isDeleted = false,
+                deletedAt = null
             )
         }
     }

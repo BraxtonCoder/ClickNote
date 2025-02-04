@@ -1,4 +1,4 @@
-package com.example.clicknote.domain.model
+package com.example.clicknote.data.model
 
 enum class SyncStatus {
     PENDING,

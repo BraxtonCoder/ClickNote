@@ -6,6 +6,7 @@ import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.data.model.SyncStatus
 import java.time.LocalDateTime
 import com.example.clicknote.data.entity.NoteWithFolderEntity
+import java.util.UUID
 
 fun NoteEntity.toNote(): Note {
     return Note(
@@ -24,7 +25,7 @@ fun NoteEntity.toNote(): Note {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
-        syncStatus = syncStatus
+        syncStatus = SyncStatus.valueOf(syncStatus)
     )
 }
 
@@ -45,7 +46,7 @@ fun Note.toEntity(): NoteEntity {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
-        syncStatus = syncStatus
+        syncStatus = syncStatus.name
     )
 }
 
@@ -109,10 +110,45 @@ fun createNote(
         summary = null,
         keyPoints = emptyList(),
         speakers = emptyList(),
-        syncStatus = SyncStatus.PENDING
+        syncStatus = SyncStatus.PENDING.name
     )
 }
 
 fun NoteWithFolderEntity.toNote(): Note = note.toNote().copy(
     folderId = folder?.id
-) 
+)
+
+fun NoteEntity.Companion.create(
+    title: String,
+    content: String,
+    summary: String? = null,
+    keyPoints: List<String> = emptyList(),
+    speakers: Map<String, String> = emptyMap(),
+    audioPath: String? = null,
+    duration: Long = 0L,
+    folderId: String? = null,
+    isPinned: Boolean = false,
+    isLongForm: Boolean = false
+): NoteEntity {
+    val now = System.currentTimeMillis()
+    return NoteEntity(
+        id = UUID.randomUUID().toString(),
+        title = title,
+        content = content,
+        summary = summary,
+        keyPoints = keyPoints,
+        speakers = speakers,
+        audioPath = audioPath,
+        duration = duration,
+        folderId = folderId,
+        isPinned = isPinned,
+        isLongForm = isLongForm,
+        hasAudio = audioPath != null,
+        hasSummary = summary != null,
+        syncStatus = SyncStatus.PENDING.name,
+        createdAt = now,
+        updatedAt = now,
+        isDeleted = false,
+        deletedAt = null
+    )
+} 

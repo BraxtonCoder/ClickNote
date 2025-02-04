@@ -1,9 +1,7 @@
 package com.example.clicknote.data.entity
 
 import androidx.room.*
-import com.example.clicknote.data.converter.RoomConverters
-import com.example.clicknote.domain.model.Folder
-import java.util.UUID
+import java.time.LocalDateTime
 
 @Entity(
     tableName = "folders",
@@ -12,56 +10,48 @@ import java.util.UUID
         Index("created_at")
     ]
 )
-@TypeConverters(RoomConverters::class)
 data class FolderEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")
-    val id: String = UUID.randomUUID().toString(),
-    
+    val id: String,
+
     @ColumnInfo(name = "name")
     val name: String,
-    
+
     @ColumnInfo(name = "color")
     val color: Int,
-    
+
     @ColumnInfo(name = "note_count")
     val noteCount: Int = 0,
-    
+
     @ColumnInfo(name = "created_at")
-    val createdAt: Long = System.currentTimeMillis(),
-    
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+
     @ColumnInfo(name = "updated_at")
-    val updatedAt: Long = System.currentTimeMillis(),
-    
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
+
     @ColumnInfo(name = "is_deleted")
     val isDeleted: Boolean = false,
-    
+
     @ColumnInfo(name = "deleted_at")
-    val deletedAt: Long? = null
+    val deletedAt: LocalDateTime? = null
 ) {
-    fun toDomain() = Folder(
-        id = id,
-        name = name,
-        color = color,
-        noteCount = noteCount,
-        createdAt = createdAt,
-        modifiedAt = updatedAt,
-        isDeleted = isDeleted,
-        deletedAt = deletedAt
-    )
-
     companion object {
-        fun fromDomain(folder: Folder) = FolderEntity(
-            id = folder.id,
-            name = folder.name,
-            color = folder.color,
-            noteCount = folder.noteCount,
-            createdAt = folder.createdAt,
-            updatedAt = folder.modifiedAt,
-            isDeleted = folder.isDeleted,
-            deletedAt = folder.deletedAt
-        )
+        fun create(
+            name: String,
+            color: Int
+        ): FolderEntity {
+            val now = LocalDateTime.now()
+            return FolderEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                name = name,
+                color = color,
+                noteCount = 0,
+                createdAt = now,
+                updatedAt = now,
+                isDeleted = false,
+                deletedAt = null
+            )
+        }
     }
-}
-
-fun Folder.toFolderEntity(): FolderEntity = FolderEntity.fromDomain(this) 
+} 

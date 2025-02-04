@@ -18,9 +18,11 @@ if (localPropertiesFile.exists()) {
 
 plugins {
     id("com.android.application")
-    kotlin("android")
+    id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
+    id("com.google.gms.google-services")
     id("com.google.devtools.ksp")
+    id("kotlin-kapt")
 }
 
 android {
@@ -110,8 +112,8 @@ dependencies {
 
     // Room
     implementation("androidx.room:room-runtime:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-paging:2.6.1")
     implementation("androidx.room:room-testing:2.6.1")
 
@@ -120,7 +122,7 @@ dependencies {
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.50")
-    ksp("com.google.dagger:hilt-android-compiler:2.50")
+    kapt("com.google.dagger:hilt-android-compiler:2.50")
     implementation("androidx.hilt:hilt-work:1.1.0")
     ksp("androidx.hilt:hilt-compiler:1.1.0")
 
@@ -155,11 +157,13 @@ dependencies {
     implementation("com.mixpanel.android:mixpanel-android:7.3.1")
 
     // Firebase and Google Sign-In
-    implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
+    implementation(platform("com.google.firebase:firebase-bom:32.7.1"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.android.gms:play-services-auth:20.7.0")
-    implementation("com.google.firebase:firebase-analytics-ktx:21.5.0")
-    implementation("com.google.android.gms:play-services-auth-api-phone:18.0.1")
-    implementation("com.google.android.gms:play-services-base:18.3.0")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")

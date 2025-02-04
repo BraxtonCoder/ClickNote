@@ -2,62 +2,72 @@ package com.example.clicknote.data.mapper
 
 import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.data.entity.NoteWithFolderEntity
+import com.example.clicknote.data.model.SyncStatus
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
-import com.example.clicknote.data.model.SyncStatus
 import java.time.LocalDateTime
 
-fun NoteEntity.toNote(): Note = Note(
-    id = id,
-    title = title,
-    content = content,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    deletedAt = deletedAt,
-    isDeleted = isDeleted,
-    isPinned = isPinned,
-    hasAudio = hasAudio,
-    audioPath = audioPath,
-    source = NoteSource.valueOf(source),
-    folderId = folderId,
-    summary = summary,
-    keyPoints = keyPoints,
-    speakers = speakers
-)
+fun NoteEntity.toNote(): Note {
+    return Note(
+        id = id,
+        title = title,
+        content = content,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        deletedAt = deletedAt,
+        isDeleted = isDeleted,
+        isPinned = isPinned,
+        isLongForm = isLongForm,
+        hasAudio = hasAudio,
+        audioPath = audioPath,
+        duration = duration,
+        source = NoteSource.valueOf(source),
+        folderId = folderId,
+        summary = summary,
+        keyPoints = keyPoints,
+        speakers = speakers,
+        syncStatus = SyncStatus.valueOf(syncStatus)
+    )
+}
 
 fun NoteWithFolderEntity.toNote(): Note = note.toNote().copy(
     folderId = folder?.id
 )
 
-fun Note.toNoteEntity(): NoteEntity = NoteEntity(
-    id = id,
-    title = title,
-    content = content,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    deletedAt = deletedAt,
-    isDeleted = isDeleted,
-    isPinned = isPinned,
-    hasAudio = hasAudio,
-    audioPath = audioPath,
-    source = source.name,
-    folderId = folderId,
-    summary = summary,
-    keyPoints = keyPoints,
-    speakers = speakers,
-    syncStatus = SyncStatus.PENDING
-)
+fun Note.toEntity(): NoteEntity {
+    return NoteEntity(
+        id = id,
+        title = title,
+        content = content,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        deletedAt = deletedAt,
+        isDeleted = isDeleted,
+        isPinned = isPinned,
+        isLongForm = isLongForm,
+        hasAudio = hasAudio,
+        audioPath = audioPath,
+        duration = duration,
+        source = source.name,
+        folderId = folderId,
+        summary = summary,
+        keyPoints = keyPoints,
+        speakers = speakers,
+        syncStatus = syncStatus.name
+    )
+}
 
 fun createNote(
+    title: String,
     content: String,
-    title: String = "",
-    folderId: String? = null,
-    hasAudio: Boolean = false,
+    isLongForm: Boolean = false,
     audioPath: String? = null,
-    source: NoteSource = NoteSource.VOICE
-): Note {
+    duration: Long = 0L,
+    source: NoteSource = NoteSource.MANUAL,
+    folderId: String? = null
+): NoteEntity {
     val now = LocalDateTime.now()
-    return Note(
+    return NoteEntity(
         id = java.util.UUID.randomUUID().toString(),
         title = title,
         content = content,
@@ -66,12 +76,15 @@ fun createNote(
         deletedAt = null,
         isDeleted = false,
         isPinned = false,
-        hasAudio = hasAudio,
+        isLongForm = isLongForm,
+        hasAudio = audioPath != null,
         audioPath = audioPath,
-        source = source,
+        duration = duration,
+        source = source.name,
         folderId = folderId,
         summary = null,
         keyPoints = emptyList(),
-        speakers = emptyList()
+        speakers = emptyList(),
+        syncStatus = SyncStatus.PENDING.name
     )
 } 

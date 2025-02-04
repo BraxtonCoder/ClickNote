@@ -1,20 +1,24 @@
 package com.example.clicknote.data.api
 
-import com.example.clicknote.domain.model.SubscriptionPlan
-import java.time.LocalDateTime
+import com.example.clicknote.data.api.model.*
+import retrofit2.http.*
 
 interface StripeApi {
-    suspend fun createCustomer(email: String): Result<String>
-    suspend fun createSubscription(priceId: String, paymentMethodId: String): StripeSubscription
-    suspend fun getCustomerEphemeralKey(customerId: String): Result<String>
-    suspend fun getPaymentIntent(amount: Int, currency: String, customerId: String): Result<String>
-    suspend fun cancelSubscription()
-    suspend fun updatePaymentMethod(customerId: String, paymentMethodId: String): Result<Unit>
-    suspend fun getSubscriptionPlans(): Result<List<SubscriptionPlan>>
-}
+    @POST("customers")
+    suspend fun createCustomer(@Body request: CreateCustomerRequest): CreateCustomerResponse
 
-data class StripeSubscription(
-    val id: String,
-    val status: String,
-    val currentPeriodEnd: LocalDateTime
-) 
+    @POST("ephemeral_keys")
+    suspend fun createEphemeralKey(@Body request: GetEphemeralKeyRequest): GetEphemeralKeyResponse
+
+    @POST("payment_intents")
+    suspend fun createPaymentIntent(@Body request: CreatePaymentIntentRequest): CreatePaymentIntentResponse
+
+    @POST("payment_methods/attach")
+    suspend fun attachPaymentMethod(@Body request: UpdatePaymentMethodRequest)
+
+    @POST("subscriptions")
+    suspend fun createSubscription(@Body request: CreateSubscriptionRequest): CreateSubscriptionResponse
+
+    @GET("subscription_plans")
+    suspend fun getSubscriptionPlans(): GetSubscriptionPlansResponse
+} 

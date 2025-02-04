@@ -1,9 +1,8 @@
 package com.example.clicknote.domain.model
 
 sealed class ServiceEvent {
-    object Started : ServiceEvent()
-    object Stopped : ServiceEvent()
-    object Completed : ServiceEvent()
-    data class Failed(val error: String) : ServiceEvent()
-    data class ProgressUpdate(val progress: Float) : ServiceEvent()
+    data class ServiceInitialized(val serviceId: String) : ServiceEvent()
+    data class ServiceActivated(val serviceId: String) : ServiceEvent()
+    data class ServiceDeactivated(val serviceId: String) : ServiceEvent()
+    data class ServiceError(val serviceId: String, val error: Throwable) : ServiceEvent()
 } 

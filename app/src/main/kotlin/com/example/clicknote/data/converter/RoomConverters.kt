@@ -16,6 +16,7 @@ import java.time.ZonedDateTime
 import java.util.*
 import javax.inject.Inject
 import java.time.format.DateTimeFormatter
+import java.time.ZoneOffset
 
 @ProvidedTypeConverter
 class RoomConverters @Inject constructor() {
@@ -24,13 +25,13 @@ class RoomConverters @Inject constructor() {
 
     // DateTime conversions
     @TypeConverter
-    fun fromTimestamp(value: String?): LocalDateTime? {
-        return value?.let { LocalDateTime.parse(it, formatter) }
+    fun fromTimestamp(value: Long?): LocalDateTime? {
+        return value?.let { LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) }
     }
 
     @TypeConverter
-    fun dateToTimestamp(date: LocalDateTime?): String? {
-        return date?.format(formatter)
+    fun toTimestamp(date: LocalDateTime?): Long? {
+        return date?.toEpochSecond(ZoneOffset.UTC)
     }
 
     // Date conversions
@@ -70,29 +71,45 @@ class RoomConverters @Inject constructor() {
 
     // Enum conversions
     @TypeConverter
-    fun fromNoteSource(source: NoteSource): String = source.name
+    fun fromNoteSource(source: NoteSource): String {
+        return source.name
+    }
 
     @TypeConverter
-    fun toNoteSource(value: String): NoteSource = NoteSource.valueOf(value)
+    fun toNoteSource(value: String): NoteSource {
+        return NoteSource.valueOf(value)
+    }
 
     @TypeConverter
-    fun fromTranscriptionState(state: TranscriptionState): String = state.name
+    fun fromTranscriptionState(state: TranscriptionState): String {
+        return state.name
+    }
 
     @TypeConverter
-    fun toTranscriptionState(value: String): TranscriptionState = TranscriptionState.valueOf(value)
+    fun toTranscriptionState(value: String): TranscriptionState {
+        return TranscriptionState.valueOf(value)
+    }
 
     @TypeConverter
-    fun fromSyncStatus(status: SyncStatus): String = status.name
+    fun fromSyncStatus(status: SyncStatus): String {
+        return status.name
+    }
 
     @TypeConverter
-    fun toSyncStatus(value: String): SyncStatus = SyncStatus.valueOf(value)
+    fun toSyncStatus(value: String): SyncStatus {
+        return SyncStatus.valueOf(value)
+    }
 
     // TranscriptionLanguage conversions
     @TypeConverter
-    fun fromTranscriptionLanguage(language: TranscriptionLanguage): String = language.code
+    fun fromTranscriptionLanguage(language: TranscriptionLanguage): String {
+        return language.code
+    }
 
     @TypeConverter
-    fun toTranscriptionLanguage(value: String): TranscriptionLanguage = TranscriptionLanguage.fromCode(value)
+    fun toTranscriptionLanguage(value: String): TranscriptionLanguage {
+        return TranscriptionLanguage.fromCode(value)
+    }
 
     // TranscriptionSegment conversions
     @TypeConverter
@@ -165,5 +182,17 @@ class RoomConverters @Inject constructor() {
         if (value == null) return null
         val mapType = object : TypeToken<Map<String, String>>() {}.type
         return gson.fromJson(value, mapType)
+    }
+
+    @TypeConverter
+    fun fromStringMap(value: String?): Map<String, String> {
+        if (value == null) return emptyMap()
+        val mapType = object : TypeToken<Map<String, String>>() {}.type
+        return gson.fromJson(value, mapType)
+    }
+
+    @TypeConverter
+    fun toStringMap(map: Map<String, String>): String {
+        return gson.toJson(map)
     }
 } 

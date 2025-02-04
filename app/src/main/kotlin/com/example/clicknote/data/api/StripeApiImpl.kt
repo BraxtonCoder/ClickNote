@@ -13,62 +13,36 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
+import retrofit2.Retrofit
 
 @Singleton
 class StripeApiImpl @Inject constructor(
-    private val stripe: Stripe,
-    private val stripeBackendApi: StripeBackendApi,
-    private val stripeService: StripeService,
-    @ActivityContext private val activity: ComponentActivity
+    private val retrofit: Retrofit
 ) : StripeApi {
+    private val api = retrofit.create(StripeApi::class.java)
 
-    override suspend fun createCustomer(email: String): Result<String> = runCatching {
-        stripeService.createCustomer(CreateCustomerRequest(email)).customerId
+    override suspend fun createCustomer(request: CreateCustomerRequest): CreateCustomerResponse {
+        return api.createCustomer(request)
     }
 
-    override suspend fun createSubscription(priceId: String, paymentMethodId: String): StripeSubscription = withContext(Dispatchers.IO) {
-        // Create subscription on backend
-        val response = stripeBackendApi.createSubscription(
-            CreateSubscriptionRequest(
-                priceId = priceId,
-                paymentMethodId = paymentMethodId
-            )
-        )
-
-        // Confirm payment if required
-        if (response.clientSecret != null) {
-            val params = ConfirmPaymentIntentParams.createWithPaymentMethodId(
-                paymentMethodId = paymentMethodId,
-                clientSecret = response.clientSecret
-            )
-            stripe.confirmPayment(activity, params)
-        }
-
-        return@withContext StripeSubscription(
-            id = response.subscriptionId,
-            status = response.status,
-            currentPeriodEnd = LocalDateTime.parse(response.currentPeriodEnd)
-        )
+    override suspend fun createSubscription(request: CreateSubscriptionRequest): CreateSubscriptionResponse {
+        return api.createSubscription(request)
     }
 
-    override suspend fun getCustomerEphemeralKey(customerId: String): Result<String> = runCatching {
-        stripeService.getEphemeralKey(GetEphemeralKeyRequest(customerId)).ephemeralKey
+    override suspend fun createEphemeralKey(request: GetEphemeralKeyRequest): GetEphemeralKeyResponse {
+        return api.createEphemeralKey(request)
     }
 
-    override suspend fun getPaymentIntent(amount: Int, currency: String, customerId: String): Result<String> = runCatching {
-        stripeService.createPaymentIntent(CreatePaymentIntentRequest(amount, currency, customerId)).clientSecret
+    override suspend fun createPaymentIntent(request: CreatePaymentIntentRequest): CreatePaymentIntentResponse {
+        return api.createPaymentIntent(request)
     }
 
-    override suspend fun cancelSubscription() = withContext(Dispatchers.IO) {
-        stripeBackendApi.cancelSubscription()
+    override suspend fun attachPaymentMethod(request: UpdatePaymentMethodRequest) {
+        api.attachPaymentMethod(request)
     }
 
-    override suspend fun updatePaymentMethod(customerId: String, paymentMethodId: String): Result<Unit> = runCatching {
-        stripeService.updatePaymentMethod(UpdatePaymentMethodRequest(customerId, paymentMethodId))
-    }
-
-    override suspend fun getSubscriptionPlans(): Result<List<SubscriptionPlan>> = runCatching {
-        stripeService.getSubscriptionPlans().plans
+    override suspend fun getSubscriptionPlans(): GetSubscriptionPlansResponse {
+        return api.getSubscriptionPlans()
     }
 }
 

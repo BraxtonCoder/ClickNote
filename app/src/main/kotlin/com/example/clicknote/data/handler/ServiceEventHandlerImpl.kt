@@ -1,74 +1,97 @@
 package com.example.clicknote.data.handler
 
-import com.example.clicknote.domain.event.ServiceEvent
-import com.example.clicknote.domain.event.ServiceEventHandler
+import com.example.clicknote.domain.handler.ServiceEventHandler
+import com.example.clicknote.domain.service.Service
+import com.example.clicknote.domain.service.TranscriptionCapable
 import com.example.clicknote.domain.registry.ServiceRegistry
-import com.example.clicknote.domain.state.ServiceStateManager
-import com.example.clicknote.domain.model.Service
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
-import javax.inject.Provider
-import com.example.clicknote.di.ApplicationScope
-import com.example.clicknote.di.InternalEventFlow
 
 @Singleton
 class ServiceEventHandlerImpl @Inject constructor(
-    private val stateManager: Provider<ServiceStateManager>,
-    private val registry: Provider<ServiceRegistry>,
-    @InternalEventFlow private val events: Provider<SharedFlow<ServiceEvent>>,
-    @ApplicationScope private val coroutineScope: CoroutineScope
+    private val serviceRegistry: ServiceRegistry,
+    private val scope: CoroutineScope
 ) : ServiceEventHandler {
 
-    init {
-        observeEvents()
-    }
+    private val _currentService = MutableStateFlow<TranscriptionCapable?>(null)
+    override val currentService: StateFlow<TranscriptionCapable?> = _currentService.asStateFlow()
 
-    private fun observeEvents() {
-        events.get()
-            .onEach { event -> 
-                kotlinx.coroutines.runBlocking { handleEvent(event) }
-            }
-            .launchIn(coroutineScope)
-    }
-
-    override suspend fun handleEvent(event: ServiceEvent) {
-        when (event) {
-            is ServiceEvent.ServiceInitialized -> handleServiceInitialized(event)
-            is ServiceEvent.ServiceActivated -> handleServiceActivated(event)
-            is ServiceEvent.ServiceReleased -> handleServiceReleased(event)
-            is ServiceEvent.ServiceError -> handleServiceError(event)
-            is ServiceEvent.AllServicesReleased -> handleAllServicesReleased()
-        }
-    }
-
-    private suspend fun handleServiceInitialized(event: ServiceEvent.ServiceInitialized) {
-        val service = registry.get().getServiceById(event.serviceId)
-        service?.let {
-            val currentService = stateManager.get().getCurrentService()
-            if (currentService?.id == service.id) {
-                stateManager.get().activateService(service)
+    override suspend fun handleServiceActivated(service: Service) {
+        if (service !is TranscriptionCapable) return
+        
+        scope.launch(Dispatchers.IO) {
+            try {
+                val existingService = _currentService.value
+                if (existingService != null && existingService.id != service.id) {
+                    existingService.cleanup()
+                }
+                
+                if (!service.isInitialized()) {
+                    service.initialize()
+                }
+                
+                _currentService.value = service
+            } catch (e: Exception) {
+                handleServiceError(service, e)
             }
         }
     }
 
-    private suspend fun handleServiceActivated(event: ServiceEvent.ServiceActivated) {
-        val service = registry.get().getServiceById(event.serviceId)
-        service?.let { stateManager.get().activateService(it) }
+    override suspend fun handleServiceDeactivated(service: Service) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                if (_currentService.value?.id == service.id) {
+                    service.cleanup()
+                    _currentService.value = null
+                }
+            } catch (e: Exception) {
+                handleServiceError(service, e)
+            }
+        }
     }
 
-    private suspend fun handleServiceReleased(event: ServiceEvent.ServiceReleased) {
-        stateManager.get().deactivateCurrentService()
+    override suspend fun handleServiceError(service: Service, error: Throwable) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                if (_currentService.value?.id == service.id) {
+                    service.cleanup()
+                    _currentService.value = null
+                }
+            } catch (e: Exception) {
+                // Log error but don't propagate to avoid infinite error loop
+            }
+        }
     }
 
-    private suspend fun handleServiceError(event: ServiceEvent.ServiceError) {
-        // Handle service error, possibly notify UI or retry logic
+    override suspend fun handleServiceInitialized(service: Service) {
+        if (service !is TranscriptionCapable) return
+        
+        scope.launch(Dispatchers.IO) {
+            try {
+                if (_currentService.value?.id == service.id) {
+                    _currentService.value = service
+                }
+            } catch (e: Exception) {
+                handleServiceError(service, e)
+            }
+        }
     }
 
-    private suspend fun handleAllServicesReleased() {
-        stateManager.get().deactivateCurrentService()
+    override suspend fun handleServiceCleanup(service: Service) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                if (_currentService.value?.id == service.id) {
+                    _currentService.value = null
+                }
+            } catch (e: Exception) {
+                handleServiceError(service, e)
+            }
+        }
     }
 }

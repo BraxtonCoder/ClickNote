@@ -1,7 +1,10 @@
 package com.example.clicknote.domain.model
 
 enum class ServiceType {
-    ONLINE,
-    OFFLINE,
-    COMBINED
+    ONLINE_TRANSCRIPTION,
+    OFFLINE_TRANSCRIPTION,
+    COMBINED_TRANSCRIPTION,
+    AUDIO_ENHANCEMENT,
+    SPEAKER_DETECTION,
+    SUMMARY_GENERATION
 } 

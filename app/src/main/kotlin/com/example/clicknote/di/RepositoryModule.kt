@@ -2,6 +2,7 @@ package com.example.clicknote.di
 
 import com.example.clicknote.domain.repository.*
 import com.example.clicknote.repository.*
+import com.example.clicknote.data.repository.TranscriptionRepositoryImpl
 import com.example.clicknote.data.repository.TranscriptionTimestampRepositoryImpl
 import com.example.clicknote.domain.repository.TranscriptionTimestampRepository
 import dagger.Binds
@@ -13,6 +14,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindTranscriptionRepository(impl: TranscriptionRepositoryImpl): TranscriptionRepository
 
     @Binds
     @Singleton

@@ -2,6 +2,8 @@ package com.example.clicknote.service
 
 import java.io.File
 import kotlinx.coroutines.flow.Flow
+import com.example.clicknote.domain.model.TranscriptionResult
+import com.example.clicknote.domain.model.Speaker
 
 interface TranscriptionService {
     /**
@@ -54,24 +56,6 @@ interface TranscriptionService {
      */
     suspend fun cleanup()
 }
-
-data class TranscriptionResult(
-    val text: String,
-    val confidence: Float = 0f,
-    val timestamp: Long = System.currentTimeMillis(),
-    val speaker: Speaker? = null,
-    val isInterim: Boolean = false
-) {
-    companion object {
-        fun Error(message: String) = TranscriptionResult(text = message, confidence = 0f)
-    }
-}
-
-data class Speaker(
-    val id: String,
-    val name: String? = null,
-    val confidence: Float = 0f
-)
 
 data class Language(
     val code: String,

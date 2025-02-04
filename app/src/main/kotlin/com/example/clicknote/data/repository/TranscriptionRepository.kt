@@ -5,6 +5,8 @@ import com.example.clicknote.data.entity.TranscriptionMetadata
 import com.example.clicknote.service.WhisperService
 import com.example.clicknote.service.SpeakerDetectionService
 import com.example.clicknote.util.PermissionChecker
+import com.example.clicknote.domain.model.*
+import com.example.clicknote.domain.repository.TranscriptionRepository
 import kotlinx.coroutines.flow.*
 import java.io.File
 import java.io.IOException
@@ -18,7 +20,7 @@ class LegacyTranscriptionRepository @Inject constructor(
     private val whisperService: WhisperService,
     private val speakerDetectionService: SpeakerDetectionService,
     private val permissionChecker: PermissionChecker
-) {
+) : TranscriptionRepository {
     // Metadata management
     fun getMetadataForNote(noteId: Long): Flow<TranscriptionMetadata?> =
         transcriptionMetadataDao.getMetadataForNote(noteId)
@@ -54,98 +56,72 @@ class LegacyTranscriptionRepository @Inject constructor(
         transcriptionMetadataDao.deleteByNoteId(noteId)
 
     // Transcription operations
-    fun transcribeAudio(
-        audioFile: File,
-        noteId: Long,
-        language: String = "en",
-        detectSpeakers: Boolean = true
-    ): Flow<TranscriptionResult> = flow {
-        try {
-            // Check permissions
-            if (!permissionChecker.hasRecordAudioPermission()) {
-                emit(TranscriptionResult.Error(
-                    code = ErrorCode.PERMISSION_DENIED,
-                    message = "Microphone permission not granted"
-                ))
-                return@flow
-            }
-
-            if (!audioFile.exists()) {
-                emit(TranscriptionResult.Error(
-                    code = ErrorCode.FILE_NOT_FOUND,
-                    message = "Audio file not found"
-                ))
-                return@flow
-            }
-
-            val startTime = System.currentTimeMillis()
-            var speakerCount = 1
-            var speakerSegments = emptyList<SpeakerDetectionService.SpeakerSegment>()
-
-            // Detect speakers if requested
-            if (detectSpeakers) {
-                speakerDetectionService.detectSpeakers(audioFile)
-                    .collect { result ->
-                        when (result) {
-                            is SpeakerDetectionService.DetectionResult.Success -> {
-                                speakerCount = result.speakerCount
-                                speakerSegments = result.segments
-                            }
-                            is SpeakerDetectionService.DetectionResult.Error -> {
-                                emit(TranscriptionResult.Error(
-                                    code = ErrorCode.SPEAKER_DETECTION_FAILED,
-                                    message = "Speaker detection failed: ${result.message}"
-                                ))
-                                return@collect
-                            }
-                        }
-                    }
-            }
-            
-            whisperService.transcribeAudio(audioFile)
-                .collect { result ->
-                    when (result) {
-                        is WhisperService.TranscriptionResult.Success -> {
-                            val processingTime = System.currentTimeMillis() - startTime
-                            val metadata = TranscriptionMetadata(
-                                noteId = noteId,
-                                language = language,
-                                speakerCount = speakerCount,
-                                duration = audioFile.length(),
-                                wordCount = result.text.split(" ").size,
-                                confidenceScore = result.confidence ?: 1.0f,
-                                processingTime = processingTime,
-                                model = "whisper-tiny-en",
-                                isOffline = true
-                            )
-                            saveMetadata(metadata)
-                            emit(TranscriptionResult.Success(
-                                text = result.text,
-                                speakerSegments = speakerSegments
-                            ))
-                        }
-                        is WhisperService.TranscriptionResult.Error -> {
-                            emit(TranscriptionResult.Error(
-                                code = ErrorCode.TRANSCRIPTION_FAILED,
-                                message = result.message
-                            ))
-                        }
-                    }
-                }
-        } catch (e: IOException) {
-            emit(TranscriptionResult.Error(
-                code = ErrorCode.IO_ERROR,
-                message = "Error reading audio file: ${e.message}"
-            ))
-        } catch (e: Exception) {
-            emit(TranscriptionResult.Error(
-                code = ErrorCode.UNKNOWN_ERROR,
-                message = "Error during transcription: ${e.message}"
-            ))
-        }
+    override suspend fun transcribeAudio(
+        audioData: ByteArray,
+        settings: TranscriptionSettings
+    ): Result<String> {
+        // TODO: Implement using whisperService
+        return Result.failure(NotImplementedError())
     }
 
-    val transcriptionProgress: StateFlow<Float> = whisperService.transcriptionProgress
+    override suspend fun transcribeFile(
+        file: File,
+        settings: TranscriptionSettings
+    ): Result<String> {
+        // TODO: Implement using whisperService
+        return Result.failure(NotImplementedError())
+    }
+
+    override suspend fun generateSummary(text: String): Result<String> {
+        // TODO: Implement summary generation
+        return Result.failure(NotImplementedError())
+    }
+
+    override suspend fun detectSpeakers(file: File): Result<List<String>> {
+        // TODO: Implement using speakerDetectionService
+        return Result.failure(NotImplementedError())
+    }
+
+    override suspend fun getAvailableLanguages(): List<String> {
+        return listOf("en") // TODO: Implement properly
+    }
+
+    override fun cancelTranscription() {
+        // TODO: Implement cancellation
+    }
+
+    override suspend fun cleanup() {
+        // TODO: Implement cleanup
+    }
+
+    override suspend fun saveTranscription(transcriptionResult: TranscriptionResult) {
+        // TODO: Implement using transcriptionMetadataDao
+    }
+
+    override suspend fun getTranscriptions(): List<TranscriptionResult> {
+        return emptyList() // TODO: Implement using transcriptionMetadataDao
+    }
+
+    override suspend fun getTranscriptionById(id: String): TranscriptionResult {
+        throw NotImplementedError() // TODO: Implement using transcriptionMetadataDao
+    }
+
+    override suspend fun deleteTranscription(id: String) {
+        // TODO: Implement using transcriptionMetadataDao
+    }
+
+    override suspend fun saveTranscriptionAudio(id: String, audioBytes: ByteArray): String {
+        // TODO: Implement audio saving
+        return ""
+    }
+
+    override suspend fun deleteTranscriptionAudio(id: String) {
+        // TODO: Implement audio deletion
+    }
+
+    override val events: Flow<TranscriptionEvent> = flow {
+        // TODO: Implement event emission
+    }
 
     enum class ErrorCode {
         PERMISSION_DENIED,
@@ -155,16 +131,4 @@ class LegacyTranscriptionRepository @Inject constructor(
         IO_ERROR,
         UNKNOWN_ERROR
     }
-}
-
-sealed class TranscriptionResult {
-    data class Success(
-        val text: String,
-        val speakerSegments: List<SpeakerDetectionService.SpeakerSegment> = emptyList()
-    ) : TranscriptionResult()
-    
-    data class Error(
-        val code: LegacyTranscriptionRepository.ErrorCode,
-        val message: String
-    ) : TranscriptionResult()
 } 

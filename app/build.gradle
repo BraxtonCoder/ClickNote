@@ -99,7 +99,7 @@ kotlin {
 
 dependencies {
     def work_version = "2.9.0"
-    def hilt_version = "2.49"
+    def hilt_version = "2.48"
     def room_version = "2.6.1"
     def compose_version = "1.5.4"
     def firebase_version = "32.7.2"
@@ -112,10 +112,10 @@ dependencies {
     
     // Hilt
     implementation "com.google.dagger:hilt-android:$hilt_version"
-    kapt "com.google.dagger:hilt-android-compiler:$hilt_version"
+    ksp "com.google.dagger:hilt-android-compiler:$hilt_version"
     implementation "androidx.hilt:hilt-navigation-compose:1.1.0"
     implementation "androidx.hilt:hilt-work:1.1.0"
-    kapt "androidx.hilt:hilt-compiler:1.1.0"
+    ksp "androidx.hilt:hilt-compiler:1.1.0"
 
     // Room
     implementation "androidx.room:room-runtime:$room_version"

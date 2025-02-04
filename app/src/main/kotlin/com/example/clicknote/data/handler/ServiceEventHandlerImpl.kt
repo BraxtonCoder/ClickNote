@@ -1,5 +1,6 @@
 package com.example.clicknote.data.handler
 
+import com.example.clicknote.di.qualifiers.ApplicationScope
 import com.example.clicknote.domain.handler.ServiceEventHandler
 import com.example.clicknote.domain.service.Service
 import com.example.clicknote.domain.service.TranscriptionCapable
@@ -7,7 +8,6 @@ import com.example.clicknote.domain.model.ServiceEvent
 import com.example.clicknote.domain.model.ServiceState
 import com.example.clicknote.domain.registry.ServiceRegistry
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject

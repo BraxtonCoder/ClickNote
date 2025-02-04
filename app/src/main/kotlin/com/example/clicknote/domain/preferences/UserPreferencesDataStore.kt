@@ -13,6 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.example.clicknote.domain.model.CloudProvider
 import com.example.clicknote.domain.model.TranscriptionLanguage
+import com.example.clicknote.domain.model.CloudStorageType
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
@@ -20,6 +21,7 @@ interface UserPreferencesDataStore {
     val callRecordingEnabled: Flow<Boolean>
     val audioSavingEnabled: Flow<Boolean>
     val offlineTranscriptionEnabled: Flow<Boolean>
+    val onlineTranscriptionEnabled: Flow<Boolean>
     val selectedLanguage: Flow<String>
     val notificationsEnabled: Flow<Boolean>
     val vibrationEnabled: Flow<Boolean>
@@ -38,10 +40,12 @@ interface UserPreferencesDataStore {
     val onboardingCompleted: Flow<Boolean>
     val isFirstTimeUser: Flow<Boolean>
     val lastTranscriptionReset: Flow<Long>
+    val cloudStorageType: Flow<CloudStorageType>
 
     suspend fun setCallRecordingEnabled(enabled: Boolean)
     suspend fun setAudioSavingEnabled(enabled: Boolean)
     suspend fun setOfflineTranscriptionEnabled(enabled: Boolean)
+    suspend fun setOnlineTranscriptionEnabled(enabled: Boolean)
     suspend fun setSelectedLanguage(language: String)
     suspend fun setNotificationsEnabled(enabled: Boolean)
     suspend fun setVibrationEnabled(enabled: Boolean)
@@ -61,6 +65,7 @@ interface UserPreferencesDataStore {
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setIsFirstTimeUser(isFirst: Boolean)
     suspend fun setLastTranscriptionReset(timestamp: Long)
+    suspend fun setCloudStorageType(type: CloudStorageType)
 }
 
 @Singleton
@@ -82,6 +87,11 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override val offlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
             preferences[booleanPreferencesKey("offline_transcription_enabled")] ?: false
+        }
+
+    override val onlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[booleanPreferencesKey("online_transcription_enabled")] ?: false
         }
 
     override val selectedLanguage: Flow<String> = context.dataStore.data
@@ -174,6 +184,11 @@ class UserPreferencesDataStoreImpl @Inject constructor(
             preferences[booleanPreferencesKey("last_transcription_reset")] ?: 0L
         }
 
+    override val cloudStorageType: Flow<CloudStorageType> = context.dataStore.data
+        .map { preferences ->
+            CloudStorageType.values()[preferences[booleanPreferencesKey("cloud_storage_type")]?.toInt() ?: 0]
+        }
+
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("call_recording_enabled")] = enabled
@@ -189,6 +204,12 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override suspend fun setOfflineTranscriptionEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("offline_transcription_enabled")] = enabled
+        }
+    }
+
+    override suspend fun setOnlineTranscriptionEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[booleanPreferencesKey("online_transcription_enabled")] = enabled
         }
     }
 
@@ -263,6 +284,12 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     suspend fun setLastTranscriptionReset(timestamp: Long) {
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("last_transcription_reset")] = timestamp
+        }
+    }
+
+    override suspend fun setCloudStorageType(type: CloudStorageType) {
+        context.dataStore.edit { preferences ->
+            preferences[booleanPreferencesKey("cloud_storage_type")] = type.ordinal
         }
     }
 }

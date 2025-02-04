@@ -1,12 +1,15 @@
 package com.example.clicknote.data.lifecycle
 
+import com.example.clicknote.di.qualifiers.ApplicationScope
 import com.example.clicknote.domain.lifecycle.ServiceLifecycleManager
 import com.example.clicknote.domain.model.ServiceType
 import com.example.clicknote.domain.service.Service
+import com.example.clicknote.domain.service.ActivatableService
 import com.example.clicknote.domain.handler.ServiceEventHandler
 import com.example.clicknote.domain.registry.ServiceRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,7 +29,7 @@ class ServiceLifecycleManagerImpl @Inject constructor(
                     throw IllegalStateException("Service not found for type: $type")
                 }
 
-                if (!service.isInitialized.value) {
+                if (!service.isInitialized.first()) {
                     service.initialize()
                     eventHandler.handleServiceInitialized(service)
                 }
@@ -44,7 +47,11 @@ class ServiceLifecycleManagerImpl @Inject constructor(
                     throw IllegalStateException("Service not found with id: $serviceId")
                 }
 
-                if (!service.isInitialized.value) {
+                if (service !is ActivatableService) {
+                    throw IllegalStateException("Service $serviceId is not activatable")
+                }
+
+                if (!service.isInitialized.first()) {
                     service.initialize()
                     eventHandler.handleServiceInitialized(service)
                 }
@@ -63,6 +70,10 @@ class ServiceLifecycleManagerImpl @Inject constructor(
                 val service = serviceRegistry.getService(serviceId)
                 if (service == null) {
                     throw IllegalStateException("Service not found with id: $serviceId")
+                }
+
+                if (service !is ActivatableService) {
+                    throw IllegalStateException("Service $serviceId is not activatable")
                 }
 
                 service.deactivate()

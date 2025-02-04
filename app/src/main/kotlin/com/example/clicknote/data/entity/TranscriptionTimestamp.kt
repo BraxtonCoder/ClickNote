@@ -3,6 +3,7 @@ package com.example.clicknote.data.entity
 import androidx.room.*
 import com.example.clicknote.domain.model.TranscriptionSegment
 import com.example.clicknote.data.entity.NoteEntity
+import java.util.UUID
 
 @Entity(
     tableName = "transcription_timestamps",
@@ -20,7 +21,7 @@ import com.example.clicknote.data.entity.NoteEntity
 )
 data class TranscriptionTimestamp(
     @PrimaryKey
-    val id: String,
+    val id: String = UUID.randomUUID().toString(),
 
     @ColumnInfo(name = "note_id")
     val noteId: String,
@@ -45,6 +46,8 @@ data class TranscriptionTimestamp(
      * Converts timestamps from milliseconds (Long) to seconds (Double).
      */
     fun toSegment() = TranscriptionSegment(
+        id = id,
+        noteId = noteId,
         text = text,
         startTime = startTime,
         endTime = endTime,
@@ -59,7 +62,7 @@ data class TranscriptionTimestamp(
          */
         fun fromSegment(noteId: String, segment: TranscriptionSegment): TranscriptionTimestamp {
             return TranscriptionTimestamp(
-                id = java.util.UUID.randomUUID().toString(),
+                id = segment.id,
                 noteId = noteId,
                 text = segment.text,
                 startTime = segment.startTime,

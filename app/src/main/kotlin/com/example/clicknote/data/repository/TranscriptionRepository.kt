@@ -11,16 +11,21 @@ import kotlinx.coroutines.flow.*
 import java.io.File
 import java.io.IOException
 import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class LegacyTranscriptionRepository @Inject constructor(
+class TranscriptionRepositoryImpl @Inject constructor(
     private val transcriptionMetadataDao: TranscriptionMetadataDao,
     private val whisperService: WhisperService,
     private val speakerDetectionService: SpeakerDetectionService,
     private val permissionChecker: PermissionChecker
 ) : TranscriptionRepository {
+
+    private val _events = MutableSharedFlow<TranscriptionEvent>()
+    override val events: Flow<TranscriptionEvent> = _events.asSharedFlow()
+
     // Metadata management
     fun getMetadataForNote(noteId: Long): Flow<TranscriptionMetadata?> =
         transcriptionMetadataDao.getMetadataForNote(noteId)
@@ -59,69 +64,108 @@ class LegacyTranscriptionRepository @Inject constructor(
     override suspend fun transcribeAudio(
         audioData: ByteArray,
         settings: TranscriptionSettings
-    ): Result<String> {
-        // TODO: Implement using whisperService
-        return Result.failure(NotImplementedError())
+    ): Result<String> = try {
+        val id = UUID.randomUUID().toString()
+        _events.emit(TranscriptionEvent.Started(id))
+
+        val result = whisperService.transcribe(audioData, settings)
+        _events.emit(TranscriptionEvent.Completed(id, result))
+        Result.success(result.text)
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
     override suspend fun transcribeFile(
         file: File,
         settings: TranscriptionSettings
-    ): Result<String> {
-        // TODO: Implement using whisperService
-        return Result.failure(NotImplementedError())
+    ): Result<String> = try {
+        val id = UUID.randomUUID().toString()
+        _events.emit(TranscriptionEvent.Started(id))
+
+        val result = whisperService.transcribeFile(file, settings)
+        _events.emit(TranscriptionEvent.Completed(id, result))
+        Result.success(result.text)
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    override suspend fun generateSummary(text: String): Result<String> {
-        // TODO: Implement summary generation
-        return Result.failure(NotImplementedError())
+    override suspend fun generateSummary(text: String): Result<String> = try {
+        val summary = whisperService.generateSummary(text)
+        Result.success(summary)
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    override suspend fun detectSpeakers(file: File): Result<List<String>> {
-        // TODO: Implement using speakerDetectionService
-        return Result.failure(NotImplementedError())
+    override suspend fun detectSpeakers(file: File): Result<List<String>> = try {
+        val speakers = speakerDetectionService.detectSpeakers(file)
+        Result.success(speakers)
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    override suspend fun getAvailableLanguages(): List<String> {
-        return listOf("en") // TODO: Implement properly
-    }
+    override suspend fun getAvailableLanguages(): List<String> =
+        whisperService.getAvailableLanguages()
 
     override fun cancelTranscription() {
-        // TODO: Implement cancellation
+        whisperService.cancelTranscription()
     }
 
     override suspend fun cleanup() {
-        // TODO: Implement cleanup
+        whisperService.cleanup()
     }
 
     override suspend fun saveTranscription(transcriptionResult: TranscriptionResult) {
-        // TODO: Implement using transcriptionMetadataDao
+        val metadata = TranscriptionMetadata(
+            id = transcriptionResult.id,
+            text = transcriptionResult.text,
+            confidence = transcriptionResult.confidence,
+            language = transcriptionResult.language,
+            duration = transcriptionResult.duration,
+            speakers = transcriptionResult.speakers,
+            summary = transcriptionResult.summary,
+            audioPath = transcriptionResult.audioPath,
+            createdAt = LocalDateTime.now(),
+            updatedAt = LocalDateTime.now()
+        )
+        transcriptionMetadataDao.insert(metadata)
     }
 
-    override suspend fun getTranscriptions(): List<TranscriptionResult> {
-        return emptyList() // TODO: Implement using transcriptionMetadataDao
-    }
+    override suspend fun getTranscriptions(): List<TranscriptionResult> =
+        transcriptionMetadataDao.getAllMetadata().first().map { it.toDomain() }
 
-    override suspend fun getTranscriptionById(id: String): TranscriptionResult {
-        throw NotImplementedError() // TODO: Implement using transcriptionMetadataDao
-    }
+    override suspend fun getTranscriptionById(id: String): TranscriptionResult? =
+        transcriptionMetadataDao.getMetadataById(id)?.toDomain()
 
     override suspend fun deleteTranscription(id: String) {
-        // TODO: Implement using transcriptionMetadataDao
+        transcriptionMetadataDao.deleteById(id)
     }
 
     override suspend fun saveTranscriptionAudio(id: String, audioBytes: ByteArray): String {
-        // TODO: Implement audio saving
-        return ""
+        // TODO: Implement audio file saving
+        val path = "audio/$id.wav"
+        _events.emit(TranscriptionEvent.AudioSaved(id, path))
+        return path
     }
 
     override suspend fun deleteTranscriptionAudio(id: String) {
-        // TODO: Implement audio deletion
+        // TODO: Implement audio file deletion
+        _events.emit(TranscriptionEvent.AudioDeleted(id))
     }
 
-    override val events: Flow<TranscriptionEvent> = flow {
-        // TODO: Implement event emission
-    }
+    private fun TranscriptionMetadata.toDomain(): TranscriptionResult =
+        TranscriptionResult(
+            id = id,
+            text = text,
+            confidence = confidence,
+            language = language,
+            duration = duration,
+            speakers = speakers,
+            segments = emptyList(), // TODO: Implement segment conversion
+            summary = summary,
+            audioPath = audioPath,
+            createdAt = createdAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+            updatedAt = updatedAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000
+        )
 
     enum class ErrorCode {
         PERMISSION_DENIED,

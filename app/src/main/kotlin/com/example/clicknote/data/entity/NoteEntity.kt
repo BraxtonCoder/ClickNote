@@ -5,10 +5,11 @@ import com.example.clicknote.data.converter.RoomConverters
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
+import com.example.clicknote.util.DateTimeUtils
 import java.time.LocalDateTime
 
 @Entity(
-    tableName = "note_entity",
+    tableName = "notes",
     foreignKeys = [
         ForeignKey(
             entity = FolderEntity::class,
@@ -20,7 +21,7 @@ import java.time.LocalDateTime
     indices = [
         Index("folder_id"),
         Index("created_at"),
-        Index("updated_at"),
+        Index("modified_at"),
         Index("is_deleted"),
         Index("sync_status")
     ]
@@ -38,13 +39,13 @@ data class NoteEntity(
     val content: String,
 
     @ColumnInfo(name = "created_at")
-    val createdAt: LocalDateTime,
+    val createdAt: Long,
 
-    @ColumnInfo(name = "updated_at")
-    val updatedAt: LocalDateTime,
+    @ColumnInfo(name = "modified_at")
+    val modifiedAt: Long,
 
     @ColumnInfo(name = "deleted_at")
-    val deletedAt: LocalDateTime? = null,
+    val deletedAt: Long? = null,
 
     @ColumnInfo(name = "is_deleted")
     val isDeleted: Boolean = false,
@@ -65,7 +66,7 @@ data class NoteEntity(
     val duration: Long = 0,
 
     @ColumnInfo(name = "source")
-    val source: String = NoteSource.MANUAL.name,
+    val source: String,
 
     @ColumnInfo(name = "folder_id")
     val folderId: String? = null,
@@ -87,9 +88,9 @@ data class NoteEntity(
             id = id,
             title = title,
             content = content,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-            deletedAt = deletedAt,
+            createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
+            modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
+            deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
             isDeleted = isDeleted,
             isPinned = isPinned,
             isLongForm = isLongForm,
@@ -111,9 +112,9 @@ data class NoteEntity(
                 id = domain.id,
                 title = domain.title,
                 content = domain.content,
-                createdAt = domain.createdAt,
-                updatedAt = domain.updatedAt,
-                deletedAt = domain.deletedAt,
+                createdAt = DateTimeUtils.localDateTimeToTimestamp(domain.createdAt),
+                modifiedAt = DateTimeUtils.localDateTimeToTimestamp(domain.modifiedAt),
+                deletedAt = domain.deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
                 isDeleted = domain.isDeleted,
                 isPinned = domain.isPinned,
                 isLongForm = domain.isLongForm,

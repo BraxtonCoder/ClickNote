@@ -2,6 +2,7 @@ package com.example.clicknote.data.entity
 
 import androidx.room.*
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 @Entity(
     tableName = "folders",
@@ -25,32 +26,32 @@ data class FolderEntity(
     val noteCount: Int = 0,
 
     @ColumnInfo(name = "created_at")
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: Long,
 
-    @ColumnInfo(name = "updated_at")
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
-
-    @ColumnInfo(name = "is_deleted")
-    val isDeleted: Boolean = false,
+    @ColumnInfo(name = "modified_at")
+    val modifiedAt: Long,
 
     @ColumnInfo(name = "deleted_at")
-    val deletedAt: LocalDateTime? = null
+    val deletedAt: Long? = null,
+
+    @ColumnInfo(name = "is_deleted")
+    val isDeleted: Boolean = false
 ) {
     companion object {
         fun create(
             name: String,
             color: Int
         ): FolderEntity {
-            val now = LocalDateTime.now()
+            val now = System.currentTimeMillis()
             return FolderEntity(
                 id = java.util.UUID.randomUUID().toString(),
                 name = name,
                 color = color,
                 noteCount = 0,
                 createdAt = now,
-                updatedAt = now,
-                isDeleted = false,
-                deletedAt = null
+                modifiedAt = now,
+                deletedAt = null,
+                isDeleted = false
             )
         }
     }

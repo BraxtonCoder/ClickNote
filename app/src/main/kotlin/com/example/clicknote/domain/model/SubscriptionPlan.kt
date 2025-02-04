@@ -1,47 +1,46 @@
 package com.example.clicknote.domain.model
 
 /**
- * Represents the different subscription plans available in the app
- * @property price The price of the subscription in GBP
- * @property weeklyLimit The number of transcriptions allowed per week (null for unlimited)
+ * Represents available subscription plans
  */
-data class SubscriptionPlan(
-    val id: String,
-    val name: String,
-    val description: String,
-    val price: String,
-    val period: SubscriptionPeriod,
-    val productId: String,
-    val weeklyTranscriptionLimit: Int = Int.MAX_VALUE
-) {
+sealed class SubscriptionPlan {
+    abstract val id: String
+    abstract val displayName: String
+    abstract val price: Double
+    abstract val weeklyLimit: Int
+    abstract val description: String
+
+    object Free : SubscriptionPlan() {
+        override val id = "free"
+        override val displayName = "Free Plan"
+        override val price = 0.0
+        override val weeklyLimit = 3
+        override val description = "3 transcriptions per week"
+    }
+
+    object Monthly : SubscriptionPlan() {
+        override val id = "monthly_subscription"
+        override val displayName = "Monthly Plan"
+        override val price = 9.99
+        override val weeklyLimit = Int.MAX_VALUE
+        override val description = "Unlimited transcriptions"
+    }
+
+    object Annual : SubscriptionPlan() {
+        override val id = "annual_subscription"
+        override val displayName = "Annual Plan"
+        override val price = 98.0
+        override val weeklyLimit = Int.MAX_VALUE
+        override val description = "Unlimited transcriptions"
+    }
+
     companion object {
-        val FREE = SubscriptionPlan(
-            id = "free",
-            name = "Free Plan",
-            description = "3 transcriptions per week",
-            price = "Free",
-            period = SubscriptionPeriod.NONE,
-            productId = "",
-            weeklyTranscriptionLimit = 3
-        )
-
-        val MONTHLY = SubscriptionPlan(
-            id = "monthly",
-            name = "Monthly Plan",
-            description = "Unlimited transcriptions",
-            price = "£9.99/month",
-            period = SubscriptionPeriod.MONTHLY,
-            productId = "monthly_subscription"
-        )
-
-        val ANNUAL = SubscriptionPlan(
-            id = "annual",
-            name = "Annual Plan",
-            description = "Unlimited transcriptions",
-            price = "£98/year",
-            period = SubscriptionPeriod.ANNUAL,
-            productId = "annual_subscription"
-        )
+        fun fromId(id: String): SubscriptionPlan = when (id) {
+            Free.id -> Free
+            Monthly.id -> Monthly
+            Annual.id -> Annual
+            else -> Free
+        }
     }
 }
 

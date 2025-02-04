@@ -34,8 +34,8 @@ class ServiceRegistryImpl @Inject constructor(
 
     override fun getService(serviceType: ServiceType): TranscriptionService? {
         return when (serviceType) {
-            ServiceType.ONLINE -> onlineService.get() as TranscriptionService
-            ServiceType.OFFLINE -> offlineService.get() as TranscriptionService
+            ServiceType.ONLINE_TRANSCRIPTION -> onlineService.get() as TranscriptionService
+            ServiceType.OFFLINE_TRANSCRIPTION -> offlineService.get() as TranscriptionService
             else -> null
         }
     }
@@ -44,11 +44,12 @@ class ServiceRegistryImpl @Inject constructor(
 
     override fun getOfflineService(): OfflineCapableService = offlineService.get()
 
-    override fun registerService(service: TranscriptionService) {
+    // Helper methods for internal service management
+    private fun registerService(service: TranscriptionService) {
         services[service.id] = service
     }
 
-    override fun unregisterService(serviceId: String) {
+    private fun unregisterService(serviceId: String) {
         services.remove(serviceId)
     }
 }

@@ -21,16 +21,8 @@ object OpenAIModule {
     @Provides
     @Singleton
     fun provideOpenAI(): OpenAI {
-        val apiKey = BuildConfig.OPENAI_API_KEY.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException("OpenAI API key not found. Please add it to local.properties")
-            
         return OpenAI(
-            token = apiKey,
-            timeout = Timeout(
-                socket = 60.seconds,
-                connect = 60.seconds,
-                request = 60.seconds
-            )
+            token = BuildConfig.OPENAI_API_KEY
         )
     }
 

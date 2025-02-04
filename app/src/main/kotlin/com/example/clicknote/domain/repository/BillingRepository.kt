@@ -1,5 +1,6 @@
 package com.example.clicknote.domain.repository
 
+import android.app.Activity
 import com.example.clicknote.domain.model.SubscriptionPlan
 import com.example.clicknote.domain.model.SubscriptionStatus
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,7 @@ data class SubscriptionDetails(
 interface BillingRepository {
     val subscriptionStatus: Flow<SubscriptionStatus>
     val subscriptionDetails: Flow<SubscriptionDetails>
+    val currentPlan: Flow<SubscriptionPlan>
     
     suspend fun startBillingConnection()
     suspend fun endBillingConnection()
@@ -40,4 +42,12 @@ interface BillingRepository {
     suspend fun purchaseSubscription(planId: String): Result<Unit>
     suspend fun cancelSubscription(): Result<Unit>
     fun getCurrentPlan(): Flow<SubscriptionPlan?>
+
+    suspend fun querySubscriptionPlans(): List<SubscriptionPlan>
+    suspend fun purchaseSubscription(activity: Activity, plan: SubscriptionPlan)
+    suspend fun acknowledgePurchase(purchaseToken: String)
+    suspend fun getWeeklyTranscriptionCount(): Int
+    suspend fun incrementWeeklyTranscriptionCount()
+    suspend fun resetWeeklyTranscriptionCount()
+    suspend fun checkWeeklyTranscriptionLimit(): Boolean
 } 

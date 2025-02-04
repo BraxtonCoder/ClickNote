@@ -4,9 +4,9 @@ import com.example.clicknote.domain.model.TranscriptionSegment
 import kotlinx.coroutines.flow.Flow
 
 interface TranscriptionSegmentRepository {
-    fun getSegmentsByNoteId(noteId: String): Flow<List<TranscriptionSegment>>
+    fun getAllSegments(): Flow<List<TranscriptionSegment>>
     
-    fun getSegmentsBySpeakerId(speakerId: String): Flow<List<TranscriptionSegment>>
+    fun getSegmentsBySpeaker(speakerId: String): Flow<List<TranscriptionSegment>>
     
     fun searchSegments(query: String): Flow<List<TranscriptionSegment>>
     
@@ -20,13 +20,11 @@ interface TranscriptionSegmentRepository {
     
     suspend fun deleteSegmentsByNoteId(noteId: String)
     
-    fun getSegmentsInTimeRange(
-        noteId: String,
-        startTime: Long,
-        endTime: Long
-    ): Flow<List<TranscriptionSegment>>
+    suspend fun getSegmentCount(): Int
     
-    suspend fun countSegmentsWithSpeaker(speakerId: String): Int
+    fun getSegmentsInTimeRange(startTime: Long, endTime: Long): Flow<List<TranscriptionSegment>>
     
-    fun getUniqueSpeakerIds(noteId: String): Flow<List<String>>
+    suspend fun countSegmentsBySpeaker(speakerId: String): Int
+    
+    fun getUniqueSpeakers(noteId: String): Flow<List<String>>
 } 

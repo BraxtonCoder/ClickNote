@@ -51,6 +51,8 @@ data class TranscriptionSegment(
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain() = DomainSegment(
+        id = id,
+        noteId = noteId,
         text = content,
         startTime = startTime,
         endTime = endTime,
@@ -60,6 +62,7 @@ data class TranscriptionSegment(
 
     companion object {
         fun fromDomain(noteId: String, segment: DomainSegment) = TranscriptionSegment(
+            id = segment.id,
             noteId = noteId,
             content = segment.text,
             startTime = segment.startTime,

@@ -200,15 +200,15 @@ class FirestoreServiceImpl @Inject constructor(
         }
     }
 
-    override suspend fun runTransaction(action: suspend () -> Unit): Result<Unit> = runCatching {
+    override suspend fun <T> runTransaction(action: suspend (Transaction) -> T): Result<T> = runCatching {
         firestore.runTransaction { transaction ->
-            action()
+            action(transaction)
         }.await()
     }
 
-    override suspend fun runBatch(action: suspend () -> Unit): Result<Unit> = runCatching {
-        firestore.runBatch { batch ->
-            action()
-        }.await()
+    override suspend fun runBatch(action: suspend (WriteBatch) -> Unit): Result<Unit> = runCatching {
+        val batch = firestore.batch()
+        action(batch)
+        batch.commit().await()
     }
 } 

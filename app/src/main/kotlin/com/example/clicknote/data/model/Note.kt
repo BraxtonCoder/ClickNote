@@ -22,7 +22,7 @@ data class Note(
     val createdAt: Long = System.currentTimeMillis(),
     val modifiedAt: Long = System.currentTimeMillis(),
     val deletedAt: Long? = null,
-    val syncStatus: SyncStatus = SyncStatus.IDLE
+    val syncStatus: SyncStatus = SyncStatus.OFFLINE
 ) {
     fun toFirestoreMap(): Map<String, Any?> = mapOf(
         "id" to id,
@@ -54,7 +54,7 @@ data class Note(
                 createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                 modifiedAt = doc.getLong("modifiedAt") ?: System.currentTimeMillis(),
                 deletedAt = doc.getLong("deletedAt"),
-                syncStatus = SyncStatus.COMPLETED
+                syncStatus = SyncStatus.SYNCED
             )
         }
     }

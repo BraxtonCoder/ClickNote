@@ -5,6 +5,7 @@ import com.example.clicknote.domain.model.*
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.repository.CloudSyncRepository
 import com.example.clicknote.domain.repository.NoteRepository
+import com.example.clicknote.di.qualifiers.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*

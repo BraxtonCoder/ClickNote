@@ -17,32 +17,31 @@ class SpeakerProfileRepository @Inject constructor(
     private val speakerDetectionService: MLSpeakerDetectionService,
     private val analyticsTracker: AnalyticsTracker
 ) {
-    fun getAllActiveProfiles() = speakerProfileDao.getAllActiveProfiles()
+    fun getAllActiveProfiles(): Flow<List<SpeakerProfile>> = 
+        speakerProfileDao.getActiveSpeakers()
 
-    fun getRecentProfiles(since: LocalDateTime) = speakerProfileDao.getRecentProfiles(since)
+    fun getRecentProfiles(query: String): Flow<List<SpeakerProfile>> = 
+        speakerProfileDao.searchSpeakers(query)
 
-    suspend fun createProfile(name: String, initialEmbeddings: List<FloatArray>): Result<Long> = 
+    suspend fun createProfile(name: String, voiceSignature: String): Result<Unit> = 
     withContext(Dispatchers.IO) {
         try {
             val profile = SpeakerProfile(
                 name = name,
-                embeddings = initialEmbeddings,
-                sampleCount = initialEmbeddings.size,
-                averageConfidence = 1.0f // Initial confidence for manually created profile
+                voiceSignature = voiceSignature
             )
             
-            val profileId = speakerProfileDao.insert(profile)
+            speakerProfileDao.insert(profile)
             analyticsTracker.trackPerformanceMetric(
                 metricName = "profile_creation",
                 durationMs = 0,
                 success = true,
                 additionalData = mapOf(
-                    "embedding_count" to initialEmbeddings.size,
-                    "profile_id" to profileId
+                    "profile_id" to profile.id
                 )
             )
             
-            Result.success(profileId)
+            Result.success(Unit)
         } catch (e: Exception) {
             analyticsTracker.trackPerformanceMetric(
                 metricName = "profile_creation",
@@ -57,22 +56,14 @@ class SpeakerProfileRepository @Inject constructor(
     }
 
     suspend fun updateProfile(
-        profileId: Long,
-        newEmbeddings: List<FloatArray>,
-        confidence: Float
+        profileId: String,
+        newConfidence: Float
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val profile = speakerProfileDao.getProfileById(profileId)
+            val profile = speakerProfileDao.getSpeakerById(profileId)
             if (profile != null) {
-                val updatedEmbeddings = profile.embeddings + newEmbeddings
-                val newSampleCount = profile.sampleCount + newEmbeddings.size
-                val newConfidence = (profile.averageConfidence * profile.sampleCount + 
-                                   confidence * newEmbeddings.size) / newSampleCount
-
-                speakerProfileDao.updateProfileEmbeddings(
-                    profileId = profileId,
-                    newEmbeddings = updatedEmbeddings,
-                    newSampleCount = newSampleCount,
+                speakerProfileDao.updateConfidence(
+                    id = profileId,
                     newConfidence = newConfidence
                 )
 
@@ -82,7 +73,6 @@ class SpeakerProfileRepository @Inject constructor(
                     success = true,
                     additionalData = mapOf(
                         "profile_id" to profileId,
-                        "new_sample_count" to newSampleCount,
                         "new_confidence" to newConfidence
                     )
                 )
@@ -106,23 +96,19 @@ class SpeakerProfileRepository @Inject constructor(
     }
 
     suspend fun findMatchingProfile(
-        embedding: FloatArray,
+        voiceSignature: String,
         minConfidence: Float = 0.85f
     ): Result<SpeakerProfile?> = withContext(Dispatchers.IO) {
         try {
             val startTime = System.currentTimeMillis()
-            val trainedProfiles = speakerProfileDao.getTrainedProfiles()
+            val trainedProfiles = speakerProfileDao.getActiveSpeakers().first()
             
             val bestMatch = trainedProfiles.maxByOrNull { profile ->
-                profile.embeddings.maxOf { profileEmbedding ->
-                    speakerDetectionService.cosineSimilarity(embedding, profileEmbedding)
-                }
+                speakerDetectionService.compareVoiceSignatures(voiceSignature, profile.voiceSignature)
             }
 
             val confidence = bestMatch?.let { profile ->
-                profile.embeddings.maxOf { profileEmbedding ->
-                    speakerDetectionService.cosineSimilarity(embedding, profileEmbedding)
-                }
+                speakerDetectionService.compareVoiceSignatures(voiceSignature, profile.voiceSignature)
             } ?: 0f
 
             analyticsTracker.trackPerformanceMetric(
@@ -130,7 +116,7 @@ class SpeakerProfileRepository @Inject constructor(
                 durationMs = System.currentTimeMillis() - startTime,
                 success = true,
                 additionalData = mapOf(
-                    "matched_profile" to (bestMatch?.id ?: -1),
+                    "matched_profile" to (bestMatch?.id ?: "none"),
                     "confidence" to confidence,
                     "profiles_checked" to trainedProfiles.size
                 )
@@ -150,9 +136,9 @@ class SpeakerProfileRepository @Inject constructor(
         }
     }
 
-    suspend fun deactivateProfile(profileId: Long) = withContext(Dispatchers.IO) {
+    suspend fun deactivateProfile(profileId: String) = withContext(Dispatchers.IO) {
         try {
-            speakerProfileDao.deactivateProfile(profileId)
+            speakerProfileDao.deactivate(profileId)
             analyticsTracker.trackPerformanceMetric(
                 metricName = "profile_deactivation",
                 durationMs = 0,
@@ -174,30 +160,11 @@ class SpeakerProfileRepository @Inject constructor(
         }
     }
 
-    suspend fun mergeProfiles(sourceId: Long, targetId: Long) = withContext(Dispatchers.IO) {
+    suspend fun updateLastUsed(profileId: String) = withContext(Dispatchers.IO) {
         try {
-            speakerProfileDao.mergeProfiles(sourceId, targetId)
-            analyticsTracker.trackPerformanceMetric(
-                metricName = "profile_merge",
-                durationMs = 0,
-                success = true,
-                additionalData = mapOf(
-                    "source_id" to sourceId,
-                    "target_id" to targetId
-                )
-            )
+            speakerProfileDao.updateLastUsed(profileId)
             Result.success(Unit)
         } catch (e: Exception) {
-            analyticsTracker.trackPerformanceMetric(
-                metricName = "profile_merge",
-                durationMs = 0,
-                success = false,
-                additionalData = mapOf(
-                    "source_id" to sourceId,
-                    "target_id" to targetId,
-                    "error_message" to (e.message ?: "Unknown error")
-                )
-            )
             Result.failure(e)
         }
     }

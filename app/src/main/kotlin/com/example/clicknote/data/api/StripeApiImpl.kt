@@ -17,32 +17,31 @@ import retrofit2.Retrofit
 
 @Singleton
 class StripeApiImpl @Inject constructor(
-    private val retrofit: Retrofit
+    private val stripeService: StripeService
 ) : StripeApi {
-    private val api = retrofit.create(StripeApi::class.java)
 
     override suspend fun createCustomer(request: CreateCustomerRequest): CreateCustomerResponse {
-        return api.createCustomer(request)
+        return stripeService.createCustomer(request)
     }
 
     override suspend fun createSubscription(request: CreateSubscriptionRequest): CreateSubscriptionResponse {
-        return api.createSubscription(request)
+        return stripeService.createSubscription(request)
     }
 
     override suspend fun createEphemeralKey(request: GetEphemeralKeyRequest): GetEphemeralKeyResponse {
-        return api.createEphemeralKey(request)
+        return stripeService.createEphemeralKey(request)
     }
 
     override suspend fun createPaymentIntent(request: CreatePaymentIntentRequest): CreatePaymentIntentResponse {
-        return api.createPaymentIntent(request)
+        return stripeService.createPaymentIntent(request)
     }
 
     override suspend fun attachPaymentMethod(request: UpdatePaymentMethodRequest) {
-        return api.attachPaymentMethod(request)
+        stripeService.attachPaymentMethod(request)
     }
 
     override suspend fun getSubscriptionPlans(): GetSubscriptionPlansResponse {
-        return api.getSubscriptionPlans()
+        return stripeService.getSubscriptionPlans()
     }
 }
 
@@ -50,14 +49,17 @@ interface StripeService {
     @POST("customers")
     suspend fun createCustomer(@Body request: CreateCustomerRequest): CreateCustomerResponse
 
+    @POST("subscriptions")
+    suspend fun createSubscription(@Body request: CreateSubscriptionRequest): CreateSubscriptionResponse
+
     @POST("ephemeral-keys")
-    suspend fun getEphemeralKey(@Body request: GetEphemeralKeyRequest): GetEphemeralKeyResponse
+    suspend fun createEphemeralKey(@Body request: GetEphemeralKeyRequest): GetEphemeralKeyResponse
 
     @POST("payment-intents")
     suspend fun createPaymentIntent(@Body request: CreatePaymentIntentRequest): CreatePaymentIntentResponse
 
-    @POST("payment-methods")
-    suspend fun updatePaymentMethod(@Body request: UpdatePaymentMethodRequest)
+    @POST("payment-methods/attach")
+    suspend fun attachPaymentMethod(@Body request: UpdatePaymentMethodRequest)
 
     @GET("subscription-plans")
     suspend fun getSubscriptionPlans(): GetSubscriptionPlansResponse

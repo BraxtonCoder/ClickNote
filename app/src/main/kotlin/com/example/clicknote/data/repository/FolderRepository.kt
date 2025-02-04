@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 
 @Singleton
 class FolderRepositoryImpl @Inject constructor(
@@ -23,28 +24,31 @@ class FolderRepositoryImpl @Inject constructor(
         folderDao.getFolderById(id)?.toDomain()
 
     override suspend fun insertFolder(folder: Folder): String {
+        val now = System.currentTimeMillis()
         val entity = FolderEntity(
+            id = UUID.randomUUID().toString(),
             name = folder.name,
             color = folder.color,
             noteCount = folder.noteCount,
-            createdAt = folder.createdAt,
-            updatedAt = folder.updatedAt,
-            isDeleted = folder.isDeleted,
-            deletedAt = folder.deletedAt
+            createdAt = now,
+            modifiedAt = now,
+            isDeleted = false,
+            deletedAt = null
         )
-        folderDao.insertFolder(entity)
+        folderDao.insert(entity)
         return entity.id
     }
 
     override suspend fun updateFolder(folder: Folder) {
-        folderDao.updateFolder(
+        val now = System.currentTimeMillis()
+        folderDao.update(
             FolderEntity(
                 id = folder.id,
                 name = folder.name,
                 color = folder.color,
                 noteCount = folder.noteCount,
                 createdAt = folder.createdAt,
-                updatedAt = System.currentTimeMillis(),
+                modifiedAt = now,
                 isDeleted = folder.isDeleted,
                 deletedAt = folder.deletedAt
             )
@@ -52,39 +56,33 @@ class FolderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteFolder(folder: Folder) {
-        folderDao.deleteFolder(
-            FolderEntity(
-                id = folder.id,
-                name = folder.name,
-                color = folder.color,
-                noteCount = folder.noteCount,
-                createdAt = folder.createdAt,
-                updatedAt = System.currentTimeMillis(),
-                isDeleted = true,
-                deletedAt = System.currentTimeMillis()
-            )
-        )
+        val now = System.currentTimeMillis()
+        folderDao.moveToTrash(folder.id, now)
     }
 
     override suspend fun permanentlyDeleteFolder(folder: Folder) {
-        folderDao.permanentlyDeleteFolder(folder.id)
+        folderDao.delete(folder.id)
     }
 
-    override fun searchFolders(query: String): Flow<List<Folder>> =
-        folderDao.searchFolders(query).map { entities ->
-            entities.map { it.toDomain() }
-        }
+    override fun searchFolders(query: String): List<Folder> {
+        return folderDao.getAllFolders().map { entities ->
+            entities.filter { it.name.contains(query, ignoreCase = true) }
+                .map { it.toDomain() }
+        }.first()
+    }
 
     override suspend fun incrementNoteCount(folderId: String) {
-        folderDao.updateNoteCount(folderId, 1)
+        val folder = folderDao.getFolderById(folderId) ?: return
+        folderDao.update(folder.copy(noteCount = folder.noteCount + 1))
     }
 
     override suspend fun decrementNoteCount(folderId: String) {
-        folderDao.updateNoteCount(folderId, -1)
+        val folder = folderDao.getFolderById(folderId) ?: return
+        folderDao.update(folder.copy(noteCount = (folder.noteCount - 1).coerceAtLeast(0)))
     }
 
     override suspend fun folderNameExists(name: String): Boolean =
-        folderDao.folderNameExists(name)
+        folderDao.folderExists(name)
 
     private fun FolderEntity.toDomain() = Folder(
         id = id,
@@ -92,7 +90,7 @@ class FolderRepositoryImpl @Inject constructor(
         color = color,
         noteCount = noteCount,
         createdAt = createdAt,
-        updatedAt = updatedAt,
+        updatedAt = modifiedAt,
         isDeleted = isDeleted,
         deletedAt = deletedAt
     )

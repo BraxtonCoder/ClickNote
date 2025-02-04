@@ -2,6 +2,8 @@ package com.example.clicknote.domain.service
 
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.Folder
+import com.google.firebase.firestore.Transaction
+import com.google.firebase.firestore.WriteBatch
 import kotlinx.coroutines.flow.Flow
 
 interface FirestoreService {
@@ -18,6 +20,6 @@ interface FirestoreService {
     suspend fun getUserStorageLimit(userId: String): Result<Long>
     suspend fun getUserStorageUsage(userId: String): Result<Long>
     fun getChanges(userId: String): Flow<List<String>>
-    suspend fun runTransaction(action: suspend () -> Unit): Result<Unit>
-    suspend fun runBatch(action: suspend () -> Unit): Result<Unit>
+    suspend fun <T> runTransaction(action: suspend (Transaction) -> T): Result<T>
+    suspend fun runBatch(action: suspend (WriteBatch) -> Unit): Result<Unit>
 } 

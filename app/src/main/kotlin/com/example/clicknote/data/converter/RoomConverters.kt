@@ -26,12 +26,14 @@ class RoomConverters @Inject constructor() {
     // DateTime conversions
     @TypeConverter
     fun fromTimestamp(value: Long?): LocalDateTime? {
-        return value?.let { LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) }
+        return value?.let {
+            LocalDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
+        }
     }
 
     @TypeConverter
     fun toTimestamp(date: LocalDateTime?): Long? {
-        return date?.toEpochSecond(ZoneOffset.UTC)
+        return date?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
     }
 
     // Date conversions

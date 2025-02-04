@@ -13,8 +13,9 @@ fun FolderEntity.toDomain(): Folder {
         color = color,
         noteCount = noteCount,
         createdAt = timestampToLocalDateTime(createdAt),
-        updatedAt = timestampToLocalDateTime(updatedAt),
-        deletedAt = deletedAt?.let { timestampToLocalDateTime(it) }
+        modifiedAt = timestampToLocalDateTime(modifiedAt),
+        deletedAt = deletedAt?.let { timestampToLocalDateTime(it) },
+        isDeleted = isDeleted
     )
 }
 
@@ -25,8 +26,26 @@ fun Folder.toEntity(): FolderEntity {
         color = color,
         noteCount = noteCount,
         createdAt = localDateTimeToTimestamp(createdAt),
-        updatedAt = localDateTimeToTimestamp(updatedAt),
-        deletedAt = deletedAt?.let { localDateTimeToTimestamp(it) }
+        modifiedAt = localDateTimeToTimestamp(modifiedAt),
+        deletedAt = deletedAt?.let { localDateTimeToTimestamp(it) },
+        isDeleted = isDeleted
+    )
+}
+
+fun createFolder(
+    name: String,
+    color: Int
+): FolderEntity {
+    val now = System.currentTimeMillis()
+    return FolderEntity(
+        id = java.util.UUID.randomUUID().toString(),
+        name = name,
+        color = color,
+        noteCount = 0,
+        createdAt = now,
+        modifiedAt = now,
+        deletedAt = null,
+        isDeleted = false
     )
 }
 
@@ -39,21 +58,4 @@ private fun timestampToLocalDateTime(timestamp: Long): LocalDateTime {
 
 private fun localDateTimeToTimestamp(dateTime: LocalDateTime): Long {
     return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-}
-
-fun FolderEntity.Companion.create(
-    name: String,
-    color: Int
-): FolderEntity {
-    val now = System.currentTimeMillis()
-    return FolderEntity(
-        id = java.util.UUID.randomUUID().toString(),
-        name = name,
-        color = color,
-        noteCount = 0,
-        createdAt = now,
-        updatedAt = now,
-        isDeleted = false,
-        deletedAt = null
-    )
 } 

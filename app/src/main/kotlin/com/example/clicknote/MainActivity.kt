@@ -67,13 +67,9 @@ class MainActivity : ComponentActivity() {
                 val account = task.getResult(ApiException::class.java)
                 firebaseAuthWithGoogle(account.idToken!!)
             } catch (e: ApiException) {
-                // Handle sign in failure
                 handleSignInError(e)
             }
         }
-
-        // Check if first launch
-        checkFirstLaunch()
 
         lifecycleScope.launch {
             val isFirstLaunch = userPreferences.isFirstLaunch.first()
@@ -85,7 +81,7 @@ class MainActivity : ComponentActivity() {
                             OnboardingScreen(
                                 onOnboardingComplete = {
                                     lifecycleScope.launch {
-                                        userPreferences.setFirstLaunch(false)
+                                        userPreferences.setIsFirstLaunch(false)
                                     }
                                 }
                             )
@@ -99,20 +95,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private fun checkFirstLaunch() {
-        CoroutineScope(Dispatchers.IO).launch {
-            if (userPreferences.isFirstLaunch.first()) {
-                userPreferences.setFirstLaunch(false)
-                // Show onboarding or initial setup
-                showOnboarding()
-            }
-        }
-    }
-
-    private fun showOnboarding() {
-        // Implement onboarding UI
     }
 
     private fun signIn() {
@@ -148,6 +130,9 @@ class MainActivity : ComponentActivity() {
 
     private fun handleSignInSuccess(user: FirebaseUser?) {
         // Handle successful sign in
+        lifecycleScope.launch {
+            userPreferences.setIsFirstLaunch(false)
+        }
     }
 
     private fun handleSignInError(exception: Exception?) {
@@ -167,5 +152,4 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
 }

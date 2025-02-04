@@ -2,7 +2,6 @@ package com.example.clicknote.data.service
 
 import com.example.clicknote.domain.model.*
 import com.example.clicknote.domain.service.TranscriptionCapable
-import com.example.clicknote.domain.service.TranscriptionCapable.TranscriptionStatus
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -14,12 +13,16 @@ class DefaultTranscriptionService @Inject constructor() : TranscriptionCapable {
     
     override val id: String = "default_transcription_service"
     private var initialized = false
+    private var currentText = ""
+    private var currentStatus = TranscriptionCapable.TranscriptionStatus.IDLE
     
     private val _events = Channel<TranscriptionEvent>(Channel.BUFFERED)
     override val events: Flow<TranscriptionEvent> = _events.receiveAsFlow()
     
     override suspend fun cleanup() {
         initialized = false
+        currentText = ""
+        currentStatus = TranscriptionCapable.TranscriptionStatus.IDLE
         _events.close()
     }
     
@@ -70,19 +73,23 @@ class DefaultTranscriptionService @Inject constructor() : TranscriptionCapable {
     }
     
     override suspend fun startTranscription() {
-        // TODO: Implement real-time transcription start
+        currentStatus = TranscriptionCapable.TranscriptionStatus.RECORDING
+        _events.send(TranscriptionEvent.Started())
+        _events.send(TranscriptionEvent.StatusChanged(currentStatus))
     }
     
     override suspend fun stopTranscription() {
-        // TODO: Implement real-time transcription stop
+        currentStatus = TranscriptionCapable.TranscriptionStatus.COMPLETED
+        _events.send(TranscriptionEvent.Stopped())
+        _events.send(TranscriptionEvent.StatusChanged(currentStatus))
     }
     
     override suspend fun getTranscriptionText(): String {
-        return ""
+        return currentText
     }
     
-    override suspend fun getTranscriptionStatus(): TranscriptionStatus {
-        return TranscriptionStatus.IDLE
+    override suspend fun getTranscriptionStatus(): TranscriptionCapable.TranscriptionStatus {
+        return currentStatus
     }
     
     override suspend fun enhanceAudio(audioData: ByteArray): ByteArray {

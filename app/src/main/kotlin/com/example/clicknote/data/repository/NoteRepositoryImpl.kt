@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 
 @Singleton
 class NoteRepositoryImpl @Inject constructor(
@@ -19,13 +20,13 @@ class NoteRepositoryImpl @Inject constructor(
             entities.map { it.toDomain() }
         }
 
-    override fun getNotes(): Flow<List<Note>> =
-        noteDao.getNotes().map { entities ->
+    override fun getNotesInFolder(folderId: String): Flow<List<Note>> =
+        noteDao.getNotesInFolder(folderId).map { entities ->
             entities.map { it.toDomain() }
         }
 
-    override fun getNotesInTrash(): Flow<List<Note>> =
-        noteDao.getNotesInTrash().map { entities ->
+    override fun getDeletedNotes(): Flow<List<Note>> =
+        noteDao.getDeletedNotes().map { entities ->
             entities.map { it.toDomain() }
         }
 
@@ -52,21 +53,22 @@ class NoteRepositoryImpl @Inject constructor(
         noteDao.updateNote(NoteEntity.fromDomain(note))
     }
 
-    override suspend fun deleteNote(id: String) {
-        noteDao.deleteNote(id)
+    override suspend fun delete(id: String) {
+        noteDao.delete(id)
     }
 
-    override suspend fun deleteNotes(ids: List<String>) {
-        noteDao.deleteNotes(ids)
+    override suspend fun deleteBulk(ids: List<String>) {
+        ids.forEach { noteDao.delete(it) }
     }
 
     override suspend fun moveToTrash(id: String) {
-        noteDao.moveToTrash(id, System.currentTimeMillis())
+        val timestamp = System.currentTimeMillis()
+        noteDao.moveToTrash(id, timestamp)
     }
 
     override suspend fun moveToTrashBulk(ids: List<String>) {
         val timestamp = System.currentTimeMillis()
-        noteDao.moveToTrashBulk(ids, timestamp)
+        ids.forEach { noteDao.moveToTrash(it, timestamp) }
     }
 
     override suspend fun restoreFromTrash(id: String) {
@@ -74,15 +76,15 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun restoreFromTrashBulk(ids: List<String>) {
-        noteDao.restoreFromTrashBulk(ids)
+        ids.forEach { noteDao.restoreFromTrash(it) }
     }
 
     override suspend fun moveToFolder(noteId: String, folderId: String?) {
-        noteDao.moveToFolder(noteId, folderId)
+        noteDao.updateNoteFolder(noteId, folderId)
     }
 
     override suspend fun moveToFolderBulk(noteIds: List<String>, folderId: String?) {
-        noteDao.moveToFolderBulk(noteIds, folderId)
+        noteDao.moveNotesToFolder(noteIds, folderId)
     }
 
     override suspend fun togglePin(id: String) {
@@ -94,8 +96,8 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun togglePinBulk(ids: List<String>) {
-        val notes = noteDao.getNotesByIds(ids)
-        notes.forEach { note ->
+        ids.forEach { id ->
+            val note = noteDao.getNoteById(id) ?: return@forEach
             noteDao.updateNote(note.copy(
                 isPinned = !note.isPinned,
                 updatedAt = System.currentTimeMillis()
@@ -119,7 +121,7 @@ class NoteRepositoryImpl @Inject constructor(
         ))
     }
 
-    override suspend fun updateSpeakers(id: String, speakers: Map<String, String>) {
+    override suspend fun updateSpeakers(id: String, speakers: List<String>) {
         val note = noteDao.getNoteById(id) ?: return
         noteDao.updateNote(note.copy(
             speakers = speakers,
@@ -127,7 +129,7 @@ class NoteRepositoryImpl @Inject constructor(
         ))
     }
 
-    override suspend fun deleteExpiredTrashNotes(expirationTime: Long) {
-        noteDao.deleteExpiredTrashNotes(expirationTime)
+    override suspend fun deleteExpiredNotes(expirationTime: Long) {
+        noteDao.deleteExpiredNotes(expirationTime)
     }
 } 

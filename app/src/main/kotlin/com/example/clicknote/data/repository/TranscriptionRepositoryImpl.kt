@@ -1,78 +1,140 @@
 package com.example.clicknote.data.repository
 
-import com.example.clicknote.domain.repository.TranscriptionRepository
-import com.example.clicknote.domain.event.TranscriptionEventDispatcher
+import com.example.clicknote.data.dao.TranscriptionMetadataDao
+import com.example.clicknote.data.entity.TranscriptionMetadata
+import com.example.clicknote.domain.service.TranscriptionService
+import com.example.clicknote.domain.service.SpeakerDetectionService
+import com.example.clicknote.util.PermissionChecker
 import com.example.clicknote.domain.model.*
-import com.example.clicknote.domain.provider.TranscriptionServiceProvider
-import com.example.clicknote.domain.selector.TranscriptionServiceSelector
-import com.example.clicknote.domain.service.*
+import com.example.clicknote.domain.repository.TranscriptionRepository
 import kotlinx.coroutines.flow.*
 import java.io.File
+import java.io.IOException
+import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
-import com.example.clicknote.domain.state.ActiveServiceState
 
 @Singleton
 class TranscriptionRepositoryImpl @Inject constructor(
-    private val serviceProvider: Provider<TranscriptionServiceProvider>,
-    private val serviceSelector: Provider<TranscriptionServiceSelector>,
-    private val eventDispatcher: Provider<TranscriptionEventDispatcher>,
-    private val activeServiceState: Provider<ActiveServiceState>
+    private val transcriptionMetadataDao: TranscriptionMetadataDao,
+    private val transcriptionService: TranscriptionService,
+    private val speakerDetectionService: SpeakerDetectionService,
+    private val permissionChecker: PermissionChecker
 ) : TranscriptionRepository {
 
-    override val events: Flow<TranscriptionEvent> = eventDispatcher.get().events
+    private val _events = MutableSharedFlow<TranscriptionEvent>()
+    override val events: Flow<TranscriptionEvent> = _events.asSharedFlow()
 
     override suspend fun transcribeAudio(
-        audioData: ByteArray, 
+        audioData: ByteArray,
         settings: TranscriptionSettings
-    ): Result<String> = withErrorHandling(
-        TranscriptionServiceContext(settings)
-    ) { service ->
-        service.transcribeAudio(audioData, settings)
+    ): Result<String> = try {
+        val id = UUID.randomUUID().toString()
+        _events.emit(TranscriptionEvent.Started(id))
+
+        val result = transcriptionService.transcribeAudio(audioData, settings)
+        result.onSuccess { transcriptionResult ->
+            _events.emit(TranscriptionEvent.Completed(id, transcriptionResult))
+        }.onFailure { error ->
+            _events.emit(TranscriptionEvent.Failed(id, error))
+        }
+        result.map { it.text }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
     override suspend fun transcribeFile(
-        file: File, 
+        file: File,
         settings: TranscriptionSettings
-    ): Result<String> = withErrorHandling(
-        TranscriptionServiceContext(settings)
-    ) { service ->
-        service.transcribeFile(file, settings)
+    ): Result<String> = try {
+        val id = UUID.randomUUID().toString()
+        _events.emit(TranscriptionEvent.Started(id))
+
+        val result = transcriptionService.transcribeFile(file, settings)
+        result.onSuccess { transcriptionResult ->
+            _events.emit(TranscriptionEvent.Completed(id, transcriptionResult))
+        }.onFailure { error ->
+            _events.emit(TranscriptionEvent.Failed(id, error))
+        }
+        result.map { it.text }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    override suspend fun generateSummary(text: String): Result<String> {
-        return Result.success(text) // TODO: Implement summary generation
+    override suspend fun generateSummary(text: String): Result<String> = try {
+        transcriptionService.generateSummary(text)
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
-    override suspend fun detectSpeakers(file: File): Result<List<String>> {
-        return Result.success(listOf("Speaker 1")) // TODO: Implement speaker detection
+    override suspend fun detectSpeakers(file: File): Result<List<String>> = try {
+        speakerDetectionService.detectSpeakers(file)
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
     override suspend fun getAvailableLanguages(): List<String> =
-        runCatching {
-            serviceSelector.get().getOnlineService().getAvailableLanguages()
-        }.getOrElse { 
-            serviceSelector.get().getOfflineService().getAvailableLanguages()
-        }
+        transcriptionService.getAvailableLanguages()
 
-    override suspend fun cancelTranscription() {
-        activeServiceState.get().activeService.value?.cleanup()
+    override fun cancelTranscription() {
+        transcriptionService.cancelTranscription()
     }
 
     override suspend fun cleanup() {
-        serviceProvider.get().cleanup()
+        transcriptionService.cleanup()
     }
 
-    private suspend fun <T> withErrorHandling(
-        context: TranscriptionServiceContext,
-        block: suspend (TranscriptionService) -> Result<T>
-    ): Result<T> {
-        return try {
-            val service = serviceProvider.get().getServiceForSettings(context)
-            block(service)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    override suspend fun saveTranscription(transcriptionResult: TranscriptionResult) {
+        val metadata = TranscriptionMetadata(
+            id = transcriptionResult.id,
+            text = transcriptionResult.text,
+            confidence = transcriptionResult.confidence,
+            language = transcriptionResult.language,
+            duration = transcriptionResult.duration,
+            speakers = transcriptionResult.speakers,
+            summary = transcriptionResult.summary,
+            audioPath = transcriptionResult.audioPath,
+            createdAt = LocalDateTime.now(),
+            updatedAt = LocalDateTime.now()
+        )
+        transcriptionMetadataDao.insert(metadata)
     }
+
+    override suspend fun getTranscriptions(): List<TranscriptionResult> =
+        transcriptionMetadataDao.getAllMetadata().first().map { it.toDomain() }
+
+    override suspend fun getTranscriptionById(id: String): TranscriptionResult? =
+        transcriptionMetadataDao.getMetadataById(id)?.toDomain()
+
+    override suspend fun deleteTranscription(id: String) {
+        transcriptionMetadataDao.deleteById(id)
+    }
+
+    override suspend fun saveTranscriptionAudio(id: String, audioBytes: ByteArray): String {
+        // TODO: Implement audio file saving
+        val path = "audio/$id.wav"
+        _events.emit(TranscriptionEvent.AudioSaved(id, path))
+        return path
+    }
+
+    override suspend fun deleteTranscriptionAudio(id: String) {
+        // TODO: Implement audio file deletion
+        _events.emit(TranscriptionEvent.AudioDeleted(id))
+    }
+
+    private fun TranscriptionMetadata.toDomain(): TranscriptionResult =
+        TranscriptionResult(
+            id = id,
+            text = text,
+            confidence = confidence,
+            language = language,
+            duration = duration,
+            speakers = speakers,
+            segments = emptyList(), // TODO: Implement segment conversion
+            summary = summary,
+            audioPath = audioPath,
+            createdAt = createdAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+            updatedAt = updatedAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000
+        )
 }

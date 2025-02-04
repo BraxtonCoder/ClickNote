@@ -7,10 +7,10 @@ data class Folder(
     val name: String,
     val color: Int,
     val noteCount: Int = 0,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    val modifiedAt: LocalDateTime = LocalDateTime.now(),
-    val isDeleted: Boolean = false,
-    val deletedAt: LocalDateTime? = null
+    val createdAt: LocalDateTime,
+    val modifiedAt: LocalDateTime,
+    val deletedAt: LocalDateTime? = null,
+    val isDeleted: Boolean = false
 ) {
     companion object {
         fun create(
@@ -25,8 +25,8 @@ data class Folder(
                 noteCount = 0,
                 createdAt = now,
                 modifiedAt = now,
-                isDeleted = false,
-                deletedAt = null
+                deletedAt = null,
+                isDeleted = false
             )
         }
     }

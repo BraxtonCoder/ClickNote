@@ -1,62 +1,96 @@
 package com.example.clicknote.data.repository
 
 import com.example.clicknote.data.dao.TranscriptionSegmentDao
+import com.example.clicknote.data.entity.TranscriptionSegment as TranscriptionSegmentEntity
 import com.example.clicknote.domain.model.TranscriptionSegment
 import com.example.clicknote.domain.repository.TranscriptionSegmentRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TranscriptionSegmentRepositoryImpl @Inject constructor(
-    private val transcriptionSegmentDao: TranscriptionSegmentDao
+    private val segmentDao: TranscriptionSegmentDao
 ) : TranscriptionSegmentRepository {
-    
-    override fun getSegmentsByNoteId(noteId: String): Flow<List<TranscriptionSegment>> {
-        return transcriptionSegmentDao.getSegmentsByNoteId(noteId)
+
+    override fun getAllSegments(): Flow<List<TranscriptionSegment>> {
+        return segmentDao.getAllSegments().map { segments ->
+            segments.map { it.toDomain() }
+        }
     }
-    
-    override fun getSegmentsBySpeakerId(speakerId: String): Flow<List<TranscriptionSegment>> {
-        return transcriptionSegmentDao.getSegmentsBySpeakerId(speakerId)
+
+    override fun getSegmentsBySpeaker(speakerId: String): Flow<List<TranscriptionSegment>> {
+        return segmentDao.getSegmentsBySpeaker(speakerId).map { segments ->
+            segments.map { it.toDomain() }
+        }
     }
-    
+
     override fun searchSegments(query: String): Flow<List<TranscriptionSegment>> {
-        return transcriptionSegmentDao.searchSegments(query)
+        return segmentDao.searchSegments(query).map { segments ->
+            segments.map { it.toDomain() }
+        }
     }
-    
+
     override suspend fun insertSegment(segment: TranscriptionSegment) {
-        transcriptionSegmentDao.insertSegment(segment)
+        segmentDao.insertSegment(segment.toEntity())
     }
-    
+
     override suspend fun insertSegments(segments: List<TranscriptionSegment>) {
-        transcriptionSegmentDao.insertSegments(segments)
+        segmentDao.insertSegments(segments.map { it.toEntity() })
     }
-    
+
     override suspend fun updateSegment(segment: TranscriptionSegment) {
-        transcriptionSegmentDao.updateSegment(segment)
+        segmentDao.updateSegment(segment.toEntity())
     }
-    
+
     override suspend fun deleteSegment(segment: TranscriptionSegment) {
-        transcriptionSegmentDao.deleteSegment(segment)
+        segmentDao.deleteSegment(segment.toEntity())
     }
-    
+
     override suspend fun deleteSegmentsByNoteId(noteId: String) {
-        transcriptionSegmentDao.deleteSegmentsByNoteId(noteId)
+        segmentDao.deleteSegmentsByNoteId(noteId)
     }
-    
-    override fun getSegmentsInTimeRange(
-        noteId: String,
-        startTime: Long,
-        endTime: Long
-    ): Flow<List<TranscriptionSegment>> {
-        return transcriptionSegmentDao.getSegmentsInTimeRange(noteId, startTime, endTime)
+
+    override suspend fun getSegmentCount(): Int {
+        return segmentDao.getSegmentCount()
     }
-    
-    override suspend fun countSegmentsWithSpeaker(speakerId: String): Int {
-        return transcriptionSegmentDao.countSegmentsWithSpeaker(speakerId)
+
+    override fun getSegmentsInTimeRange(startTime: Long, endTime: Long): Flow<List<TranscriptionSegment>> {
+        return segmentDao.getSegmentsInTimeRange(startTime, endTime).map { segments ->
+            segments.map { it.toDomain() }
+        }
     }
-    
-    override fun getUniqueSpeakerIds(noteId: String): Flow<List<String>> {
-        return transcriptionSegmentDao.getUniqueSpeakerIds(noteId)
+
+    override suspend fun countSegmentsBySpeaker(speakerId: String): Int {
+        return segmentDao.countSegmentsBySpeaker(speakerId)
+    }
+
+    override fun getUniqueSpeakers(noteId: String): Flow<List<String>> {
+        return segmentDao.getUniqueSpeakers(noteId)
+    }
+
+    private fun TranscriptionSegmentEntity.toDomain(): TranscriptionSegment {
+        return TranscriptionSegment(
+            id = id,
+            noteId = noteId,
+            text = text,
+            startTime = startTime,
+            endTime = endTime,
+            speaker = speaker,
+            confidence = confidence
+        )
+    }
+
+    private fun TranscriptionSegment.toEntity(): TranscriptionSegmentEntity {
+        return TranscriptionSegmentEntity(
+            id = id,
+            noteId = noteId,
+            text = text,
+            startTime = startTime,
+            endTime = endTime,
+            speaker = speaker,
+            confidence = confidence
+        )
     }
 } 

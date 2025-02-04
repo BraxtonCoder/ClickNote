@@ -1,13 +1,18 @@
 package com.example.clicknote.domain.model
 
-data class SummaryTemplate(
-    val id: String,
-    val name: String,
-    val description: String,
-    val category: TemplateCategory,
-    val prompt: String,
-    val isCustom: Boolean = false
-)
+sealed class SummaryTemplate {
+    object Default : SummaryTemplate()
+    object Meeting : SummaryTemplate()
+    object Interview : SummaryTemplate()
+    object Lecture : SummaryTemplate()
+    object Conversation : SummaryTemplate()
+    data class Custom(
+        val prompt: String,
+        val maxLength: Int? = null,
+        val format: String? = null,
+        val focusPoints: List<String> = emptyList()
+    ) : SummaryTemplate()
+}
 
 enum class TemplateCategory {
     GENERAL,

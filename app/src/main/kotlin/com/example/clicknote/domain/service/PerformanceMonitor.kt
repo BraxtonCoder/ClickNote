@@ -1,43 +1,27 @@
 package com.example.clicknote.domain.service
 
-import java.io.File
+import com.example.clicknote.domain.model.NetworkMetrics
+import com.example.clicknote.domain.model.PerformanceReport
+import com.example.clicknote.domain.model.StorageMetrics
+import kotlinx.coroutines.flow.Flow
 
 interface PerformanceMonitor {
-    suspend fun trackAudioProcessing()
-    suspend fun trackFileTranscription(file: File)
-    suspend fun trackSpeakerDetection()
-    suspend fun trackLanguageDetection()
-    suspend fun trackSummarization()
-    suspend fun trackCloudSync()
-    suspend fun trackDatabaseOperation(operation: String)
-    suspend fun trackNetworkRequest(endpoint: String)
-    suspend fun trackMemoryUsage()
-    suspend fun trackBatteryUsage()
-    suspend fun trackCPUUsage()
-    suspend fun trackStorageUsage()
-    suspend fun trackUserInteraction(action: String)
-    suspend fun trackError(error: Throwable)
-    suspend fun trackLatency(operation: String, durationMs: Long)
-    suspend fun flush()
-}
-
-data class StorageMetrics(
-    val totalSpace: Long,
-    val usedSpace: Long,
-    val percentageUsed: Int
-)
-
-data class NetworkMetrics(
-    val bytesReceived: Long,
-    val bytesSent: Long,
-    val latency: Long
-)
-
-data class PerformanceReport(
-    val averageCpuUsage: Float,
-    val peakMemoryUsage: Long,
-    val averageBatteryDrain: Float,
-    val storageMetrics: StorageMetrics,
-    val networkMetrics: NetworkMetrics,
-    val events: Map<String, List<Long>>
-) 
+    suspend fun startMonitoring()
+    suspend fun stopMonitoring()
+    fun isMonitoring(): Boolean
+    
+    fun getCpuUsage(): Flow<Float>
+    fun getMemoryUsage(): Flow<Long>
+    fun getBatteryUsage(): Flow<Float>
+    fun getStorageMetrics(): Flow<StorageMetrics>
+    fun getNetworkMetrics(): Flow<NetworkMetrics>
+    
+    suspend fun logEvent(name: String, params: Map<String, Any> = emptyMap())
+    suspend fun getPerformanceReport(timeRange: Long? = null): PerformanceReport
+    
+    suspend fun startMeasurement(operationName: String)
+    suspend fun endMeasurement(operationName: String)
+    
+    suspend fun startOperation(name: String)
+    suspend fun endOperation(name: String)
+} 

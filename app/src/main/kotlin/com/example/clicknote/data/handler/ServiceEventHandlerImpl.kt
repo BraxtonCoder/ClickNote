@@ -3,12 +3,12 @@ package com.example.clicknote.data.handler
 import com.example.clicknote.domain.handler.ServiceEventHandler
 import com.example.clicknote.domain.service.Service
 import com.example.clicknote.domain.service.TranscriptionCapable
+import com.example.clicknote.domain.model.ServiceEvent
+import com.example.clicknote.domain.model.ServiceState
 import com.example.clicknote.domain.registry.ServiceRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,27 +16,22 @@ import javax.inject.Singleton
 @Singleton
 class ServiceEventHandlerImpl @Inject constructor(
     private val serviceRegistry: ServiceRegistry,
-    private val scope: CoroutineScope
+    @ApplicationScope private val scope: CoroutineScope
 ) : ServiceEventHandler {
 
     private val _currentService = MutableStateFlow<TranscriptionCapable?>(null)
-    override val currentService: StateFlow<TranscriptionCapable?> = _currentService.asStateFlow()
+    override val currentService: Flow<TranscriptionCapable?> = _currentService.asStateFlow()
+
+    private val _serviceState = MutableStateFlow<ServiceState?>(null)
+    private val _serviceEvents = MutableSharedFlow<ServiceEvent>()
 
     override suspend fun handleServiceActivated(service: Service) {
-        if (service !is TranscriptionCapable) return
-        
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             try {
-                val existingService = _currentService.value
-                if (existingService != null && existingService.id != service.id) {
-                    existingService.cleanup()
+                if (service is TranscriptionCapable) {
+                    _currentService.value = service
                 }
-                
-                if (!service.isInitialized()) {
-                    service.initialize()
-                }
-                
-                _currentService.value = service
+                emitEvent(ServiceEvent.ServiceActivated(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
@@ -44,12 +39,12 @@ class ServiceEventHandlerImpl @Inject constructor(
     }
 
     override suspend fun handleServiceDeactivated(service: Service) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             try {
                 if (_currentService.value?.id == service.id) {
-                    service.cleanup()
                     _currentService.value = null
                 }
+                emitEvent(ServiceEvent.ServiceDeactivated(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
@@ -57,26 +52,23 @@ class ServiceEventHandlerImpl @Inject constructor(
     }
 
     override suspend fun handleServiceError(service: Service, error: Throwable) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             try {
                 if (_currentService.value?.id == service.id) {
-                    service.cleanup()
                     _currentService.value = null
                 }
+                emitEvent(ServiceEvent.ServiceError(service.id, error))
             } catch (e: Exception) {
-                // Log error but don't propagate to avoid infinite error loop
+                // Log error but don't recursively handle it
             }
         }
     }
 
     override suspend fun handleServiceInitialized(service: Service) {
-        if (service !is TranscriptionCapable) return
-        
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             try {
-                if (_currentService.value?.id == service.id) {
-                    _currentService.value = service
-                }
+                service.initialize()
+                emitEvent(ServiceEvent.ServiceInitialized(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
@@ -84,14 +76,20 @@ class ServiceEventHandlerImpl @Inject constructor(
     }
 
     override suspend fun handleServiceCleanup(service: Service) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             try {
                 if (_currentService.value?.id == service.id) {
                     _currentService.value = null
                 }
+                service.cleanup()
+                emitEvent(ServiceEvent.ServiceCleaned(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
         }
+    }
+
+    private suspend fun emitEvent(event: ServiceEvent) {
+        _serviceEvents.emit(event)
     }
 }

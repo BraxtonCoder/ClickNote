@@ -53,7 +53,7 @@ class BillingRepositoryImpl @Inject constructor(
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
             coroutineScope.launch(Dispatchers.IO) {
                 for (purchase in purchases) {
-                    handlePurchase(purchase.purchaseToken)
+                    handlePurchase(purchase)
                 }
             }
         }
@@ -261,6 +261,22 @@ class BillingRepositoryImpl @Inject constructor(
             SubscriptionStatus.MONTHLY, SubscriptionStatus.ANNUAL -> true
             else -> false
         }
+    }
+
+    override suspend fun getWeeklyTranscriptionCount(): Int {
+        return userPreferences.getWeeklyTranscriptionCount()
+    }
+
+    override suspend fun incrementWeeklyTranscriptionCount() {
+        userPreferences.incrementWeeklyTranscriptionCount()
+    }
+
+    override suspend fun resetWeeklyTranscriptionCount() {
+        userPreferences.resetWeeklyTranscriptionCount()
+    }
+
+    override suspend fun cleanup() {
+        billingClient.endConnection()
     }
 
     companion object {

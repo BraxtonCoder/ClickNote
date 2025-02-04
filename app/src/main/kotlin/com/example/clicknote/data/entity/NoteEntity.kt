@@ -2,7 +2,9 @@ package com.example.clicknote.data.entity
 
 import androidx.room.*
 import com.example.clicknote.data.converter.RoomConverters
-import com.example.clicknote.data.model.SyncStatus
+import com.example.clicknote.domain.model.Note
+import com.example.clicknote.domain.model.NoteSource
+import com.example.clicknote.domain.model.SyncStatus
 import java.time.LocalDateTime
 
 @Entity(
@@ -26,6 +28,7 @@ import java.time.LocalDateTime
 @TypeConverters(RoomConverters::class)
 data class NoteEntity(
     @PrimaryKey
+    @ColumnInfo(name = "id")
     val id: String,
 
     @ColumnInfo(name = "title")
@@ -35,10 +38,10 @@ data class NoteEntity(
     val content: String,
 
     @ColumnInfo(name = "created_at")
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: LocalDateTime,
 
     @ColumnInfo(name = "updated_at")
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    val updatedAt: LocalDateTime,
 
     @ColumnInfo(name = "deleted_at")
     val deletedAt: LocalDateTime? = null,
@@ -62,7 +65,7 @@ data class NoteEntity(
     val duration: Long = 0,
 
     @ColumnInfo(name = "source")
-    val source: String = "MANUAL",
+    val source: String = NoteSource.MANUAL.name,
 
     @ColumnInfo(name = "folder_id")
     val folderId: String? = null,
@@ -78,4 +81,52 @@ data class NoteEntity(
 
     @ColumnInfo(name = "sync_status")
     val syncStatus: String = SyncStatus.PENDING.name
-) 
+) {
+    fun toDomain(): Note {
+        return Note(
+            id = id,
+            title = title,
+            content = content,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            deletedAt = deletedAt,
+            isDeleted = isDeleted,
+            isPinned = isPinned,
+            isLongForm = isLongForm,
+            hasAudio = hasAudio,
+            audioPath = audioPath,
+            duration = duration,
+            source = NoteSource.valueOf(source),
+            folderId = folderId,
+            summary = summary,
+            keyPoints = keyPoints,
+            speakers = speakers,
+            syncStatus = SyncStatus.valueOf(syncStatus)
+        )
+    }
+
+    companion object {
+        fun fromDomain(domain: Note): NoteEntity {
+            return NoteEntity(
+                id = domain.id,
+                title = domain.title,
+                content = domain.content,
+                createdAt = domain.createdAt,
+                updatedAt = domain.updatedAt,
+                deletedAt = domain.deletedAt,
+                isDeleted = domain.isDeleted,
+                isPinned = domain.isPinned,
+                isLongForm = domain.isLongForm,
+                hasAudio = domain.hasAudio,
+                audioPath = domain.audioPath,
+                duration = domain.duration,
+                source = domain.source.name,
+                folderId = domain.folderId,
+                summary = domain.summary,
+                keyPoints = domain.keyPoints,
+                speakers = domain.speakers,
+                syncStatus = domain.syncStatus.name
+            )
+        }
+    }
+} 

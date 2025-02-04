@@ -175,4 +175,11 @@ dependencies {
     
     // Stripe
     implementation("com.stripe:stripe-android:20.38.0")
+
+    // Google Sign In
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    
+    // Firebase Auth (if not already added)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
 }

@@ -4,7 +4,7 @@ import androidx.room.*
 import androidx.room.RoomWarnings
 import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.data.entity.NoteWithFolderEntity
-import com.example.clicknote.data.model.SyncStatus
+import com.example.clicknote.domain.model.SyncStatus
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 

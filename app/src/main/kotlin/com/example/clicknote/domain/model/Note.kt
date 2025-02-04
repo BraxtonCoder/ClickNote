@@ -14,8 +14,10 @@ data class Note(
     val deletedAt: LocalDateTime? = null,
     val isDeleted: Boolean = false,
     val isPinned: Boolean = false,
+    val isLongForm: Boolean = false,
     val hasAudio: Boolean = false,
     val audioPath: String? = null,
+    val duration: Long = 0,
     val source: NoteSource = NoteSource.MANUAL,
     val folderId: String? = null,
     val summary: String? = null,
@@ -23,25 +25,32 @@ data class Note(
     val speakers: List<String> = emptyList(),
     val syncStatus: SyncStatus = SyncStatus.PENDING
 ) {
+    val isShortForm: Boolean
+        get() = !isLongForm
+
     companion object {
         fun create(
             title: String,
             content: String,
-            folderId: String? = null,
-            hasAudio: Boolean = false,
+            isLongForm: Boolean = false,
             audioPath: String? = null,
-            source: NoteSource = NoteSource.VOICE
+            duration: Long = 0L,
+            source: NoteSource = NoteSource.MANUAL,
+            folderId: String? = null
         ): Note {
+            val now = LocalDateTime.now()
             return Note(
-                id = UUID.randomUUID().toString(),
+                id = java.util.UUID.randomUUID().toString(),
                 title = title,
                 content = content,
-                createdAt = LocalDateTime.now(),
-                updatedAt = LocalDateTime.now(),
-                folderId = folderId,
-                hasAudio = hasAudio,
+                createdAt = now,
+                updatedAt = now,
+                isLongForm = isLongForm,
+                hasAudio = audioPath != null,
                 audioPath = audioPath,
-                source = source
+                duration = duration,
+                source = source,
+                folderId = folderId
             )
         }
     }

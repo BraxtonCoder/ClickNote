@@ -3,6 +3,7 @@ package com.example.clicknote.data.entity
 import androidx.room.Embedded
 import androidx.room.Relation
 import com.example.clicknote.domain.model.Note
+import com.example.clicknote.domain.model.NoteWithFolder
 import com.example.clicknote.data.mapper.toNote
 import com.example.clicknote.data.mapper.toNoteEntity
 
@@ -12,20 +13,22 @@ data class NoteWithFolderEntity(
 
     @Relation(
         parentColumn = "folder_id",
-        entityColumn = "id",
-        entity = FolderEntity::class
+        entityColumn = "id"
     )
     val folder: FolderEntity?
 ) {
-    fun toNote(): Note = note.toNote().copy(
-        folderId = folder?.id
-    )
+    fun toDomain(): NoteWithFolder {
+        return NoteWithFolder(
+            note = note.toDomain(),
+            folder = folder?.toDomain()
+        )
+    }
 
     companion object {
-        fun fromNote(note: Note, folder: FolderEntity? = null): NoteWithFolderEntity {
+        fun fromDomain(domain: NoteWithFolder): NoteWithFolderEntity {
             return NoteWithFolderEntity(
-                note = note.toNoteEntity(),
-                folder = folder
+                note = NoteEntity.fromDomain(domain.note),
+                folder = domain.folder?.let { FolderEntity.fromDomain(it) }
             )
         }
     }

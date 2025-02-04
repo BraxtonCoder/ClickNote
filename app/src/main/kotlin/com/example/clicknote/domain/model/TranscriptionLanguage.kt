@@ -11,12 +11,11 @@ enum class TranscriptionLanguage(val code: String, val displayName: String) {
     JAPANESE("ja", "Japanese"),
     KOREAN("ko", "Korean"),
     CHINESE("zh", "Chinese"),
-    HINDI("hi", "Hindi"),
-    ARABIC("ar", "Arabic");
+    AUTO_DETECT("auto", "Auto Detect");
 
     companion object {
         fun fromCode(code: String): TranscriptionLanguage {
-            return values().find { it.code == code } ?: ENGLISH
+            return values().find { it.code == code } ?: AUTO_DETECT
         }
     }
 } 

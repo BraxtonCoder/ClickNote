@@ -1,103 +1,82 @@
 package com.example.clicknote.data.mediator
 
-import android.app.Activity
-import com.android.billingclient.api.Purchase
+import com.example.clicknote.di.qualifiers.ApplicationScope
 import com.example.clicknote.domain.mediator.PurchaseMediator
-import com.example.clicknote.domain.service.BillingService
+import com.example.clicknote.domain.model.Purchase
 import com.example.clicknote.domain.model.SubscriptionPlan
-import com.example.clicknote.domain.preferences.UserPreferencesDataStore
+import com.example.clicknote.domain.repository.PurchaseRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val MONTHLY_SUBSCRIPTION_ID = "monthly_subscription"
-private const val ANNUAL_SUBSCRIPTION_ID = "annual_subscription"
-private const val FREE_WEEKLY_LIMIT = 3
-
 @Singleton
 class PurchaseMediatorImpl @Inject constructor(
-    private val billingService: BillingService,
-    private val userPreferences: UserPreferencesDataStore
+    private val purchaseRepository: PurchaseRepository,
+    @ApplicationScope private val scope: CoroutineScope
 ) : PurchaseMediator {
 
-    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val _purchaseEvents = MutableSharedFlow<Purchase>()
-    private var currentActivity: Activity? = null
+    private val _currentPlan = MutableStateFlow<SubscriptionPlan>(SubscriptionPlan.FREE)
+    override val currentPlan: Flow<SubscriptionPlan> = _currentPlan.asStateFlow()
 
-    override suspend fun initializeBilling() {
-        currentActivity?.let { activity ->
-            billingService.initializeBillingClient(activity)
-        }
-    }
-
-    override suspend fun querySubscriptions(): Flow<List<String>> = flow {
-        val subscriptions = listOf(
-            MONTHLY_SUBSCRIPTION_ID,  // £9.99/month
-            ANNUAL_SUBSCRIPTION_ID    // £98/year
-        )
-        emit(subscriptions)
-    }
-
-    override suspend fun launchBillingFlow(productId: String) {
-        val plan = when (productId) {
-            MONTHLY_SUBSCRIPTION_ID -> SubscriptionPlan.MONTHLY
-            ANNUAL_SUBSCRIPTION_ID -> SubscriptionPlan.ANNUAL
-            else -> return
-        }
-        billingService.purchaseSubscription(plan)
-    }
-
-    override suspend fun checkSubscriptionStatus(): Boolean {
-        val weeklyCount = getWeeklyTranscriptionCount()
-        return when {
-            billingService.currentPlan.value == SubscriptionPlan.FREE && weeklyCount >= FREE_WEEKLY_LIMIT -> false
-            billingService.currentPlan.value in listOf(SubscriptionPlan.MONTHLY, SubscriptionPlan.ANNUAL) -> true
-            else -> weeklyCount < FREE_WEEKLY_LIMIT
-        }
-    }
-
-    override suspend fun endBillingConnection() {
-        billingService.endBillingConnection()
-        currentActivity = null
-    }
-
-    override fun getWeeklyTranscriptionCount(): Int {
-        return userPreferences.getWeeklyTranscriptionCount()
-    }
-
-    override fun incrementWeeklyTranscriptionCount() {
-        userPreferences.incrementWeeklyTranscriptionCount()
-    }
-
-    override fun resetWeeklyTranscriptionCount() {
-        userPreferences.resetWeeklyTranscriptionCount()
-    }
-
-    fun setActivity(activity: Activity) {
-        currentActivity = activity
-        initializeBillingScope()
-    }
-
-    private fun initializeBillingScope() {
-        currentActivity?.let { activity ->
-            coroutineScope.launch {
-                billingService.initializeBillingClient(activity)
-            }
-        }
-    }
+    private val _purchases = MutableSharedFlow<Purchase>()
+    override val purchases: Flow<Purchase> = _purchases.asSharedFlow()
 
     init {
-        billingService.setPurchaseCallback { purchase ->
-            coroutineScope.launch {
-                _purchaseEvents.emit(purchase)
+        scope.launch {
+            purchaseRepository.getCurrentPlan()
+                .collect { plan ->
+                    _currentPlan.value = plan
+                }
+        }
+    }
+
+    override suspend fun getWeeklyTranscriptionCount(): Int {
+        return purchaseRepository.getWeeklyTranscriptionCount()
+    }
+
+    override suspend fun incrementWeeklyTranscriptionCount() {
+        purchaseRepository.incrementWeeklyTranscriptionCount()
+    }
+
+    override suspend fun resetWeeklyTranscriptionCount() {
+        purchaseRepository.resetWeeklyTranscriptionCount()
+    }
+
+    override suspend fun canMakeTranscription(): Boolean {
+        val plan = _currentPlan.value
+        val count = getWeeklyTranscriptionCount()
+        return when (plan) {
+            SubscriptionPlan.FREE -> count < SubscriptionPlan.FREE.weeklyLimit
+            else -> true
+        }
+    }
+
+    override suspend fun processPurchase(purchase: Purchase) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                purchaseRepository.savePurchase(purchase)
+                _currentPlan.value = purchase.plan
+                _purchases.emit(purchase)
+            } catch (e: Exception) {
+                handlePurchaseError(e)
             }
         }
     }
 
-    suspend fun emitPurchase(purchase: Purchase) {
-        _purchaseEvents.emit(purchase)
+    override suspend fun handlePurchaseError(error: Throwable) {
+        scope.launch(Dispatchers.IO) {
+            _purchases.emit(
+                Purchase(
+                    id = "error",
+                    userId = "",
+                    plan = _currentPlan.value,
+                    amount = 0.0,
+                    status = PurchaseStatus.FAILED
+                )
+            )
+        }
     }
-} 
+}

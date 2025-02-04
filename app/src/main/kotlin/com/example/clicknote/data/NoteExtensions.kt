@@ -4,28 +4,31 @@ import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.data.model.SyncStatus
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import com.example.clicknote.data.entity.NoteWithFolderEntity
 import java.util.UUID
 
-fun NoteEntity.toNote(): Note {
+fun NoteEntity.toDomain(): Note {
     return Note(
         id = id,
         title = title,
         content = content,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        deletedAt = deletedAt,
+        createdAt = timestampToLocalDateTime(createdAt),
+        updatedAt = timestampToLocalDateTime(updatedAt),
+        deletedAt = deletedAt?.let { timestampToLocalDateTime(it) },
         isDeleted = isDeleted,
         isPinned = isPinned,
+        isLongForm = isLongForm,
         hasAudio = hasAudio,
         audioPath = audioPath,
+        duration = duration,
         source = NoteSource.valueOf(source),
         folderId = folderId,
         summary = summary,
         keyPoints = keyPoints,
-        speakers = speakers,
-        syncStatus = SyncStatus.valueOf(syncStatus)
+        speakers = speakers
     )
 }
 
@@ -34,20 +37,32 @@ fun Note.toEntity(): NoteEntity {
         id = id,
         title = title,
         content = content,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        deletedAt = deletedAt,
+        createdAt = localDateTimeToTimestamp(createdAt),
+        updatedAt = localDateTimeToTimestamp(updatedAt),
+        deletedAt = deletedAt?.let { localDateTimeToTimestamp(it) },
         isDeleted = isDeleted,
         isPinned = isPinned,
+        isLongForm = isLongForm,
         hasAudio = hasAudio,
         audioPath = audioPath,
+        duration = duration,
         source = source.name,
         folderId = folderId,
         summary = summary,
         keyPoints = keyPoints,
-        speakers = speakers,
-        syncStatus = syncStatus.name
+        speakers = speakers
     )
+}
+
+private fun timestampToLocalDateTime(timestamp: Long): LocalDateTime {
+    return LocalDateTime.ofInstant(
+        Instant.ofEpochMilli(timestamp),
+        ZoneId.systemDefault()
+    )
+}
+
+private fun localDateTimeToTimestamp(dateTime: LocalDateTime): Long {
+    return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }
 
 fun Note.copy(
@@ -89,32 +104,35 @@ fun Note.copy(
 fun createNote(
     title: String,
     content: String,
-    folderId: String? = null,
-    hasAudio: Boolean = false,
+    isLongForm: Boolean = false,
     audioPath: String? = null,
-    source: NoteSource = NoteSource.VOICE
+    duration: Long = 0L,
+    source: NoteSource = NoteSource.MANUAL,
+    folderId: String? = null
 ): NoteEntity {
-    val now = LocalDateTime.now()
+    val now = System.currentTimeMillis()
     return NoteEntity(
         id = java.util.UUID.randomUUID().toString(),
         title = title,
         content = content,
         createdAt = now,
         updatedAt = now,
+        deletedAt = null,
         isDeleted = false,
         isPinned = false,
-        hasAudio = hasAudio,
+        isLongForm = isLongForm,
+        hasAudio = audioPath != null,
         audioPath = audioPath,
+        duration = duration,
         source = source.name,
         folderId = folderId,
         summary = null,
         keyPoints = emptyList(),
-        speakers = emptyList(),
-        syncStatus = SyncStatus.PENDING.name
+        speakers = emptyList()
     )
 }
 
-fun NoteWithFolderEntity.toNote(): Note = note.toNote().copy(
+fun NoteWithFolderEntity.toNote(): Note = note.toDomain().copy(
     folderId = folder?.id
 )
 

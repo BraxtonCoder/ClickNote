@@ -38,7 +38,7 @@ class StripeApiImpl @Inject constructor(
     }
 
     override suspend fun attachPaymentMethod(request: UpdatePaymentMethodRequest) {
-        api.attachPaymentMethod(request)
+        return api.attachPaymentMethod(request)
     }
 
     override suspend fun getSubscriptionPlans(): GetSubscriptionPlansResponse {

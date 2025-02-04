@@ -2,12 +2,12 @@ package com.example.clicknote.data.mapper
 
 import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.data.entity.NoteWithFolderEntity
-import com.example.clicknote.data.model.SyncStatus
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
+import com.example.clicknote.domain.model.SyncStatus
 import java.time.LocalDateTime
 
-fun NoteEntity.toNote(): Note {
+fun NoteEntity.toDomain(): Note {
     return Note(
         id = id,
         title = title,
@@ -30,7 +30,7 @@ fun NoteEntity.toNote(): Note {
     )
 }
 
-fun NoteWithFolderEntity.toNote(): Note = note.toNote().copy(
+fun NoteWithFolderEntity.toNote(): Note = note.toDomain().copy(
     folderId = folder?.id
 )
 
@@ -66,7 +66,7 @@ fun createNote(
     source: NoteSource = NoteSource.MANUAL,
     folderId: String? = null
 ): NoteEntity {
-    val now = LocalDateTime.now()
+    val now = System.currentTimeMillis()
     return NoteEntity(
         id = java.util.UUID.randomUUID().toString(),
         title = title,

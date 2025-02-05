@@ -1,50 +1,58 @@
 package com.example.clicknote.di
 
-import android.content.Context
-import com.example.clicknote.data.api.StripeApiImpl
-import com.example.clicknote.data.api.service.StripeBackendApi
-import com.example.clicknote.data.api.service.StripeService
-import com.example.clicknote.domain.api.StripeApi
-import com.stripe.android.PaymentConfiguration
-import com.stripe.android.Stripe
+import com.example.clicknote.BuildConfig
+import com.example.clicknote.data.service.StripeApiImpl
+import com.example.clicknote.domain.service.StripeApi
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object StripeModule {
+abstract class StripeModule {
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideStripe(
-        @ApplicationContext context: Context
-    ): Stripe {
-        return Stripe(context, PaymentConfiguration.getInstance(context).publishableKey)
-    }
+    abstract fun bindStripeApi(impl: StripeApiImpl): StripeApi
 
-    @Provides
-    @Singleton
-    fun provideStripeApi(
-        impl: StripeApiImpl
-    ): StripeApi = impl
+    companion object {
+        private const val STRIPE_API_URL = "https://api.stripe.com/"
 
-    @Provides
-    @Singleton
-    fun provideStripeBackendApi(
-        stripeService: StripeService
-    ): StripeBackendApi {
-        // Implement your StripeBackendApi here
-        return object : StripeBackendApi {
-            override suspend fun createSubscription(request: com.example.clicknote.data.api.model.CreateSubscriptionRequest) =
-                stripeService.createSubscription(request)
-            
-            override suspend fun cancelSubscription() {
-                stripeService.cancelSubscription(com.example.clicknote.data.api.model.CancelSubscriptionRequest(""))
-            }
+        @Provides
+        @Singleton
+        fun provideStripeOkHttpClient(): OkHttpClient {
+            return OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    val request = chain.request().newBuilder()
+                        .addHeader("Authorization", "Bearer ${BuildConfig.STRIPE_PUBLISHABLE_KEY}")
+                        .build()
+                    chain.proceed(request)
+                }
+                .addInterceptor(HttpLoggingInterceptor().apply {
+                    level = if (BuildConfig.DEBUG) {
+                        HttpLoggingInterceptor.Level.BODY
+                    } else {
+                        HttpLoggingInterceptor.Level.NONE
+                    }
+                })
+                .build()
+        }
+
+        @Provides
+        @Singleton
+        fun provideStripeRetrofit(okHttpClient: OkHttpClient): Retrofit {
+            return Retrofit.Builder()
+                .baseUrl(STRIPE_API_URL)
+                .client(okHttpClient)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
         }
     }
 } 

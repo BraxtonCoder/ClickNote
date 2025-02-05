@@ -1,10 +1,15 @@
 package com.example.clicknote.di
 
+import android.content.Context
+import android.net.ConnectivityManager
 import com.example.clicknote.BuildConfig
 import com.example.clicknote.data.api.StripeService
+import com.example.clicknote.data.network.NetworkConnectivityManagerImpl
+import com.example.clicknote.domain.interfaces.NetworkConnectivityManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -52,5 +57,21 @@ object NetworkModule {
     @Singleton
     fun provideStripeService(retrofit: Retrofit): StripeService {
         return retrofit.create(StripeService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConnectivityManager(
+        @ApplicationContext context: Context
+    ): ConnectivityManager {
+        return context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    }
+
+    @Provides
+    @Singleton
+    fun provideNetworkConnectivityManager(
+        connectivityManager: ConnectivityManager
+    ): NetworkConnectivityManager {
+        return NetworkConnectivityManagerImpl(connectivityManager)
     }
 }

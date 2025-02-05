@@ -1,26 +1,23 @@
 package com.example.clicknote.di
 
-import com.example.clicknote.data.lifecycle.ServiceLifecycleManagerImpl
-import com.example.clicknote.data.mediator.ServiceMediatorImpl
-import com.example.clicknote.data.registry.ServiceRegistryImpl
+import android.app.NotificationManager
+import android.content.Context
+import android.media.AudioManager
+import android.os.PowerManager
+import com.example.clicknote.data.service.*
+import com.example.clicknote.domain.service.*
 import com.example.clicknote.data.strategy.ServiceStrategyImpl
-import com.example.clicknote.data.service.EventMappingServiceImpl
-import com.example.clicknote.domain.lifecycle.ServiceLifecycleManager
-import com.example.clicknote.domain.mediator.ServiceMediator
-import com.example.clicknote.domain.registry.ServiceRegistry
-import com.example.clicknote.domain.service.EventMappingService
-import com.example.clicknote.domain.service.ServiceStrategy
+import com.example.clicknote.domain.strategy.ServiceStrategy
+import com.example.clicknote.data.handler.ServiceEventHandlerImpl
+import com.example.clicknote.domain.event.ServiceEventHandler
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
-import android.app.NotificationManager
-import android.content.Context
-import android.os.PowerManager
 import javax.inject.Qualifier
-import android.media.AudioManager
+import javax.inject.Singleton
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -32,51 +29,69 @@ annotation class ServiceNotificationManager
 
 @Module
 @InstallIn(SingletonComponent::class)
-object ServiceModule {
-    @Provides
-    @ServicePowerManager
-    @Singleton
-    fun providePowerManager(
-        @ApplicationContext context: Context
-    ): PowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+abstract class ServiceModule {
 
-    @Provides
-    @ServiceNotificationManager
+    @Binds
     @Singleton
-    fun provideNotificationManager(
-        @ApplicationContext context: Context
-    ): NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    abstract fun bindServiceStrategy(
+        impl: ServiceStrategyImpl
+    ): ServiceStrategy
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideAudioManager(
-        @ApplicationContext context: Context
-    ): AudioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    abstract fun bindServiceEventHandler(
+        impl: ServiceEventHandlerImpl
+    ): ServiceEventHandler
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideServiceRegistry(): ServiceRegistry = ServiceRegistryImpl()
+    abstract fun bindNotificationService(
+        impl: NotificationServiceImpl
+    ): NotificationService
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideServiceStrategy(): ServiceStrategy = ServiceStrategyImpl()
+    abstract fun bindAuthService(
+        impl: AuthServiceImpl
+    ): AuthService
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideServiceMediator(
-        registry: ServiceRegistry,
-        strategy: ServiceStrategy
-    ): ServiceMediator = ServiceMediatorImpl(registry, strategy)
+    abstract fun bindBillingService(
+        impl: BillingServiceImpl
+    ): BillingService
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideServiceLifecycleManager(
-        registry: ServiceRegistry,
-        mediator: ServiceMediator,
-        strategy: ServiceStrategy
-    ): ServiceLifecycleManager = ServiceLifecycleManagerImpl(registry, mediator, strategy)
+    abstract fun bindWhisperTranscriptionService(
+        impl: WhisperTranscriptionServiceImpl
+    ): WhisperTranscriptionService
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideEventMappingService(): EventMappingService = EventMappingServiceImpl()
+    abstract fun bindWhisperOfflineTranscriptionService(
+        impl: WhisperOfflineTranscriptionServiceImpl
+    ): WhisperOfflineTranscriptionService
+
+    companion object {
+        @Provides
+        @ServicePowerManager
+        @Singleton
+        fun providePowerManager(
+            @ApplicationContext context: Context
+        ): PowerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+
+        @Provides
+        @ServiceNotificationManager
+        @Singleton
+        fun provideNotificationManager(
+            @ApplicationContext context: Context
+        ): NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        @Provides
+        @Singleton
+        fun provideAudioManager(
+            @ApplicationContext context: Context
+        ): AudioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
 }

@@ -4,8 +4,16 @@ import javax.inject.Qualifier
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
-annotation class Online
+annotation class WhisperOnline
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
-annotation class Offline 
+annotation class WhisperOffline
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class OnlineCapable
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class OfflineCapable 

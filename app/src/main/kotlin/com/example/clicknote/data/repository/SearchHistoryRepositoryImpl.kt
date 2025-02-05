@@ -1,15 +1,11 @@
 package com.example.clicknote.data.repository
 
 import com.example.clicknote.data.dao.SearchHistoryDao
-import com.example.clicknote.data.entity.SearchHistory as SearchHistoryEntity
+import com.example.clicknote.data.entity.SearchHistoryEntity
 import com.example.clicknote.domain.model.SearchHistory
 import com.example.clicknote.domain.model.SearchType
 import com.example.clicknote.domain.repository.SearchHistoryRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import java.time.LocalDateTime
-import java.util.UUID
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,7 +15,7 @@ class SearchHistoryRepositoryImpl @Inject constructor(
 ) : SearchHistoryRepository {
 
     override fun getRecentSearches(limit: Int): Flow<List<SearchHistory>> =
-        searchHistoryDao.getRecentSearches(LocalDateTime.now().minusDays(7)).map { entities ->
+        searchHistoryDao.getRecentSearches(limit).map { entities ->
             entities.map { it.toDomain() }
         }
 
@@ -29,63 +25,72 @@ class SearchHistoryRepositoryImpl @Inject constructor(
         }
 
     override suspend fun addSearch(query: String, type: SearchType) {
-        val search = SearchHistoryEntity(
-            id = UUID.randomUUID().toString(),
+        val searchHistory = SearchHistoryEntity(
+            id = java.util.UUID.randomUUID().toString(),
             query = query,
-            type = type.name,
+            timestamp = System.currentTimeMillis(),
             useCount = 1,
-            lastUsed = LocalDateTime.now()
+            type = type.name
         )
-        searchHistoryDao.insert(search)
+        searchHistoryDao.insert(searchHistory)
     }
 
     override suspend fun updateSearch(search: SearchHistory) {
-        searchHistoryDao.update(
-            SearchHistoryEntity(
-                id = search.id,
-                query = search.query,
-                type = search.type.name,
-                useCount = search.useCount,
-                lastUsed = LocalDateTime.now()
-            )
-        )
+        searchHistoryDao.update(search.toEntity())
     }
 
     override suspend fun deleteSearch(search: SearchHistory) {
-        searchHistoryDao.deleteSearchHistory(search.id)
+        searchHistoryDao.deleteByQuery(search.query)
     }
 
     override suspend fun clearSearchHistory() {
-        searchHistoryDao.clearAllSearchHistory()
+        searchHistoryDao.clearAll()
     }
 
     override suspend fun clearSearchHistoryOlderThan(timestamp: Long) {
-        // Convert timestamp to LocalDateTime and clear older entries
-        val dateTime = LocalDateTime.ofEpochSecond(timestamp / 1000, 0, java.time.ZoneOffset.UTC)
-        searchHistoryDao.getRecentSearches(dateTime).collect { searches ->
-            searches.forEach { search ->
-                searchHistoryDao.deleteSearchHistory(search.id)
-            }
-        }
+        searchHistoryDao.deleteOlderThan(timestamp)
     }
 
     override fun getPopularSearches(limit: Int): Flow<List<SearchHistory>> =
-        searchHistoryDao.getTopSearches(limit).map { entities ->
+        searchHistoryDao.getPopularSearches(limit).map { entities ->
             entities.map { it.toDomain() }
         }
 
     override suspend fun getSearchCount(): Int =
-        searchHistoryDao.getAllSearchHistory().map { it.size }.first()
+        searchHistoryDao.getSearchCount()
 
     override suspend fun incrementUseCount(searchId: String) {
-        searchHistoryDao.incrementUseCount(searchId, LocalDateTime.now())
+        searchHistoryDao.incrementUseCount(searchId)
     }
 
-    private fun SearchHistoryEntity.toDomain() = SearchHistory(
-        id = id,
-        query = query,
-        type = SearchType.valueOf(type),
-        useCount = useCount,
-        timestamp = lastUsed.toEpochSecond(java.time.ZoneOffset.UTC) * 1000
-    )
+    override suspend fun addSearchQuery(query: String) {
+        addSearch(query, SearchType.GENERAL)
+    }
+
+    override suspend fun getRecentSearches(): Flow<List<String>> =
+        searchHistoryDao.getRecentSearches().map { entities ->
+            entities.map { it.query }
+        }
+
+    override suspend fun deleteSearchQuery(query: String) {
+        searchHistoryDao.deleteByQuery(query)
+    }
+
+    private fun SearchHistoryEntity.toDomain(): SearchHistory =
+        SearchHistory(
+            id = id,
+            query = query,
+            type = SearchType.valueOf(type),
+            useCount = useCount,
+            timestamp = timestamp
+        )
+
+    private fun SearchHistory.toEntity(): SearchHistoryEntity =
+        SearchHistoryEntity(
+            id = id,
+            query = query,
+            type = type.name,
+            useCount = useCount,
+            timestamp = timestamp
+        )
 } 

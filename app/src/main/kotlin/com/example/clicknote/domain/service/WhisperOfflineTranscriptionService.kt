@@ -1,15 +1,28 @@
 package com.example.clicknote.domain.service
 
-import com.example.clicknote.domain.model.TranscriptionSegment
-import com.example.clicknote.domain.model.Speaker
+import com.example.clicknote.domain.model.*
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 
-interface WhisperOfflineTranscriptionService {
-    val transcriptionProgress: Flow<Float>
-    val detectedSpeakers: Flow<List<Speaker>>
-
-    suspend fun transcribe(audioFile: File, detectSpeakers: Boolean = false): String
-    fun startRealtimeTranscription(): Flow<TranscriptionSegment>
-    suspend fun stopRealtimeTranscription()
+interface WhisperOfflineTranscriptionService : TranscriptionCapable {
+    override val events: Flow<TranscriptionEvent>
+    
+    override suspend fun transcribeAudio(
+        audioData: ByteArray,
+        settings: TranscriptionSettings
+    ): Result<TranscriptionResult>
+    
+    override suspend fun transcribeFile(
+        file: File,
+        settings: TranscriptionSettings
+    ): Result<TranscriptionResult>
+    
+    override suspend fun detectLanguage(audioData: ByteArray): Result<String>
+    override suspend fun getAvailableLanguages(): Result<List<String>>
+    override suspend fun detectSpeakers(audioData: ByteArray): Result<Int>
+    override suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>>
+    override suspend fun generateSummary(text: String, template: SummaryTemplate): Result<Summary>
+    
+    suspend fun cleanup()
+    fun isInitialized(): Boolean
 } 

@@ -44,6 +44,7 @@ interface UserPreferencesDataStore {
     val cloudStorageType: Flow<CloudStorageType>
     val subscriptionStatus: Flow<SubscriptionStatus>
     val offlineModeEnabled: Flow<Boolean>
+    val isOnlineTranscriptionEnabled: Flow<Boolean>
 
     suspend fun setCallRecordingEnabled(enabled: Boolean)
     suspend fun setAudioSavingEnabled(enabled: Boolean)
@@ -71,6 +72,8 @@ interface UserPreferencesDataStore {
     suspend fun setCloudStorageType(type: CloudStorageType)
     suspend fun setSubscriptionStatus(status: SubscriptionStatus)
     suspend fun setOfflineModeEnabled(enabled: Boolean)
+    suspend fun getOnlineTranscriptionEnabled(): Boolean
+    suspend fun getRemainingFreeTranscriptions(): Int
 }
 
 @Singleton
@@ -204,6 +207,11 @@ class UserPreferencesDataStoreImpl @Inject constructor(
             preferences[booleanPreferencesKey("offline_mode_enabled")] ?: false
         }
 
+    override val isOnlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[booleanPreferencesKey("online_transcription_enabled")] ?: false
+        }
+
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("call_recording_enabled")] = enabled
@@ -318,6 +326,18 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("offline_mode_enabled")] = enabled
         }
+    }
+
+    override suspend fun getOnlineTranscriptionEnabled(): Boolean {
+        return context.dataStore.data.map { preferences ->
+            preferences[booleanPreferencesKey("online_transcription_enabled")] ?: false
+        }.first()
+    }
+
+    override suspend fun getRemainingFreeTranscriptions(): Int {
+        // Implementation of getRemainingFreeTranscriptions method
+        // This is a placeholder and should be implemented based on your specific requirements
+        return 0 // Placeholder return, actual implementation needed
     }
 }
 

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.concurrent.TimeUnit
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
@@ -49,7 +50,10 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         val ONLINE_TRANSCRIPTION_ENABLED = booleanPreferencesKey("online_transcription_enabled")
         val SUBSCRIPTION_STATUS = stringPreferencesKey("subscription_status")
         val OFFLINE_MODE_ENABLED = booleanPreferencesKey("offline_mode_enabled")
+        val LAST_TRANSCRIPTION_RESET_TIME = longPreferencesKey("last_transcription_reset_time")
     }
+
+    private val onlineTranscriptionEnabledKey = booleanPreferencesKey("online_transcription_enabled")
 
     override val callRecordingEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[PreferencesKeys.CALL_RECORDING_ENABLED] ?: false }
@@ -135,7 +139,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         .map { preferences -> preferences[PreferencesKeys.WEEKLY_TRANSCRIPTION_COUNT] ?: 0 }
 
     override val onlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.ONLINE_TRANSCRIPTION_ENABLED] ?: false }
+        .map { preferences ->
+            preferences[onlineTranscriptionEnabledKey] ?: true // Default to true
+        }
 
     override val subscriptionStatus: Flow<SubscriptionStatus> = context.dataStore.data
         .map { preferences ->
@@ -147,6 +153,15 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         .map { preferences ->
             preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] ?: false
         }
+
+    override val isOnlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[onlineTranscriptionEnabledKey] ?: true // Default to true
+        }
+
+    override val lastTranscriptionResetTime: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] ?: System.currentTimeMillis()
+    }
 
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
@@ -279,6 +294,7 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     }
 
     override suspend fun incrementWeeklyTranscriptionCount() {
+        checkAndResetIfNeeded()
         context.dataStore.edit { preferences ->
             val currentCount = preferences[PreferencesKeys.WEEKLY_TRANSCRIPTION_COUNT] ?: 0
             preferences[PreferencesKeys.WEEKLY_TRANSCRIPTION_COUNT] = currentCount + 1
@@ -288,12 +304,13 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override suspend fun resetWeeklyTranscriptionCount() {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.WEEKLY_TRANSCRIPTION_COUNT] = 0
+            preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] = System.currentTimeMillis()
         }
     }
 
     override suspend fun setOnlineTranscriptionEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.ONLINE_TRANSCRIPTION_ENABLED] = enabled
+            preferences[onlineTranscriptionEnabledKey] = enabled
         }
     }
 
@@ -306,6 +323,30 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override suspend fun setOfflineModeEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun getOnlineTranscriptionEnabled(): Boolean {
+        return context.dataStore.data.map { preferences ->
+            preferences[onlineTranscriptionEnabledKey] ?: true
+        }.first()
+    }
+
+    override suspend fun getRemainingFreeTranscriptions(): Int {
+        checkAndResetIfNeeded()
+        val currentCount = context.dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.WEEKLY_TRANSCRIPTION_COUNT] ?: 0
+        }.first()
+        return (3 - currentCount).coerceAtLeast(0)
+    }
+
+    private suspend fun checkAndResetIfNeeded() {
+        val lastResetTime = lastTranscriptionResetTime.first()
+        val currentTime = System.currentTimeMillis()
+        val weekInMillis = TimeUnit.DAYS.toMillis(7)
+        
+        if (currentTime - lastResetTime >= weekInMillis) {
+            resetWeeklyTranscriptionCount()
         }
     }
 }

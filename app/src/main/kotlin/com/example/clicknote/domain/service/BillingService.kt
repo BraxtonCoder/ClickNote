@@ -1,14 +1,13 @@
 package com.example.clicknote.domain.service
 
 import android.app.Activity
-import com.android.billingclient.api.Purchase
 import com.example.clicknote.domain.model.SubscriptionPlan
+import kotlinx.coroutines.flow.StateFlow
 
 interface BillingService {
-    fun initializeBillingClient(activity: Activity)
-    fun endBillingConnection()
-    fun setPurchaseCallback(callback: (Purchase) -> Unit)
-    suspend fun purchaseSubscription(plan: SubscriptionPlan)
-    suspend fun querySubscriptions()
-    suspend fun restorePurchases(): Result<Unit>
+    val subscriptionStatus: StateFlow<SubscriptionPlan>
+    suspend fun initializeBillingClient()
+    suspend fun launchBillingFlow(activity: Activity, plan: SubscriptionPlan)
+    suspend fun queryPurchases()
+    fun endConnection()
 } 

@@ -15,4 +15,7 @@ interface SearchHistoryRepository {
     fun getPopularSearches(limit: Int = 10): Flow<List<SearchHistory>>
     suspend fun getSearchCount(): Int
     suspend fun incrementUseCount(searchId: String)
+    suspend fun addSearchQuery(query: String)
+    suspend fun getRecentSearches(): Flow<List<String>>
+    suspend fun deleteSearchQuery(query: String)
 } 

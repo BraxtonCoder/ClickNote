@@ -5,6 +5,8 @@ import com.example.clicknote.domain.service.TranscriptionCapable
 import com.example.clicknote.domain.service.NetworkMonitor
 import com.example.clicknote.domain.preferences.UserPreferences
 import com.example.clicknote.domain.strategy.ServiceStrategy
+import com.example.clicknote.di.qualifiers.OnlineCapable
+import com.example.clicknote.di.qualifiers.OfflineCapable
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.io.File
@@ -17,8 +19,8 @@ enum class TranscriptionMode {
 
 @Singleton
 class ServiceStrategyImpl @Inject constructor(
-    private val onlineService: TranscriptionCapable,
-    private val offlineService: TranscriptionCapable,
+    @OnlineCapable private val onlineService: TranscriptionCapable,
+    @OfflineCapable private val offlineService: TranscriptionCapable,
     private val networkMonitor: NetworkMonitor,
     private val userPreferences: UserPreferences
 ) : ServiceStrategy {

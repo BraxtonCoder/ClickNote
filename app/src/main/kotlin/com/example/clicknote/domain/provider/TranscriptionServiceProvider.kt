@@ -4,6 +4,7 @@ import com.example.clicknote.domain.model.TranscriptionServiceContext
 import com.example.clicknote.domain.service.TranscriptionCapable
 
 interface TranscriptionServiceProvider {
+    fun getService(): TranscriptionCapable
     fun getServiceForSettings(context: TranscriptionServiceContext): TranscriptionCapable
     fun getActiveService(): TranscriptionCapable?
     suspend fun cleanup()

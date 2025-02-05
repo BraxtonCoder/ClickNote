@@ -2,6 +2,9 @@ package com.example.clicknote.domain.model
 
 import java.time.LocalDateTime
 
+/**
+ * Data class representing backup information for the app
+ */
 data class BackupInfo(
     val id: String,
     val name: String,
@@ -11,9 +14,9 @@ data class BackupInfo(
     val version: Int,
     val noteCount: Int,
     val audioCount: Int,
-    val compressionLevel: CompressionLevel,
-    val isEncrypted: Boolean,
-    val cloudStorageProvider: CloudStorageProvider,
+    val compressionLevel: CompressionLevel = CompressionLevel.BALANCED,
+    val isEncrypted: Boolean = false,
+    val cloudStorageProvider: CloudStorageProvider = CloudStorageProvider.NONE,
     val metadata: Map<String, String> = emptyMap()
 ) {
     companion object {

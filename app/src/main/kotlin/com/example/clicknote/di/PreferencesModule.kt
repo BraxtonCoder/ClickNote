@@ -2,9 +2,9 @@ package com.example.clicknote.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
-import com.example.clicknote.data.preferences.DataStoreConstants
+import androidx.datastore.preferences.preferencesDataStoreFile
 import com.example.clicknote.data.preferences.UserPreferencesDataStoreImpl
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import dagger.Binds
@@ -15,20 +15,27 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-private val Context.dataStore by preferencesDataStore(
-    name = DataStoreConstants.USER_PREFERENCES
-)
-
 @Module
 @InstallIn(SingletonComponent::class)
-object PreferencesModule {
-    @Provides
-    @Singleton
-    fun provideDataStore(
-        @ApplicationContext context: Context
-    ): DataStore<Preferences> = context.dataStore
+abstract class PreferencesModule {
 
     @Binds
     @Singleton
-    abstract fun bindUserPreferencesDataStore(impl: UserPreferencesDataStoreImpl): UserPreferencesDataStore
+    abstract fun bindUserPreferencesDataStore(
+        impl: UserPreferencesDataStoreImpl
+    ): UserPreferencesDataStore
+
+    companion object {
+        private const val USER_PREFERENCES = "user_preferences"
+
+        @Provides
+        @Singleton
+        fun providePreferencesDataStore(
+            @ApplicationContext context: Context
+        ): DataStore<Preferences> {
+            return PreferenceDataStoreFactory.create(
+                produceFile = { context.preferencesDataStoreFile(USER_PREFERENCES) }
+            )
+        }
+    }
 } 

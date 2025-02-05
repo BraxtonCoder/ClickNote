@@ -4,8 +4,6 @@ import com.example.clicknote.data.service.*
 import com.example.clicknote.data.analytics.MixPanelAnalyticsService
 import com.example.clicknote.domain.service.*
 import com.example.clicknote.domain.interfaces.*
-import com.example.clicknote.domain.service.WhisperTranscriptionService
-import com.example.clicknote.domain.service.WhisperOfflineTranscriptionService
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.service.impl.*
 import com.example.clicknote.data.preferences.UserPreferencesDataStoreImpl
@@ -38,18 +36,6 @@ abstract class AppBindingsModule {
 
     @Binds
     @Singleton
-    abstract fun bindNotificationService(
-        impl: NotificationServiceImpl
-    ): NotificationService
-
-    @Binds
-    @Singleton
-    abstract fun bindAuthService(
-        impl: AuthServiceImpl
-    ): AuthService
-
-    @Binds
-    @Singleton
     abstract fun bindAnalyticsService(
         service: MixPanelAnalyticsService
     ): AnalyticsService
@@ -59,12 +45,6 @@ abstract class AppBindingsModule {
     abstract fun bindBackupService(
         impl: BackupServiceImpl
     ): BackupService
-
-    @Binds
-    @Singleton
-    abstract fun bindBillingService(
-        impl: BillingServiceImpl
-    ): BillingService
 
     @Binds
     @Singleton
@@ -80,27 +60,7 @@ abstract class AppBindingsModule {
 
     @Binds
     @Singleton
-    abstract fun bindWhisperTranscriptionService(
-        impl: WhisperTranscriptionServiceImpl
-    ): WhisperTranscriptionService
-
-    @Binds
-    @Singleton
-    abstract fun bindWhisperOfflineTranscriptionService(
-        impl: WhisperOfflineTranscriptionServiceImpl
-    ): WhisperOfflineTranscriptionService
-
-    @Binds
-    @Singleton
     abstract fun bindUserPreferencesDataStore(
         impl: UserPreferencesDataStoreImpl
     ): UserPreferencesDataStore
-
-    /*
-    @Binds
-    @Singleton
-    abstract fun bindTranscriptionEventHandler(
-        impl: TranscriptionEventHandlerImpl
-    ): TranscriptionEventHandler
-    */
 } 

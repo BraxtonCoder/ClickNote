@@ -2,6 +2,14 @@ package com.example.clicknote.di
 
 import android.content.Context
 import androidx.work.WorkManager
+import com.example.clicknote.data.worker.AudioEnhancementWorkerImpl
+import com.example.clicknote.data.worker.CloudSyncWorkerImpl
+import com.example.clicknote.data.worker.SummaryWorkerImpl
+import com.example.clicknote.data.worker.TranscriptionWorkerImpl
+import com.example.clicknote.domain.worker.AudioEnhancementWorker
+import com.example.clicknote.domain.worker.CloudSyncWorker
+import com.example.clicknote.domain.worker.SummaryWorker
+import com.example.clicknote.domain.worker.TranscriptionWorker
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

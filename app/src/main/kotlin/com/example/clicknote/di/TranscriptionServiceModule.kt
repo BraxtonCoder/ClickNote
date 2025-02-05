@@ -1,60 +1,53 @@
 package com.example.clicknote.di
 
-import com.example.clicknote.domain.service.TranscriptionService
-import com.example.clicknote.service.impl.OnlineTranscriptionServiceImpl
-import com.example.clicknote.service.impl.OfflineTranscriptionServiceImpl
-import com.example.clicknote.service.impl.WhisperOfflineTranscriptionServiceImpl
-import com.example.clicknote.service.impl.CombinedTranscriptionService
-import dagger.Binds
+import android.content.Context
+import com.example.clicknote.data.service.*
+import com.example.clicknote.domain.service.*
+import com.example.clicknote.domain.interfaces.NetworkConnectivityManager
+import com.example.clicknote.domain.preferences.UserPreferencesDataStore
+import com.example.clicknote.di.qualifiers.OnlineCapable
+import com.example.clicknote.di.qualifiers.OfflineCapable
+import com.aallam.openai.client.OpenAI
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Provider
 import javax.inject.Singleton
-import com.example.clicknote.di.qualifiers.Online
-import com.example.clicknote.di.qualifiers.Offline
-import com.example.clicknote.di.qualifiers.Combined
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class TranscriptionServiceModule {
+object TranscriptionServiceModule {
 
-    @Binds
+    @Provides
     @Singleton
-    @Online
-    abstract fun bindOnlineTranscriptionService(
-        impl: OnlineTranscriptionServiceImpl
-    ): TranscriptionService
+    @OnlineCapable
+    fun provideOnlineTranscriptionService(
+        @ApplicationContext context: Context,
+        connectivityManager: NetworkConnectivityManager,
+        preferencesDataStore: UserPreferencesDataStore,
+        openAI: OpenAI
+    ): TranscriptionCapable {
+        return WhisperTranscriptionServiceImpl(
+            context = context,
+            connectivityManager = connectivityManager,
+            preferencesDataStore = preferencesDataStore,
+            openAI = openAI
+        )
+    }
 
-    @Binds
+    @Provides
     @Singleton
-    @Offline
-    abstract fun bindOfflineTranscriptionService(
-        impl: OfflineTranscriptionServiceImpl
-    ): TranscriptionService
-
-    @Binds
-    @Singleton
-    abstract fun bindWhisperOfflineService(
-        impl: WhisperOfflineTranscriptionServiceImpl
-    ): WhisperOfflineTranscriptionService
-
-    @Binds
-    @Singleton
-    abstract fun bindCombinedTranscriptionService(
-        impl: CombinedTranscriptionService
-    ): TranscriptionService
-
-    companion object {
-        @Provides
-        @Singleton
-        @Combined
-        fun provideCombinedTranscriptionService(
-            @Online onlineService: Provider<TranscriptionService>,
-            @Offline offlineService: Provider<TranscriptionService>
-        ): TranscriptionService {
-            return CombinedTranscriptionService(onlineService.get(), offlineService.get())
-        }
+    @OfflineCapable
+    fun provideOfflineTranscriptionService(
+        @ApplicationContext context: Context,
+        connectivityManager: NetworkConnectivityManager,
+        preferencesDataStore: UserPreferencesDataStore
+    ): TranscriptionCapable {
+        return WhisperOfflineTranscriptionServiceImpl(
+            context = context,
+            connectivityManager = connectivityManager,
+            preferencesDataStore = preferencesDataStore
+        )
     }
 } 

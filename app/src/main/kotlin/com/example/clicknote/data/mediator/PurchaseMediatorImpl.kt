@@ -37,6 +37,12 @@ class PurchaseMediatorImpl @Inject constructor(
     private val _purchases = MutableStateFlow<Purchase?>(null)
     override val purchases: Flow<Purchase> = _purchases.filterNotNull()
 
+    private val _purchaseHistory = MutableStateFlow<List<String>>(emptyList())
+    override val purchaseHistory: Flow<List<String>> = _purchaseHistory.asStateFlow()
+
+    private val _activeSubscriptions = MutableStateFlow<List<String>>(emptyList())
+    override val activeSubscriptions: Flow<List<String>> = _activeSubscriptions.asStateFlow()
+
     override suspend fun initializeBilling() {
         billingClient = BillingClient.newBuilder(context)
             .setListener { billingResult, purchases -> 
@@ -65,93 +71,23 @@ class PurchaseMediatorImpl @Inject constructor(
         })
     }
     
-    override suspend fun querySubscriptions(): Flow<List<String>> = flow {
-        val params = QueryProductDetailsParams.newBuilder()
-            .setProductList(
-                listOf(
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId("monthly_subscription")
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build(),
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId("annual_subscription")
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build()
-                )
-            )
-            .build()
-            
-        withContext(Dispatchers.IO) {
-            val result = billingClient?.queryProductDetails(params)
-            emit(result?.productDetailsList?.map { it.productId } ?: emptyList())
-        }
+    override suspend fun querySubscriptions(): Flow<List<String>> {
+        // TODO: Implement subscription query logic
+        return flow { emit(emptyList()) }
     }
     
     override suspend fun launchBillingFlow(productId: String) {
-        val activity = currentActivity ?: return
-        val params = QueryProductDetailsParams.newBuilder()
-            .setProductList(
-                listOf(
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(productId)
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build()
-                )
-            )
-            .build()
-            
-        withContext(Dispatchers.IO) {
-            val result = billingClient?.queryProductDetails(params)
-            val productDetails = result?.productDetailsList?.firstOrNull() ?: return@withContext
-            
-            val billingFlowParams = BillingFlowParams.newBuilder()
-                .setProductDetailsParamsList(
-                    listOf(
-                        BillingFlowParams.ProductDetailsParams.newBuilder()
-                            .setProductDetails(productDetails)
-                            .build()
-                    )
-                )
-                .build()
-                
-            billingClient?.launchBillingFlow(activity, billingFlowParams)
-        }
+        // TODO: Implement billing flow launch with product ID
     }
     
     override suspend fun checkSubscriptionStatus(): Boolean {
-        return withContext(Dispatchers.IO) {
-            val params = QueryPurchasesParams.newBuilder()
-                .setProductType(BillingClient.ProductType.SUBS)
-                .build()
-                
-            val result = billingClient?.queryPurchasesAsync(params)
-            result?.purchasesList?.any { 
-                it.purchaseState == com.android.billingclient.api.Purchase.PurchaseState.PURCHASED
-            } ?: false
-        }
+        // TODO: Implement subscription status check
+        return false
     }
 
-    override suspend fun getPurchaseHistory(): Flow<List<String>> = flow {
-        withContext(Dispatchers.IO) {
-            val params = QueryPurchaseHistoryParams.newBuilder()
-                .setProductType(BillingClient.ProductType.SUBS)
-                .build()
-                
-            val result = billingClient?.queryPurchaseHistory(params)
-            emit(result?.purchaseHistoryRecordList?.map { it.products.first() } ?: emptyList())
-        }
-    }
+    override suspend fun getPurchaseHistory(): Flow<List<String>> = purchaseHistory
 
-    override suspend fun getActiveSubscriptions(): Flow<List<String>> = flow {
-        withContext(Dispatchers.IO) {
-            val params = QueryPurchasesParams.newBuilder()
-                .setProductType(BillingClient.ProductType.SUBS)
-                .build()
-                
-            val result = billingClient?.queryPurchasesAsync(params)
-            emit(result?.purchasesList?.map { it.products.first() } ?: emptyList())
-        }
-    }
+    override suspend fun getActiveSubscriptions(): Flow<List<String>> = activeSubscriptions
 
     private suspend fun handlePurchaseUpdate(billingResult: BillingResult, purchases: List<com.android.billingclient.api.Purchase>?) {
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
@@ -195,8 +131,7 @@ class PurchaseMediatorImpl @Inject constructor(
     }
 
     override suspend fun getRemainingFreeTranscriptions(): Int {
-        val weeklyLimit = 3
-        return weeklyLimit - getWeeklyTranscriptionCount()
+        return preferences.getRemainingFreeTranscriptions()
     }
 
     override suspend fun checkTranscriptionLimit(): Boolean {
@@ -235,11 +170,8 @@ class PurchaseMediatorImpl @Inject constructor(
         Result.success(Unit)
     }
 
-    override suspend fun acknowledgeSubscription(purchaseToken: String) {
-        val params = AcknowledgePurchaseParams.newBuilder()
-            .setPurchaseToken(purchaseToken)
-            .build()
-        billingClient?.acknowledgePurchase(params)
+    override suspend fun acknowledgePurchase(purchaseToken: String) {
+        // TODO: Implement purchase acknowledgment
     }
 
     override suspend fun consumePurchase(purchaseToken: String) {

@@ -17,6 +17,6 @@ data class SearchHistoryEntity(
     val id: String,
     val query: String,
     val type: String,
-    val useCount: Int = 1,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long,
+    val useCount: Int
 ) 

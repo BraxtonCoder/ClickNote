@@ -20,9 +20,10 @@ import kotlin.time.Duration.Companion.seconds
 object OpenAIModule {
     @Provides
     @Singleton
-    fun provideOpenAIClient(): OpenAI {
+    fun provideOpenAI(): OpenAI {
         return OpenAI(
-            token = BuildConfig.OPENAI_API_KEY
+            token = BuildConfig.OPENAI_API_KEY,
+            timeout = Timeout(socket = 60.seconds)
         )
     }
 

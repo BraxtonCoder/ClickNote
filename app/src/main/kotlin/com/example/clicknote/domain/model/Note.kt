@@ -12,23 +12,34 @@ data class Note(
     val createdAt: LocalDateTime,
     val modifiedAt: LocalDateTime,
     val deletedAt: LocalDateTime? = null,
-    val isDeleted: Boolean = false,
+    val folderId: String? = null,
     val isPinned: Boolean = false,
+    val isDeleted: Boolean = false,
     val isLongForm: Boolean = false,
     val hasAudio: Boolean = false,
     val audioPath: String? = null,
-    val duration: Long = 0,
-    val source: NoteSource = NoteSource.MANUAL,
-    val folderId: String? = null,
+    val duration: Long = 0L,
+    val transcriptionLanguage: String = "en",
     val summary: String? = null,
     val keyPoints: List<String> = emptyList(),
-    val speakers: List<String> = emptyList(),
-    val syncStatus: SyncStatus = SyncStatus.PENDING
+    val speakers: Map<String, String> = emptyMap(),
+    val tags: List<String> = emptyList(),
+    val userId: String? = null,
+    val syncStatus: SyncStatus = SyncStatus.PENDING,
+    val source: NoteSource = NoteSource.MANUAL
 ) {
     val isShortForm: Boolean
         get() = !isLongForm
 
     companion object {
+        fun createEmpty() = Note(
+            id = UUID.randomUUID().toString(),
+            title = "",
+            content = "",
+            createdAt = LocalDateTime.now(),
+            modifiedAt = LocalDateTime.now()
+        )
+
         fun create(
             title: String,
             content: String,
@@ -36,11 +47,13 @@ data class Note(
             audioPath: String? = null,
             duration: Long = 0L,
             source: NoteSource = NoteSource.MANUAL,
-            folderId: String? = null
+            folderId: String? = null,
+            speakers: Map<String, String> = emptyMap(),
+            keyPoints: List<String> = emptyList()
         ): Note {
             val now = LocalDateTime.now()
             return Note(
-                id = java.util.UUID.randomUUID().toString(),
+                id = UUID.randomUUID().toString(),
                 title = title,
                 content = content,
                 createdAt = now,
@@ -50,7 +63,9 @@ data class Note(
                 audioPath = audioPath,
                 duration = duration,
                 source = source,
-                folderId = folderId
+                folderId = folderId,
+                speakers = speakers,
+                keyPoints = keyPoints
             )
         }
     }
@@ -61,4 +76,10 @@ enum class NoteSource {
     VOICE,
     CALL,
     IMPORT
+}
+
+enum class SyncStatus {
+    SYNCED,
+    PENDING,
+    FAILED
 } 

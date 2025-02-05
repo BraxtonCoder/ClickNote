@@ -7,11 +7,10 @@ import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.util.DateTimeUtils
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import java.time.LocalDateTime
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.time.LocalDateTime
 import java.util.UUID
 
 @Singleton
@@ -19,10 +18,9 @@ class NoteRepositoryImpl @Inject constructor(
     private val noteDao: NoteDao
 ) : NoteRepository {
 
-    override fun getNotes(): Flow<List<Note>> =
-        noteDao.getAllNotes().map { entities ->
-            entities.map { it.toDomain() }
-        }
+    override suspend fun getAllNotes(): Result<List<Note>> = runCatching {
+        noteDao.getAllNotes().first().map { it.toDomain() }
+    }
 
     override fun getNotesInFolder(folderId: String): Flow<List<Note>> =
         noteDao.getNotesInFolder(folderId).map { entities ->
@@ -34,23 +32,19 @@ class NoteRepositoryImpl @Inject constructor(
             entities.map { it.toDomain() }
         }
 
-    override fun searchNotes(query: String): Flow<List<Note>> =
+    override suspend fun searchNotes(query: String): Flow<List<Note>> =
         noteDao.searchNotes(query).map { entities ->
             entities.map { it.toDomain() }
         }
 
-    override fun getNotesByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<Note>> =
-        noteDao.getNotesByDateRange(startDate, endDate).map { entities ->
-            entities.map { it.toDomain() }
-        }
+    override suspend fun getNoteById(id: String): Result<Note> = runCatching {
+        noteDao.getNoteById(id)?.toDomain() ?: throw IllegalStateException("Note not found")
+    }
 
-    override suspend fun getNoteById(id: String): Note? =
-        noteDao.getNoteById(id)?.toDomain()
-
-    override suspend fun insertNote(note: Note): String {
+    override suspend fun insertNote(note: Note): Result<Unit> = runCatching {
         val now = LocalDateTime.now()
         val entity = NoteEntity(
-            id = UUID.randomUUID().toString(),
+            id = note.id.ifEmpty { UUID.randomUUID().toString() },
             title = note.title,
             content = note.content,
             createdAt = now,
@@ -70,10 +64,36 @@ class NoteRepositoryImpl @Inject constructor(
             syncStatus = note.syncStatus.name
         )
         noteDao.insertNote(entity)
-        return entity.id
     }
 
-    override suspend fun updateNote(note: Note) {
+    override suspend fun insertNotes(notes: List<Note>): Result<Unit> = runCatching {
+        val entities = notes.map { note ->
+            val now = LocalDateTime.now()
+            NoteEntity(
+                id = note.id.ifEmpty { UUID.randomUUID().toString() },
+                title = note.title,
+                content = note.content,
+                createdAt = now,
+                modifiedAt = now,
+                isDeleted = false,
+                deletedAt = null,
+                isPinned = note.isPinned,
+                isLongForm = note.isLongForm,
+                hasAudio = note.hasAudio,
+                audioPath = note.audioPath,
+                duration = note.duration,
+                source = note.source.name,
+                folderId = note.folderId,
+                summary = note.summary,
+                keyPoints = note.keyPoints,
+                speakers = note.speakers,
+                syncStatus = note.syncStatus.name
+            )
+        }
+        noteDao.insertAll(entities)
+    }
+
+    override suspend fun updateNote(note: Note): Result<Unit> = runCatching {
         val now = LocalDateTime.now()
         noteDao.updateNote(
             NoteEntity(
@@ -99,16 +119,25 @@ class NoteRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun deleteNote(note: Note) {
-        noteDao.moveToTrash(note.id, LocalDateTime.now())
+    override suspend fun deleteNote(id: String): Result<Unit> = runCatching {
+        noteDao.delete(id)
     }
 
-    override suspend fun permanentlyDeleteNote(note: Note) {
-        noteDao.delete(note.id)
+    override suspend fun moveToTrash(noteIds: List<String>): Result<Unit> = runCatching {
+        val now = LocalDateTime.now()
+        noteIds.forEach { id ->
+            noteDao.moveToTrash(id, now)
+        }
     }
 
-    override suspend fun restoreNote(note: Note) {
-        noteDao.restoreFromTrash(note.id)
+    override suspend fun restoreFromTrash(noteIds: List<String>): Result<Unit> = runCatching {
+        noteIds.forEach { id ->
+            noteDao.restoreFromTrash(id)
+        }
+    }
+
+    override suspend fun updateNoteFolder(noteId: String, folderId: String?): Result<Unit> = runCatching {
+        noteDao.updateNoteFolder(noteId, folderId)
     }
 
     override suspend fun moveToFolder(noteId: String, folderId: String?) {
@@ -137,6 +166,23 @@ class NoteRepositoryImpl @Inject constructor(
 
     override suspend fun noteExists(id: String): Boolean {
         return noteDao.getNoteById(id) != null
+    }
+
+    override suspend fun softDeleteNote(note: Note): Result<Unit> = runCatching {
+        val now = LocalDateTime.now()
+        noteDao.moveToTrash(note.id, now)
+    }
+
+    override suspend fun restoreNote(note: Note): Result<Unit> = runCatching {
+        noteDao.restoreFromTrash(note.id)
+    }
+
+    override suspend fun restoreNote(id: String): Result<Unit> = runCatching {
+        noteDao.restoreFromTrash(id)
+    }
+
+    override suspend fun permanentlyDeleteNote(id: String): Result<Unit> = runCatching {
+        noteDao.delete(id)
     }
 
     private fun NoteEntity.toDomain() = Note(

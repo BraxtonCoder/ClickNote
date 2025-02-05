@@ -4,8 +4,12 @@ import com.example.clicknote.domain.service.TranscriptionCapable
 import kotlinx.coroutines.flow.StateFlow
 
 interface ServiceStateManager {
-    val state: StateFlow<ServiceState>
+    val state: StateFlow<ServiceState?>
     val currentService: StateFlow<TranscriptionCapable?>
+    
+    suspend fun updateState(serviceId: String, state: ServiceState)
+    suspend fun getState(serviceId: String): ServiceState?
+    suspend fun clearState(serviceId: String)
     suspend fun activateService(service: TranscriptionCapable)
     suspend fun deactivateService()
     fun getCurrentService(): TranscriptionCapable?

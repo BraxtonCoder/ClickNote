@@ -32,106 +32,94 @@ import java.time.format.DateTimeFormatter
 fun SearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    timeFilter: TimeFilter,
-    onTimeFilterChange: (TimeFilter) -> Unit,
     onSearch: (String) -> Unit,
     onClearSearch: () -> Unit,
-    recentSearches: List<String>,
-    onClearHistory: () -> Unit,
-    onSearchHistoryClick: (String) -> Unit,
+    timeFilter: TimeFilter,
+    onTimeFilterChange: (TimeFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var showDateRangeDialog by remember { mutableStateOf(false) }
-    var customStartDate by remember { mutableStateOf<LocalDate?>(null) }
-    var customEndDate by remember { mutableStateOf<LocalDate?>(null) }
+    var showTimeFilterDialog by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier) {
-        SearchBar(
-            query = query,
-            onQueryChange = onQueryChange,
-            onSearch = {
-                onSearch(query)
-                expanded = false
-            },
-            active = expanded,
-            onActiveChange = { expanded = it },
-            placeholder = { Text("Search notes...") },
-            leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = "Search")
-            },
+    Column(modifier = modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = { Text(stringResource(R.string.search_hint)) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
-                    IconButton(onClick = {
-                        onClearSearch()
-                        expanded = false
-                    }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                    IconButton(onClick = onClearSearch) {
+                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_search))
                     }
                 }
-            }
-        ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    TimeFilterChips(
-                        selectedFilter = timeFilter,
-                        onFilterSelected = onTimeFilterChange,
-                        onCustomRangeClick = { showDateRangeDialog = true }
-                    )
-                }
+            },
+            singleLine = true,
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        )
 
-                if (recentSearches.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Recent Searches",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            TextButton(onClick = onClearHistory) {
-                                Text("Clear")
-                            }
-                        }
-                    }
+        if (showTimeFilterDialog) {
+            TimeFilterDialog(
+                currentFilter = timeFilter,
+                onFilterChange = { filter ->
+                    onTimeFilterChange(filter)
+                    showTimeFilterDialog = false
+                },
+                onDismiss = { showTimeFilterDialog = false }
+            )
+        }
+    }
+}
 
-                    items(recentSearches) { recentSearch ->
-                        ListItem(
-                            headlineContent = { Text(recentSearch) },
-                            leadingContent = {
-                                Icon(Icons.Default.History, contentDescription = null)
+@Composable
+private fun TimeFilterDialog(
+    currentFilter: TimeFilter,
+    onFilterChange: (TimeFilter) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.filter_by_time)) },
+        text = {
+            Column {
+                TimeFilter.values().forEach { filter ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = filter == currentFilter,
+                            onClick = { onFilterChange(filter) }
+                        )
+                        Text(
+                            text = when (filter) {
+                                TimeFilter.ALL -> stringResource(R.string.all_time)
+                                TimeFilter.TODAY -> stringResource(R.string.today)
+                                TimeFilter.LAST_7_DAYS -> stringResource(R.string.last_7_days)
+                                TimeFilter.LAST_30_DAYS -> stringResource(R.string.last_30_days)
+                                TimeFilter.LAST_3_MONTHS -> stringResource(R.string.last_3_months)
+                                TimeFilter.LAST_6_MONTHS -> stringResource(R.string.last_6_months)
+                                TimeFilter.LAST_YEAR -> stringResource(R.string.last_year)
+                                is TimeFilter.CUSTOM -> stringResource(R.string.custom_range)
                             },
-                            modifier = Modifier.clickable {
-                                onSearchHistoryClick(recentSearch)
-                                expanded = false
-                            }
+                            modifier = Modifier.padding(start = 8.dp)
                         )
                     }
                 }
             }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.close))
+            }
         }
-    }
-
-    if (showDateRangeDialog) {
-        DateRangeDialog(
-            onDismiss = { showDateRangeDialog = false },
-            onConfirm = { startDate, endDate ->
-                customStartDate = startDate
-                customEndDate = endDate
-                if (startDate != null && endDate != null) {
-                    onTimeFilterChange(TimeFilter.CUSTOM)
-                }
-            },
-            initialStartDate = customStartDate,
-            initialEndDate = customEndDate
-        )
-    }
+    )
 }
 
 @Composable

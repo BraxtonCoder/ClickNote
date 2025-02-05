@@ -5,13 +5,12 @@ import com.example.clicknote.domain.event.ServiceEvent
 import com.example.clicknote.domain.event.ServiceEventDispatcher
 import javax.inject.Inject
 import javax.inject.Singleton
-import javax.inject.Provider
 
 @Singleton
 class ServiceEventDispatcherImpl @Inject constructor(
-    private val eventBus: Provider<ServiceEventBus>
+    private val eventBus: ServiceEventBus
 ) : ServiceEventDispatcher {
-    override suspend fun dispatchEvent(event: ServiceEvent) {
-        eventBus.get().emit(event)
+    override suspend fun dispatch(event: ServiceEvent) {
+        eventBus.emit(event)
     }
 } 

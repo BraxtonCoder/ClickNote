@@ -104,19 +104,20 @@ class TranscriptionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun detectSpeakers(file: File): Result<List<String>> = runCatching {
-        when (val result = speakerService.detectSpeakers(file)) {
-            is DetectionResult.Success -> {
-                result.segments.map { segment -> "Speaker ${segment.speakerId}" }.distinct()
-            }
-            is DetectionResult.Error -> {
-                throw IllegalStateException(result.message)
-            }
+        val result = speakerService.detectSpeakers(file).first()
+        when (result) {
+            is DetectionResult.Success -> result.segments.map { segment -> "Speaker ${segment.speakerId}" }.distinct()
+            is DetectionResult.Error -> throw IllegalStateException(result.message)
         }
     }
 
-    override suspend fun getAvailableLanguages(): List<String> = runCatching {
-        whisperService.getAvailableLanguages().getOrDefault(emptyList())
-    }.getOrDefault(emptyList())
+    override suspend fun getAvailableLanguages(): List<String> {
+        val languages = listOf(
+            "en", "es", "fr", "de", "it", "pt", "nl", "ru", "ja", "ko", "zh",
+            "ar", "hi", "tr", "pl", "vi", "th", "id", "cs", "da", "fi", "el"
+        )
+        return languages
+    }
 
     override fun cancelTranscription() {
         whisperService.cancelTranscription()

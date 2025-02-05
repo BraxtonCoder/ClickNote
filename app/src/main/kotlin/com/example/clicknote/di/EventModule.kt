@@ -9,21 +9,18 @@ import com.example.clicknote.domain.event.ServiceEventDispatcher
 import com.example.clicknote.domain.event.ServiceEventHandler
 import com.example.clicknote.domain.event.ServiceEvent
 import com.example.clicknote.domain.mapper.ServiceStateEventMapper
+import com.example.clicknote.domain.registry.ServiceRegistry
+import com.example.clicknote.domain.state.ServiceStateManager
+import com.example.clicknote.di.qualifiers.ApplicationScope
+import com.example.clicknote.di.qualifiers.InternalEventFlow
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Qualifier
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.CoroutineScope
-import dagger.Lazy
-import dagger.Provider
-
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class InternalEventFlow
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -38,37 +35,38 @@ object EventModule {
     @Provides
     @Singleton
     fun provideServiceEventBus(
-        @InternalEventFlow eventFlow: Provider<MutableSharedFlow<ServiceEvent>>
+        @InternalEventFlow eventFlow: MutableSharedFlow<ServiceEvent>
     ): ServiceEventBus {
-        return ServiceEventBusImpl(eventFlow.get())
+        return ServiceEventBusImpl(eventFlow)
     }
 
     @Provides
     @Singleton
     fun provideServiceEventDispatcher(
-        eventBus: Provider<ServiceEventBus>
+        eventBus: ServiceEventBus
     ): ServiceEventDispatcher {
         return ServiceEventDispatcherImpl(eventBus)
     }
 
     @Provides
     @Singleton
-    fun provideServiceStateEventMapper(
-        stateManager: Provider<ServiceStateManager>,
-        eventBus: Provider<ServiceEventBus>,
-        @ApplicationScope coroutineScope: CoroutineScope
-    ): ServiceStateEventMapper {
-        return ServiceStateEventMapperImpl(stateManager, eventBus, coroutineScope)
+    fun provideServiceStateEventMapper(): ServiceStateEventMapper {
+        return ServiceStateEventMapperImpl()
     }
 
     @Provides
     @Singleton
     fun provideServiceEventHandler(
-        stateManager: Provider<ServiceStateManager>,
-        registry: Provider<ServiceRegistry>,
-        @InternalEventFlow eventFlow: Provider<SharedFlow<ServiceEvent>>,
-        @ApplicationScope coroutineScope: CoroutineScope
+        stateManager: ServiceStateManager,
+        serviceRegistry: ServiceRegistry,
+        @InternalEventFlow eventFlow: SharedFlow<ServiceEvent>,
+        @ApplicationScope scope: CoroutineScope
     ): ServiceEventHandler {
-        return ServiceEventHandlerImpl(stateManager, registry, eventFlow, coroutineScope)
+        return ServiceEventHandlerImpl(
+            stateManager = stateManager,
+            serviceRegistry = serviceRegistry,
+            eventFlow = eventFlow,
+            scope = scope
+        )
     }
 } 

@@ -29,6 +29,8 @@ fun NoteEntity.toDomain(): Note {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
+        tags = tags,
+        userId = userId,
         syncStatus = SyncStatus.valueOf(syncStatus)
     )
 }
@@ -62,6 +64,8 @@ fun Note.toEntity(): NoteEntity {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
+        tags = tags,
+        userId = userId,
         syncStatus = syncStatus.name
     )
 }
@@ -96,7 +100,9 @@ fun createNote(
         folderId = folderId,
         summary = null,
         keyPoints = emptyList(),
-        speakers = emptyList(),
+        speakers = emptyMap(),
+        tags = emptyList(),
+        userId = null,
         syncStatus = SyncStatus.PENDING.name
     )
 } 

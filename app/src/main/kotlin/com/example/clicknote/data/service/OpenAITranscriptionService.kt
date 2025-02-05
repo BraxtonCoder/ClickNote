@@ -14,6 +14,8 @@ import okio.source
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.util.Log
+import java.util.UUID
 
 @Singleton
 class OpenAITranscriptionService @Inject constructor(
@@ -25,151 +27,72 @@ class OpenAITranscriptionService @Inject constructor(
 
     override val id: String = "openai_transcription_service"
     private var initialized = false
-    private var currentText = ""
-    private var currentStatus = TranscriptionCapable.TranscriptionStatus.IDLE
     
     private val _events = Channel<TranscriptionEvent>(Channel.BUFFERED)
     override val events: Flow<TranscriptionEvent> = _events.receiveAsFlow()
 
     override suspend fun cleanup() {
         initialized = false
-        currentText = ""
-        currentStatus = TranscriptionCapable.TranscriptionStatus.IDLE
         _events.close()
     }
 
     override fun isInitialized(): Boolean = initialized
 
-    override suspend fun transcribeAudio(audioPath: String): Result<TranscriptionResult> = runCatching {
-        isCurrentlyTranscribing = true
-        shouldCancel = false
-        transcriptionProgress.value = 0f
-        
-        val file = File(audioPath)
-        val result = transcribeAudio(file).getOrThrow()
-        
-        transcriptionProgress.value = 1f
-        isCurrentlyTranscribing = false
-        
-        TranscriptionResult(
-            text = result,
-            language = detectLanguage(audioPath),
-            speakers = identifySpeakers(audioPath)
-        )
-    }
-
-    override fun getTranscriptionProgress(): Flow<Float> = transcriptionProgress
-
-    override fun cancelTranscription() {
-        shouldCancel = true
-        isCurrentlyTranscribing = false
-        transcriptionProgress.value = 0f
-    }
-
-    override fun isTranscribing(): Boolean = isCurrentlyTranscribing
-
-    override suspend fun detectLanguage(audioPath: String): String {
-        // Use Whisper's language detection capability
-        val file = File(audioPath)
-        val request = TranscriptionRequest(
-            audio = FileSource(
-                name = file.name,
-                source = file.source()
-            ),
-            model = "whisper-1"
-        )
-        
-        return openAI.transcription(request).language ?: "en"
-    }
-
-    override suspend fun identifySpeakers(audioPath: String): List<String> {
-        // For now, return a single speaker as Whisper doesn't support speaker diarization
-        return listOf("Speaker 1")
-    }
-
-    override suspend fun transcribeAudio(
-        audioFile: File,
-        language: String?,
-        prompt: String?
-    ): Result<String> = runCatching {
-        if (shouldCancel) {
-            throw IllegalStateException("Transcription was cancelled")
-        }
-
-        val request = TranscriptionRequest(
-            audio = FileSource(
-                name = audioFile.name,
-                source = audioFile.source()
-            ),
-            model = "whisper-1",
-            language = language,
-            prompt = prompt
-        )
-        
-        transcriptionProgress.value = 0.5f
-        val result = openAI.transcription(request).text
-        transcriptionProgress.value = 1.0f
-        
-        result
-    }
-
-    override suspend fun transcribeAudioStream(
-        audioData: ByteArray,
-        language: String?,
-        prompt: String?
-    ): Result<String> = runCatching {
-        val tempFile = File.createTempFile("audio_stream", ".wav")
-        tempFile.writeBytes(audioData)
-        
-        try {
-            transcribeAudio(tempFile, language, prompt).getOrThrow()
-        } finally {
-            tempFile.delete()
-        }
-    }
-
     override suspend fun transcribeAudio(
         audioData: ByteArray,
         settings: TranscriptionSettings
-    ): Result<String> = runCatching {
+    ): Result<TranscriptionResult> = runCatching {
         val tempFile = File.createTempFile("audio", ".wav")
         tempFile.writeBytes(audioData)
         
         try {
             val request = TranscriptionRequest(
-                audio = tempFile,
-                model = ModelId(settings.model),
-                language = settings.language,
-                prompt = settings.prompt,
-                temperature = settings.temperature
+                audio = FileSource(tempFile.name, tempFile.source()),
+                model = ModelId("whisper-1"),
+                language = settings.language
             )
             
             val response = openAI.transcription(request)
-            response.text
+            TranscriptionResult(
+                text = response.text,
+                confidence = 1.0f,
+                language = settings.language,
+                segments = emptyList(),
+                speakers = emptyMap(),
+                duration = 0L,
+                wordCount = response.text.split(" ").size,
+                timestamp = System.currentTimeMillis()
+            )
         } finally {
             tempFile.delete()
         }
     }
 
     override suspend fun transcribeFile(
-        file: String,
+        file: File,
         settings: TranscriptionSettings
-    ): Result<String> = runCatching {
-        val audioFile = File(file)
-        if (!audioFile.exists()) {
+    ): Result<TranscriptionResult> = runCatching {
+        if (!file.exists()) {
             throw IllegalArgumentException("Audio file does not exist")
         }
         
         val request = TranscriptionRequest(
-            audio = audioFile,
-            model = ModelId(settings.model),
-            language = settings.language,
-            prompt = settings.prompt,
-            temperature = settings.temperature
+            audio = FileSource(file.name, file.source()),
+            model = ModelId("whisper-1"),
+            language = settings.language
         )
         
         val response = openAI.transcription(request)
-        response.text
+        TranscriptionResult(
+            text = response.text,
+            confidence = 1.0f,
+            language = settings.language,
+            segments = emptyList(),
+            speakers = emptyMap(),
+            duration = 0L,
+            wordCount = response.text.split(" ").size,
+            timestamp = System.currentTimeMillis()
+        )
     }
 
     override suspend fun detectLanguage(audioData: ByteArray): Result<String> = runCatching {
@@ -178,7 +101,7 @@ class OpenAITranscriptionService @Inject constructor(
         
         try {
             val request = TranscriptionRequest(
-                audio = tempFile,
+                audio = FileSource(tempFile.name, tempFile.source()),
                 model = ModelId("whisper-1")
             )
             
@@ -199,44 +122,33 @@ class OpenAITranscriptionService @Inject constructor(
         1
     }
 
-    override suspend fun identifySpeakers(audioData: ByteArray): Result<List<String>> = runCatching {
+    override suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>> = runCatching {
         // OpenAI doesn't provide speaker identification directly
         // This is a placeholder implementation
-        listOf("Speaker 1")
+        mapOf("Speaker 1" to "Unknown")
     }
 
     override suspend fun generateSummary(
         text: String,
-        template: SummaryTemplate?
+        template: SummaryTemplate
     ): Result<Summary> = runCatching {
-        // Use OpenAI chat completion for summarization
+        // Get the appropriate prompt based on the template type
+        val prompt = when (template) {
+            is SummaryTemplate.Default -> "Provide a brief overview of the main points discussed."
+            is SummaryTemplate.Meeting -> "Summarize this meeting recording in a structured format including key points and action items."
+            is SummaryTemplate.Interview -> "Summarize this interview with key questions and answers."
+            is SummaryTemplate.Lecture -> "Create structured lecture notes including main concepts and key points."
+            is SummaryTemplate.Conversation -> "Summarize this conversation highlighting the main topics discussed."
+            is SummaryTemplate.Custom -> template.prompt
+        }
+
+        // Use OpenAI chat completion for summarization (to be implemented)
         Summary(
-            id = "summary_1",
-            content = "Summary not implemented yet",
+            id = UUID.randomUUID().toString(),
+            noteId = UUID.randomUUID().toString(), // This should ideally come from the note being summarized
+            content = "Summary not implemented yet: $prompt",
             wordCount = 4,
             sourceWordCount = text.split(" ").size
         )
-    }
-
-    override suspend fun startTranscription() {
-        currentStatus = TranscriptionCapable.TranscriptionStatus.RECORDING
-        _events.send(TranscriptionEvent.Started())
-        _events.send(TranscriptionEvent.StatusChanged(currentStatus))
-    }
-
-    override suspend fun stopTranscription() {
-        currentStatus = TranscriptionCapable.TranscriptionStatus.COMPLETED
-        _events.send(TranscriptionEvent.Stopped())
-        _events.send(TranscriptionEvent.StatusChanged(currentStatus))
-    }
-
-    override suspend fun getTranscriptionText(): String = currentText
-
-    override suspend fun getTranscriptionStatus(): TranscriptionCapable.TranscriptionStatus = currentStatus
-
-    override suspend fun enhanceAudio(audioData: ByteArray): ByteArray {
-        // OpenAI doesn't provide audio enhancement
-        // This is a placeholder implementation
-        return audioData
     }
 } 

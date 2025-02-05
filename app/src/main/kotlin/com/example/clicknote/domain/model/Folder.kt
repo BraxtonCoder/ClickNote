@@ -9,12 +9,14 @@ data class Folder(
     val id: String,
     val name: String,
     val color: Int,
-    val createdAt: LocalDateTime,
-    val modifiedAt: LocalDateTime,
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val modifiedAt: LocalDateTime = LocalDateTime.now(),
     val deletedAt: LocalDateTime? = null,
     val isDeleted: Boolean = false,
     val sortOrder: Int = 0,
-    val noteCount: Int = 0
+    val noteCount: Int = 0,
+    val userId: String? = null,
+    val syncStatus: SyncStatus = SyncStatus.PENDING
 ) {
     companion object {
         fun create(
@@ -34,5 +36,13 @@ data class Folder(
                 sortOrder = 0
             )
         }
+
+        fun createEmpty() = Folder(
+            id = "",
+            name = "",
+            color = 0,
+            createdAt = LocalDateTime.now(),
+            modifiedAt = LocalDateTime.now()
+        )
     }
 } 

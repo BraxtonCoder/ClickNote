@@ -4,14 +4,13 @@ import com.example.clicknote.domain.model.Folder
 import kotlinx.coroutines.flow.Flow
 
 interface FolderRepository {
-    fun getAllFolders(): Flow<List<Folder>>
-    suspend fun getFolderById(id: String): Folder?
-    suspend fun insertFolder(folder: Folder): String
-    suspend fun updateFolder(folder: Folder)
-    suspend fun deleteFolder(folder: Folder)
-    suspend fun permanentlyDeleteFolder(folder: Folder)
-    fun searchFolders(query: String): Flow<List<Folder>>
-    suspend fun incrementNoteCount(folderId: String)
-    suspend fun decrementNoteCount(folderId: String)
-    suspend fun folderNameExists(name: String): Boolean
+    suspend fun getAllFolders(): Result<List<Folder>>
+    suspend fun getFolderById(id: String): Result<Folder>
+    suspend fun insertFolder(folder: Folder): Result<Unit>
+    suspend fun insertFolders(folders: List<Folder>): Result<Unit>
+    suspend fun updateFolder(folder: Folder): Result<Unit>
+    suspend fun deleteFolder(id: String): Result<Unit>
+    suspend fun createFolder(name: String, color: Int): Result<Unit>
+    suspend fun renameFolder(id: String, newName: String): Result<Unit>
+    fun observeFolders(): Flow<List<Folder>>
 } 

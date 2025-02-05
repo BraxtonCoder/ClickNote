@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.example.clicknote.service.AnalyticsService
 import com.example.clicknote.sync.SyncState
+import com.example.clicknote.domain.service.SyncService
+import com.example.clicknote.domain.preferences.UserPreferences
 
 data class NotesUiState(
     val notes: List<Note> = emptyList(),
@@ -44,7 +46,8 @@ data class NotesUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val isRecording: Boolean = false,
-    val syncState: SyncState = SyncState.Idle
+    val syncState: SyncState = SyncState.Idle,
+    val currentFolder: String? = null
 )
 
 @HiltViewModel
@@ -56,7 +59,9 @@ class NotesViewModel @Inject constructor(
     private val clipboardService: ClipboardService,
     private val recordingService: RecordingService,
     private val analyticsService: AnalyticsService,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val syncService: SyncService,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotesUiState())
@@ -68,6 +73,8 @@ class NotesViewModel @Inject constructor(
         loadNotes()
         loadFolders()
         observeRecordingState()
+        observeSyncState()
+        startAutoSync()
         viewModelScope.launch {
             // Collect notes
             noteRepository.notes.collect { notes ->
@@ -81,9 +88,6 @@ class NotesViewModel @Inject constructor(
                 _uiState.update { it.copy(syncState = syncState) }
             }
         }
-
-        // Start auto-sync
-        noteRepository.startAutoSync()
     }
 
     private fun loadNotes() {
@@ -134,6 +138,18 @@ class NotesViewModel @Inject constructor(
         }
     }
 
+    private fun observeSyncState() {
+        viewModelScope.launch {
+            syncService.syncState
+                .catch { e ->
+                    _uiState.update { it.copy(error = e.message) }
+                }
+                .collect { syncState ->
+                    _uiState.update { it.copy(syncState = syncState) }
+                }
+        }
+    }
+
     fun startRecording() {
         viewModelScope.launch {
             if (uiState.value.isRecording) {
@@ -176,23 +192,34 @@ class NotesViewModel @Inject constructor(
     }
 
     private fun filterNotes(notes: List<Note>): List<Note> {
-        if (_uiState.value.timeFilter == TimeFilter.ALL) {
-            return notes.sortedByDescending { it.timestamp }
-        }
+        val query = _uiState.value.searchQuery
+        val timeFilter = _uiState.value.timeFilter
+        val currentFolder = _uiState.value.currentFolder
 
-        val now = LocalDateTime.now()
-        return notes.filter { note ->
-            when (_uiState.value.timeFilter) {
-                TimeFilter.TODAY -> note.timestamp.toLocalDate() == now.toLocalDate()
-                TimeFilter.LAST_7_DAYS -> note.timestamp.isAfter(now.minusDays(7))
-                TimeFilter.LAST_30_DAYS -> note.timestamp.isAfter(now.minusDays(30))
-                TimeFilter.LAST_3_MONTHS -> note.timestamp.isAfter(now.minusMonths(3))
-                TimeFilter.LAST_6_MONTHS -> note.timestamp.isAfter(now.minusMonths(6))
-                TimeFilter.LAST_YEAR -> note.timestamp.isAfter(now.minusYears(1))
-                TimeFilter.CUSTOM -> true
-                TimeFilter.ALL -> true
+        return notes
+            .filter { !it.isDeleted }
+            .filter { note ->
+                if (query.isBlank()) true
+                else note.title.contains(query, ignoreCase = true) ||
+                    note.content.contains(query, ignoreCase = true)
             }
-        }.sortedByDescending { it.timestamp }
+            .filter { note ->
+                when (timeFilter) {
+                    is TimeFilter.ALL -> true
+                    is TimeFilter.TODAY -> note.createdAt.toLocalDate() == LocalDateTime.now().toLocalDate()
+                    is TimeFilter.LAST_7_DAYS -> note.createdAt.isAfter(LocalDateTime.now().minusDays(7))
+                    is TimeFilter.LAST_30_DAYS -> note.createdAt.isAfter(LocalDateTime.now().minusDays(30))
+                    is TimeFilter.LAST_3_MONTHS -> note.createdAt.isAfter(LocalDateTime.now().minusMonths(3))
+                    is TimeFilter.LAST_6_MONTHS -> note.createdAt.isAfter(LocalDateTime.now().minusMonths(6))
+                    is TimeFilter.LAST_YEAR -> note.createdAt.isAfter(LocalDateTime.now().minusYears(1))
+                    is TimeFilter.CUSTOM -> note.createdAt.isAfter(timeFilter.startDate) &&
+                        note.createdAt.isBefore(timeFilter.endDate)
+                }
+            }
+            .filter { note ->
+                currentFolder == null || note.folderId == currentFolder
+            }
+            .sortedByDescending { it.modifiedAt }
     }
 
     fun toggleNoteSelection(noteId: String) {
@@ -340,7 +367,7 @@ class NotesViewModel @Inject constructor(
     fun syncNotes() {
         viewModelScope.launch {
             try {
-                noteRepository.syncNotes()
+                syncService.syncNotes()
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -387,6 +414,19 @@ class NotesViewModel @Inject constructor(
                 noteRepository.restoreNote(id)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun setCurrentFolder(folderId: String?) {
+        _uiState.update { it.copy(currentFolder = folderId) }
+        loadNotes()
+    }
+
+    private fun startAutoSync() {
+        viewModelScope.launch {
+            if (userPreferences.isAutoSyncEnabled()) {
+                syncService.startAutoSync()
             }
         }
     }

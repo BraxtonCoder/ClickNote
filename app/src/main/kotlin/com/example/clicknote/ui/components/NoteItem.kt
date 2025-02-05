@@ -1,127 +1,123 @@
 package com.example.clicknote.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AudioFile
-import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.clicknote.domain.model.Note
-import com.example.clicknote.ui.theme.LocalSpacing
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteItem(
     note: Note,
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onPinClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val spacing = LocalSpacing.current
-    val backgroundColor by animateColorAsState(
+    val shape = MaterialTheme.shapes.medium
+    val backgroundColor = animateColorAsState(
         if (isSelected) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surface
     )
 
-    Surface(
+    Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .background(backgroundColor)
+            .padding(vertical = 4.dp)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        color = backgroundColor,
-        tonalElevation = 1.dp,
-        shape = MaterialTheme.shapes.medium
+        shape = shape,
+        colors = CardDefaults.cardColors(
+            containerColor = backgroundColor.value
+        )
     ) {
         Column(
             modifier = Modifier
-                .padding(spacing.medium)
                 .fillMaxWidth()
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Date and icons
+                Text(
+                    text = note.title.ifEmpty { "Untitled" },
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onPinClick) {
+                    Icon(
+                        imageVector = if (note.isPinned) Icons.Default.PushPin else Icons.Default.PushPinOutlined,
+                        contentDescription = if (note.isPinned) "Unpin note" else "Pin note",
+                        tint = if (note.isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = note.content,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = DateTimeFormatter
+                        .ofLocalizedDateTime(FormatStyle.SHORT)
+                        .format(note.modifiedAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = note.createdAt.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (note.audioPath != null) {
+                    if (note.hasAudio) {
                         Icon(
-                            imageVector = Icons.Default.AudioFile,
-                            contentDescription = null,
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Has audio",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
-                }
-                if (note.isPinned) {
-                    Icon(
-                        imageVector = Icons.Default.PushPin,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(spacing.small))
-
-            // Note content
-            Text(
-                text = note.content,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            if (note.summary != null) {
-                Spacer(modifier = Modifier.height(spacing.small))
-                Text(
-                    text = note.summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Folder indicator if note is in a folder
-            note.folderId?.let { folderId ->
-                note.folderColor?.let { color ->
-                    Spacer(modifier = Modifier.height(spacing.small))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(
-                                color = androidx.compose.ui.graphics.Color(color),
-                                shape = MaterialTheme.shapes.small
-                            )
-                    )
+                    if (note.folderId != null) {
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = "In folder",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }

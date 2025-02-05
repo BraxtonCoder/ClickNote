@@ -2,16 +2,10 @@ package com.example.clicknote.di
 
 import android.content.Context
 import android.media.AudioManager
-import com.example.clicknote.service.AudioRecorder
-import com.example.clicknote.service.impl.AudioRecorderImpl
-import com.example.clicknote.service.audio.AudioService
-import com.example.clicknote.service.audio.AudioServiceImpl
-import com.example.clicknote.service.AudioConverter
-import com.example.clicknote.service.impl.AudioConverterImpl
-import com.example.clicknote.service.AudioPlayer
-import com.example.clicknote.service.impl.AudioPlayerImpl
-import com.example.clicknote.service.AudioEnhancer
-import com.example.clicknote.service.impl.DefaultAudioEnhancer
+import com.example.clicknote.domain.audio.AudioRecorder
+import com.example.clicknote.data.audio.AudioRecorderImpl
+import com.example.clicknote.domain.audio.AudioConverter
+import com.example.clicknote.data.audio.AudioConverterImpl
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -30,19 +24,7 @@ abstract class AudioModule {
 
     @Binds
     @Singleton
-    abstract fun bindAudioService(impl: AudioServiceImpl): AudioService
-
-    @Binds
-    @Singleton
     abstract fun bindAudioConverter(impl: AudioConverterImpl): AudioConverter
-
-    @Binds
-    @Singleton
-    abstract fun bindAudioPlayer(impl: AudioPlayerImpl): AudioPlayer
-
-    @Binds
-    @Singleton
-    abstract fun bindAudioEnhancer(impl: DefaultAudioEnhancer): AudioEnhancer
 
     companion object {
         @Provides

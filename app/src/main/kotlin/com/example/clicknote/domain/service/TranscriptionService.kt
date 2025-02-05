@@ -115,4 +115,6 @@ interface TranscriptionService : TranscriptionCapable {
      * Cancel ongoing transcription
      */
     fun cancelTranscription()
+
+    fun getTranscriptionProgress(): Flow<Float>
 } 

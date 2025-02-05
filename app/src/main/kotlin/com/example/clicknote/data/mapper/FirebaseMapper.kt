@@ -22,7 +22,8 @@ data class FirebaseNote(
     val folderId: String? = null,
     val summary: String? = null,
     val keyPoints: List<String> = emptyList(),
-    val speakers: List<String> = emptyList(),
+    val speakers: Map<String, String> = emptyMap(),
+    val tags: List<String> = emptyList(),
     val platform: String = "android",
     val syncStatus: String = SyncStatus.PENDING.name
 )
@@ -58,6 +59,7 @@ fun Note.toFirebaseNote(userId: String): FirebaseNote {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
+        tags = tags,
         platform = "android",
         syncStatus = syncStatus.name
     )
@@ -82,6 +84,8 @@ fun FirebaseNote.toDomain(): Note {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
+        tags = tags,
+        userId = userId,
         syncStatus = SyncStatus.valueOf(syncStatus)
     )
 }
@@ -109,6 +113,7 @@ fun FirebaseFolder.toDomain(): Folder {
         deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
         isDeleted = isDeleted,
         sortOrder = 0,
-        noteCount = 0
+        noteCount = 0,
+        userId = userId
     )
 } 

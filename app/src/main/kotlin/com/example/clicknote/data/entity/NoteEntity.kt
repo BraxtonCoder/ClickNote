@@ -22,7 +22,8 @@ import java.time.LocalDateTime
         Index("created_at"),
         Index("modified_at"),
         Index("is_deleted"),
-        Index("sync_status")
+        Index("sync_status"),
+        Index("user_id")
     ]
 )
 @TypeConverters(RoomConverters::class)
@@ -77,7 +78,13 @@ data class NoteEntity(
     val keyPoints: List<String> = emptyList(),
 
     @ColumnInfo(name = "speakers")
-    val speakers: List<String> = emptyList(),
+    val speakers: Map<String, String> = emptyMap(),
+
+    @ColumnInfo(name = "tags")
+    val tags: List<String> = emptyList(),
+
+    @ColumnInfo(name = "user_id")
+    val userId: String? = null,
 
     @ColumnInfo(name = "sync_status")
     val syncStatus: String = SyncStatus.PENDING.name
@@ -101,6 +108,8 @@ data class NoteEntity(
             summary = summary,
             keyPoints = keyPoints,
             speakers = speakers,
+            tags = tags,
+            userId = userId,
             syncStatus = SyncStatus.valueOf(syncStatus)
         )
     }
@@ -125,6 +134,8 @@ data class NoteEntity(
                 summary = domain.summary,
                 keyPoints = domain.keyPoints,
                 speakers = domain.speakers,
+                tags = domain.tags,
+                userId = domain.userId,
                 syncStatus = domain.syncStatus.name
             )
         }

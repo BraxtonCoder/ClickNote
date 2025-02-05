@@ -51,7 +51,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
                 _isSyncing.value = true
                 _syncProgress.value = 0f
 
-                val notes = noteRepository.getNotes().first()
+                val notes = noteRepository.getAllNotes().getOrNull() ?: emptyList()
                 val total = notes.size.toFloat()
                 var current = 0f
 
@@ -67,7 +67,8 @@ class CloudSyncRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 _syncErrors.value = _syncErrors.value + SyncError(
                     message = e.message ?: "Unknown error during sync",
-                    type = SyncErrorType.UNKNOWN
+                    type = SyncErrorType.UNKNOWN,
+                    noteId = null
                 )
             } finally {
                 _isSyncing.value = false
@@ -86,16 +87,16 @@ class CloudSyncRepositoryImpl @Inject constructor(
         when (getCloudStoragePreference()) {
             CloudStorageType.LOCAL -> {
                 // Save locally only
-                noteRepository.updateNote(note)
+                noteRepository.updateNote(note).getOrNull()
             }
             CloudStorageType.LOCAL_CLOUD -> {
                 try {
                     // Save locally first
-                    noteRepository.updateNote(note)
+                    noteRepository.updateNote(note).getOrNull()
                     
                     // Sync with user's personal cloud storage
                     note.audioPath?.let { path ->
-                        // Upload audio to user's cloud storage (Google Drive, OneDrive, etc.)
+                        // Upload audio to user's cloud storage
                         syncAudioToLocalCloud(path, note.id)
                     }
                     
@@ -117,7 +118,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
             CloudStorageType.FIREBASE -> {
                 try {
                     // Sync note data
-                    noteRepository.updateNote(note)
+                    noteRepository.updateNote(note).getOrNull()
                     
                     // Sync audio file if exists
                     note.audioPath?.let { path ->
@@ -151,15 +152,15 @@ class CloudSyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteNote(noteId: String) {
-        val note = noteRepository.getNoteById(noteId) ?: return
+        val note = noteRepository.getNoteById(noteId).getOrNull() ?: return
         when (getCloudStoragePreference()) {
             CloudStorageType.LOCAL -> {
-                noteRepository.deleteNote(note)
+                noteRepository.deleteNote(note.id).getOrNull()
             }
             CloudStorageType.LOCAL_CLOUD -> {
                 try {
                     // Delete locally
-                    noteRepository.deleteNote(note)
+                    noteRepository.deleteNote(note.id).getOrNull()
                     
                     // Delete from user's cloud storage
                     deleteFromLocalCloud(noteId)
@@ -174,7 +175,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
             CloudStorageType.FIREBASE -> {
                 try {
                     // Delete from Firestore
-                    noteRepository.deleteNote(note)
+                    noteRepository.deleteNote(note.id).getOrNull()
                     
                     // Delete from Firebase Storage
                     deleteFromFirebase(noteId)
@@ -258,19 +259,19 @@ class CloudSyncRepositoryImpl @Inject constructor(
     }
 
     private suspend fun syncAudioToLocalCloud(audioPath: String, noteId: String) {
-        // Implementation for syncing audio to user's cloud storage
+        // Implementation for syncing audio to local cloud storage
     }
 
     private suspend fun syncNoteDataToLocalCloud(note: Note) {
-        // Implementation for syncing note data to user's cloud storage
+        // Implementation for syncing note data to local cloud storage
     }
 
     private suspend fun syncSummaryToLocalCloud(summary: String, noteId: String) {
-        // Implementation for syncing summary to user's cloud storage
+        // Implementation for syncing summary to local cloud storage
     }
 
     private suspend fun deleteFromLocalCloud(noteId: String) {
-        // Implementation for deleting note from user's cloud storage
+        // Implementation for deleting from local cloud storage
     }
 
     private suspend fun syncAudioToFirebase(audioPath: String, noteId: String) {
@@ -278,11 +279,11 @@ class CloudSyncRepositoryImpl @Inject constructor(
     }
 
     private suspend fun syncSummaryToFirebase(summary: String, noteId: String) {
-        // Implementation for syncing summary to Firestore
+        // Implementation for syncing summary to Firebase
     }
 
     private suspend fun deleteFromFirebase(noteId: String) {
-        // Implementation for deleting note from Firebase
+        // Implementation for deleting from Firebase
     }
 
     private suspend fun getLocalCloudStorageUsage(): Long {

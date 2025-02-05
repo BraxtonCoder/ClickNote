@@ -5,18 +5,22 @@ import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
 interface NoteRepository {
-    fun getNotes(): Flow<List<Note>>
-    fun getNotesInFolder(folderId: String): Flow<List<Note>>
-    fun getDeletedNotes(): Flow<List<Note>>
-    fun searchNotes(query: String): Flow<List<Note>>
-    fun getNotesByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<Note>>
-    
-    suspend fun getNoteById(id: String): Note?
-    suspend fun insertNote(note: Note): String
-    suspend fun updateNote(note: Note)
-    suspend fun deleteNote(note: Note)
-    suspend fun permanentlyDeleteNote(note: Note)
-    suspend fun restoreNote(note: Note)
+    suspend fun getAllNotes(): Result<List<Note>>
+    suspend fun insertNote(note: Note): Result<Unit>
+    suspend fun insertNotes(notes: List<Note>): Result<Unit>
+    suspend fun updateNote(note: Note): Result<Unit>
+    suspend fun deleteNote(id: String): Result<Unit>
+    suspend fun getNoteById(id: String): Result<Note>
+    suspend fun searchNotes(query: String): Flow<List<Note>>
+    suspend fun moveToTrash(noteIds: List<String>): Result<Unit>
+    suspend fun restoreFromTrash(noteIds: List<String>): Result<Unit>
+    suspend fun updateNoteFolder(noteId: String, folderId: String?): Result<Unit>
+    suspend fun getNotesInFolder(folderId: String): Flow<List<Note>>
+    suspend fun getDeletedNotes(): Flow<List<Note>>
+    suspend fun permanentlyDeleteNote(id: String): Result<Unit>
+    suspend fun softDeleteNote(note: Note): Result<Unit>
+    suspend fun restoreNote(note: Note): Result<Unit>
+    suspend fun restoreNote(id: String): Result<Unit>
     
     suspend fun moveToFolder(noteId: String, folderId: String?)
     suspend fun pinNote(noteId: String, isPinned: Boolean)

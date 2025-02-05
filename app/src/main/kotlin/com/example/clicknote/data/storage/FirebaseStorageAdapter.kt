@@ -162,7 +162,7 @@ class FirebaseStorageAdapter @Inject constructor(
     private fun StorageMetadata.toCloudFileMetadata() = CloudFileMetadata(
         contentType = contentType ?: "application/octet-stream",
         eTag = md5Hash,
-        customMetadata = customMetadata ?: emptyMap(),
+        customMetadata = customMetadataKeys?.associateWith { getCustomMetadata(it) ?: "" } ?: emptyMap(),
         createdAt = creationTimeMillis,
         updatedAt = updatedTimeMillis,
         owner = getCustomMetadata("owner")

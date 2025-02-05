@@ -4,7 +4,7 @@ import com.example.clicknote.domain.model.SubscriptionPlan
 import com.example.clicknote.domain.model.SubscriptionStatus
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.repository.SubscriptionRepository
-import com.example.clicknote.di.ApplicationScope
+import com.example.clicknote.di.qualifiers.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject

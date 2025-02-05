@@ -1,6 +1,7 @@
 package com.example.clicknote.di
 
 import com.example.clicknote.data.service.*
+import com.example.clicknote.data.analytics.MixPanelAnalyticsService
 import com.example.clicknote.domain.service.*
 import com.example.clicknote.domain.interfaces.*
 import com.example.clicknote.domain.service.WhisperTranscriptionService
@@ -50,7 +51,7 @@ abstract class AppBindingsModule {
     @Binds
     @Singleton
     abstract fun bindAnalyticsService(
-        impl: AnalyticsServiceImpl
+        service: MixPanelAnalyticsService
     ): AnalyticsService
 
     @Binds

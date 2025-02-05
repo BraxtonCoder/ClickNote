@@ -27,6 +27,8 @@ fun NoteEntity.toDomain(): Note {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
+        tags = tags,
+        userId = userId,
         syncStatus = SyncStatus.valueOf(syncStatus)
     )
 }
@@ -50,6 +52,8 @@ fun Note.toEntity(): NoteEntity {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
+        tags = tags,
+        userId = userId,
         syncStatus = syncStatus.name
     )
 }
@@ -81,7 +85,9 @@ fun createNote(
         folderId = folderId,
         summary = null,
         keyPoints = emptyList(),
-        speakers = emptyList(),
+        speakers = emptyMap(),
+        tags = emptyList(),
+        userId = null,
         syncStatus = SyncStatus.PENDING.name
     )
 }
@@ -95,7 +101,7 @@ fun NoteEntity.Companion.create(
     content: String,
     summary: String? = null,
     keyPoints: List<String> = emptyList(),
-    speakers: List<String> = emptyList(),
+    speakers: Map<String, String> = emptyMap(),
     audioPath: String? = null,
     duration: Long = 0L,
     source: NoteSource = NoteSource.MANUAL,
@@ -122,6 +128,8 @@ fun NoteEntity.Companion.create(
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
+        tags = emptyList(),
+        userId = null,
         syncStatus = SyncStatus.PENDING.name
     )
 } 

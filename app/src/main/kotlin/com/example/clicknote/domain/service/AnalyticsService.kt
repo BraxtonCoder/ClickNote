@@ -1,13 +1,21 @@
 package com.example.clicknote.domain.service
 
+import com.example.clicknote.domain.model.Note
+
 interface AnalyticsService {
-    fun logEvent(event: AnalyticsEvent, properties: Map<String, Any> = emptyMap())
-    fun setUserProperty(property: String, value: Any)
-    fun setUserId(userId: String)
-    fun startSession()
-    fun endSession()
-    fun enableTracking(enabled: Boolean)
-    fun isTrackingEnabled(): Boolean
+    fun trackScreenView(screenName: String)
+    fun trackEvent(eventName: String, properties: Map<String, Any> = emptyMap())
+    fun trackError(error: String, screen: String)
+    fun trackSearch(query: String, resultCount: Int)
+    fun trackNoteCreated(note: Note)
+    fun trackNoteDeleted(note: Note)
+    fun trackNoteRestored(note: Note)
+    fun trackTranscriptionStarted(source: String)
+    fun trackTranscriptionCompleted(duration: Long, wordCount: Int)
+    fun trackTranscriptionFailed(error: String)
+    fun setUserProperties(properties: Map<String, Any>)
+    fun identify(userId: String)
+    fun reset()
 }
 
 sealed class AnalyticsEvent(val name: String) {

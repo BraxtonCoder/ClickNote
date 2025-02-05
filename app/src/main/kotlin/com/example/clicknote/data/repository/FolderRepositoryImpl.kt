@@ -15,18 +15,18 @@ class FolderRepositoryImpl @Inject constructor(
     private val folderDao: FolderDao
 ) : FolderRepository {
 
-    override fun getAllFolders(): Flow<List<Folder>> =
-        folderDao.getAllFolders().map { entities ->
-            entities.map { it.toDomain() }
-        }
+    override suspend fun getAllFolders(): Result<List<Folder>> = runCatching {
+        folderDao.getAllFolders().first().map { it.toDomain() }
+    }
 
-    override suspend fun getFolderById(id: String): Folder? =
-        folderDao.getFolderById(id)?.toDomain()
+    override suspend fun getFolderById(id: String): Result<Folder> = runCatching {
+        folderDao.getFolderById(id)?.toDomain() ?: throw IllegalStateException("Folder not found")
+    }
 
-    override suspend fun insertFolder(folder: Folder): String {
+    override suspend fun insertFolder(folder: Folder): Result<Unit> = runCatching {
         val now = System.currentTimeMillis()
         val entity = FolderEntity(
-            id = UUID.randomUUID().toString(),
+            id = folder.id.ifEmpty { UUID.randomUUID().toString() },
             name = folder.name,
             color = folder.color,
             noteCount = folder.noteCount,
@@ -37,10 +37,27 @@ class FolderRepositoryImpl @Inject constructor(
             sortOrder = 0
         )
         folderDao.insert(entity)
-        return entity.id
     }
 
-    override suspend fun updateFolder(folder: Folder) {
+    override suspend fun insertFolders(folders: List<Folder>): Result<Unit> = runCatching {
+        val entities = folders.map { folder ->
+            val now = System.currentTimeMillis()
+            FolderEntity(
+                id = folder.id.ifEmpty { UUID.randomUUID().toString() },
+                name = folder.name,
+                color = folder.color,
+                noteCount = folder.noteCount,
+                createdAt = now,
+                modifiedAt = now,
+                isDeleted = false,
+                deletedAt = null,
+                sortOrder = 0
+            )
+        }
+        folderDao.insertAll(entities)
+    }
+
+    override suspend fun updateFolder(folder: Folder): Result<Unit> = runCatching {
         val now = System.currentTimeMillis()
         folderDao.update(
             FolderEntity(
@@ -57,31 +74,36 @@ class FolderRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun deleteFolder(folder: Folder) {
-        val now = System.currentTimeMillis()
-        folderDao.moveToTrash(folder.id, now)
+    override suspend fun deleteFolder(id: String): Result<Unit> = runCatching {
+        folderDao.delete(id)
     }
 
-    override suspend fun permanentlyDeleteFolder(folder: Folder) {
-        folderDao.delete(folder.id)
+    override suspend fun createFolder(name: String, color: Int): Result<Unit> = runCatching {
+        val folder = Folder.create(name, color)
+        insertFolder(folder).getOrThrow()
     }
 
-    override fun searchFolders(query: String): Flow<List<Folder>> =
-        folderDao.searchFolders(query).map { entities ->
+    override suspend fun renameFolder(id: String, newName: String): Result<Unit> = runCatching {
+        val folder = getFolderById(id).getOrThrow()
+        updateFolder(folder.copy(name = newName)).getOrThrow()
+    }
+
+    override fun observeFolders(): Flow<List<Folder>> =
+        folderDao.getAllFolders().map { entities ->
             entities.map { it.toDomain() }
         }
 
-    override suspend fun incrementNoteCount(folderId: String) {
+    suspend fun incrementNoteCount(folderId: String) {
         val folder = folderDao.getFolderById(folderId) ?: return
         folderDao.update(folder.copy(noteCount = folder.noteCount + 1))
     }
 
-    override suspend fun decrementNoteCount(folderId: String) {
+    suspend fun decrementNoteCount(folderId: String) {
         val folder = folderDao.getFolderById(folderId) ?: return
         folderDao.update(folder.copy(noteCount = (folder.noteCount - 1).coerceAtLeast(0)))
     }
 
-    override suspend fun folderNameExists(name: String): Boolean =
+    suspend fun folderNameExists(name: String): Boolean =
         folderDao.folderExists(name)
 
     private fun FolderEntity.toDomain() = Folder(

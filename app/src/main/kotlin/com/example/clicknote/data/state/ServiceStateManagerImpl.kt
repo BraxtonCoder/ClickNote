@@ -11,11 +11,26 @@ import javax.inject.Singleton
 
 @Singleton
 class ServiceStateManagerImpl @Inject constructor() : ServiceStateManager {
-    private val _state = MutableStateFlow<ServiceState>(ServiceState.Idle)
-    override val state: StateFlow<ServiceState> = _state.asStateFlow()
+    private val _state = MutableStateFlow<ServiceState?>(null)
+    override val state: StateFlow<ServiceState?> = _state.asStateFlow()
 
     private val _currentService = MutableStateFlow<TranscriptionCapable?>(null)
     override val currentService: StateFlow<TranscriptionCapable?> = _currentService.asStateFlow()
+
+    override suspend fun updateState(serviceId: String, state: ServiceState) {
+        _state.value = state
+    }
+
+    override suspend fun getState(serviceId: String): ServiceState? {
+        return _state.value
+    }
+
+    override suspend fun clearState(serviceId: String) {
+        _state.value = null
+        if (_currentService.value?.id == serviceId) {
+            _currentService.value = null
+        }
+    }
 
     override suspend fun activateService(service: TranscriptionCapable) {
         _currentService.value = service

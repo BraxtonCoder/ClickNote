@@ -43,6 +43,7 @@ android {
 
         buildConfigField("String", "MIXPANEL_TOKEN", "\"${localProperties.getProperty("mixpanel.token", "")}\"")
         buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${localProperties.getProperty("stripe.publishable.key", "")}\"")
+        buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("openai.api.key", "")}\"")
 
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
@@ -109,6 +110,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
     implementation("com.google.accompanist:accompanist-navigation-animation:0.32.0")
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
 
     // Room
     implementation("androidx.room:room-runtime:2.6.1")

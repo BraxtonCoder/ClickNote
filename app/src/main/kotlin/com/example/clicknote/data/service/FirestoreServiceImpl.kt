@@ -10,12 +10,20 @@ import com.google.firebase.firestore.WriteBatch as FirebaseWriteBatch
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.channels.Channel
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.time.LocalDateTime
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.runBlocking
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 
 @Singleton
 class FirestoreServiceImpl @Inject constructor(
@@ -197,18 +205,25 @@ class FirestoreServiceImpl @Inject constructor(
                 }
                 
                 val changedIds = snapshot?.documentChanges?.map { it.document.id } ?: emptyList()
-                trySend(changedIds)
+                if (!isClosedForSend) {
+                    trySend(changedIds)
+                }
             }
 
         awaitClose {
             notesListener.remove()
         }
+    }.catch { exception ->
+        Log.e("FirestoreService", "Error in getChanges flow", exception)
+        throw exception
     }
 
     override suspend fun <T> runTransaction(action: suspend (FirebaseTransaction) -> T): Result<T> = runCatching {
         withContext(Dispatchers.IO) {
             firestore.runTransaction { transaction ->
-                action(transaction)
+                runBlocking {
+                    action(transaction)
+                }
             }.await()
         }
     }
@@ -216,7 +231,11 @@ class FirestoreServiceImpl @Inject constructor(
     override suspend fun runBatch(action: suspend (FirebaseWriteBatch) -> Unit): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             val batch = firestore.batch()
-            action(batch)
+            withContext(Dispatchers.Default) {
+                runBlocking {
+                    action(batch)
+                }
+            }
             batch.commit().await()
         }
     }

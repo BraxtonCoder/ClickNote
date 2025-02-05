@@ -1,12 +1,15 @@
 package com.example.clicknote.data.handler
 
 import com.example.clicknote.di.qualifiers.ApplicationScope
-import com.example.clicknote.domain.handler.ServiceEventHandler
+import com.example.clicknote.domain.event.ServiceEventHandler
 import com.example.clicknote.domain.service.Service
 import com.example.clicknote.domain.service.TranscriptionCapable
-import com.example.clicknote.domain.model.ServiceEvent
-import com.example.clicknote.domain.model.ServiceState
+import com.example.clicknote.domain.event.ServiceEvent
+import com.example.clicknote.domain.event.ServiceEvent.*
+import com.example.clicknote.domain.state.ServiceState
 import com.example.clicknote.domain.registry.ServiceRegistry
+import com.example.clicknote.domain.state.ServiceStateManager
+import com.example.clicknote.domain.model.TranscriptionServiceContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,7 +18,9 @@ import javax.inject.Singleton
 
 @Singleton
 class ServiceEventHandlerImpl @Inject constructor(
+    private val stateManager: ServiceStateManager,
     private val serviceRegistry: ServiceRegistry,
+    private val eventFlow: SharedFlow<ServiceEvent>,
     @ApplicationScope private val scope: CoroutineScope
 ) : ServiceEventHandler {
 
@@ -30,8 +35,9 @@ class ServiceEventHandlerImpl @Inject constructor(
             try {
                 if (service is TranscriptionCapable) {
                     _currentService.value = service
+                    stateManager.updateState(service.id, ServiceState.Active(service))
+                    _serviceEvents.emit(ServiceActivated(service.id))
                 }
-                emitEvent(ServiceEvent.ServiceActivated(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
@@ -43,8 +49,9 @@ class ServiceEventHandlerImpl @Inject constructor(
             try {
                 if (_currentService.value?.id == service.id) {
                     _currentService.value = null
+                    stateManager.updateState(service.id, ServiceState.Idle)
+                    _serviceEvents.emit(ServiceDeactivated(service.id))
                 }
-                emitEvent(ServiceEvent.ServiceDeactivated(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
@@ -57,7 +64,8 @@ class ServiceEventHandlerImpl @Inject constructor(
                 if (_currentService.value?.id == service.id) {
                     _currentService.value = null
                 }
-                emitEvent(ServiceEvent.ServiceError(service.id, error))
+                stateManager.updateState(service.id, ServiceState.Error(error))
+                _serviceEvents.emit(ServiceError(service.id, error))
             } catch (e: Exception) {
                 // Log error but don't recursively handle it
             }
@@ -67,8 +75,12 @@ class ServiceEventHandlerImpl @Inject constructor(
     override suspend fun handleServiceInitialized(service: Service) {
         scope.launch {
             try {
-                service.initialize()
-                emitEvent(ServiceEvent.ServiceInitialized(service.id))
+                if (service is TranscriptionCapable) {
+                    service.initialize()
+                    stateManager.updateState(service.id, ServiceState.Active(service))
+                    val context = TranscriptionServiceContext()
+                    _serviceEvents.emit(ServiceInitialized(service.id, context))
+                }
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
@@ -82,14 +94,11 @@ class ServiceEventHandlerImpl @Inject constructor(
                     _currentService.value = null
                 }
                 service.cleanup()
-                emitEvent(ServiceEvent.ServiceCleaned(service.id))
+                stateManager.updateState(service.id, ServiceState.Idle)
+                _serviceEvents.emit(ServiceCleaned(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)
             }
         }
-    }
-
-    private suspend fun emitEvent(event: ServiceEvent) {
-        _serviceEvents.emit(event)
     }
 }

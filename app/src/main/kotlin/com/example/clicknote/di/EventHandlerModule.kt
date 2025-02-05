@@ -5,6 +5,8 @@ import com.example.clicknote.domain.event.ServiceEvent
 import com.example.clicknote.domain.event.ServiceEventHandler
 import com.example.clicknote.domain.registry.ServiceRegistry
 import com.example.clicknote.domain.state.ServiceStateManager
+import com.example.clicknote.di.qualifiers.ApplicationScope
+import com.example.clicknote.di.qualifiers.InternalEventFlow
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -12,25 +14,22 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import javax.inject.Singleton
-import javax.inject.Provider
-import dagger.Lazy
-import com.example.clicknote.di.ApplicationScope
-import com.example.clicknote.di.InternalEventFlow
 
 @Module
 @InstallIn(SingletonComponent::class)
 object EventHandlerModule {
+
     @Provides
     @Singleton
     fun provideServiceEventHandler(
-        stateManager: Provider<ServiceStateManager>,
-        registry: Provider<ServiceRegistry>,
-        @InternalEventFlow eventFlow: Provider<SharedFlow<ServiceEvent>>,
-        @ApplicationScope coroutineScope: Provider<CoroutineScope>
+        stateManager: ServiceStateManager,
+        serviceRegistry: ServiceRegistry,
+        @InternalEventFlow eventFlow: SharedFlow<ServiceEvent>,
+        @ApplicationScope scope: CoroutineScope
     ): ServiceEventHandler = ServiceEventHandlerImpl(
         stateManager = stateManager,
-        registry = registry,
-        events = eventFlow,
-        coroutineScope = coroutineScope.get()
+        serviceRegistry = serviceRegistry,
+        eventFlow = eventFlow,
+        scope = scope
     )
 } 

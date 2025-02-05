@@ -195,6 +195,13 @@ class WhisperServiceImpl @Inject constructor(
         whisperModel = null
     }
 
+    override suspend fun getAvailableLanguages(): List<String> {
+        return listOf(
+            "en", "es", "fr", "de", "it", "pt", "nl", "ru", "ja", "ko", "zh",
+            "ar", "hi", "tr", "pl", "vi", "th", "id", "cs", "da", "fi", "el"
+        )
+    }
+
     companion object {
         private const val STREAM_BUFFER_SIZE = 32 * 1024L // 32KB chunks
     }

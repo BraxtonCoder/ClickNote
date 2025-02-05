@@ -9,6 +9,7 @@ import com.example.clicknote.data.entity.*
 import com.example.clicknote.data.db.migrations.DatabaseMigrations
 import javax.inject.Inject
 import javax.inject.Provider
+import androidx.room.migration.Migration
 
 @Database(
     entities = [
@@ -64,6 +65,60 @@ abstract class ClickNoteDatabase : RoomDatabase() {
                 }
             })
             .build()
+        }
+    }
+
+    object Migrations {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add speakers column to notes table
+                database.execSQL("""
+                    ALTER TABLE notes 
+                    ADD COLUMN speakers TEXT NOT NULL DEFAULT '{}'
+                """)
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add summary and key_points columns to notes table
+                database.execSQL("""
+                    ALTER TABLE notes 
+                    ADD COLUMN summary TEXT
+                """)
+                database.execSQL("""
+                    ALTER TABLE notes 
+                    ADD COLUMN key_points TEXT NOT NULL DEFAULT '[]'
+                """)
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add sync_status column to notes and folders tables
+                database.execSQL("""
+                    ALTER TABLE notes 
+                    ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'PENDING'
+                """)
+                database.execSQL("""
+                    ALTER TABLE folders 
+                    ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'PENDING'
+                """)
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add user_id column to notes and folders tables
+                database.execSQL("""
+                    ALTER TABLE notes 
+                    ADD COLUMN user_id TEXT
+                """)
+                database.execSQL("""
+                    ALTER TABLE folders 
+                    ADD COLUMN user_id TEXT
+                """)
+            }
         }
     }
 } 

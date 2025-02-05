@@ -20,7 +20,7 @@ import kotlin.time.Duration.Companion.seconds
 object OpenAIModule {
     @Provides
     @Singleton
-    fun provideOpenAI(): OpenAI {
+    fun provideOpenAIClient(): OpenAI {
         return OpenAI(
             token = BuildConfig.OPENAI_API_KEY
         )

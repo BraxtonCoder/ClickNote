@@ -3,75 +3,58 @@ package com.example.clicknote.data.repository
 import android.app.Activity
 import android.content.Context
 import com.android.billingclient.api.*
+import com.example.clicknote.domain.model.Purchase
+import com.example.clicknote.domain.model.PurchaseStatus
+import com.example.clicknote.domain.model.SubscriptionStatus
 import com.example.clicknote.domain.model.SubscriptionPlan
-import com.example.clicknote.domain.model.SubscriptionPeriod
-import com.example.clicknote.domain.model.SubscriptionType
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.repository.BillingRepository
 import com.example.clicknote.domain.repository.SubscriptionDetails
-import com.example.clicknote.domain.repository.SubscriptionStatus
-import com.google.firebase.auth.FirebaseAuth
+import com.example.clicknote.di.qualifiers.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.example.clicknote.domain.repository.UserPreferencesDataStore
-import com.example.clicknote.di.ApplicationScope
-
-private const val GRACE_PERIOD_DURATION = 7L * 24 * 60 * 60 * 1000 // 7 days in milliseconds
-private const val SUBSCRIPTION_DURATION = 30L * 24 * 60 * 60 * 1000 // 30 days in milliseconds
 
 @Singleton
 class BillingRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val auth: FirebaseAuth,
-    @ApplicationScope private val coroutineScope: CoroutineScope,
-    private val billingClient: BillingClient,
-    private val userPreferences: UserPreferencesDataStore
+    private val preferences: UserPreferencesDataStore,
+    @ApplicationScope private val coroutineScope: CoroutineScope
 ) : BillingRepository {
 
-    private val _subscriptionStatus = MutableStateFlow(SubscriptionStatus.Free)
+    private var billingClient: BillingClient? = null
+    private var currentActivity: Activity? = null
+
+    private val _currentPlan = MutableStateFlow<SubscriptionPlan>(SubscriptionPlan.Free)
+    override val currentPlan: Flow<SubscriptionPlan> = _currentPlan.asStateFlow()
+
+    private val _subscriptionStatus = MutableStateFlow<SubscriptionStatus>(SubscriptionStatus.Free)
     override val subscriptionStatus: Flow<SubscriptionStatus> = _subscriptionStatus.asStateFlow()
 
-    private val _subscriptionDetails = MutableStateFlow(SubscriptionDetails(SubscriptionStatus.Free))
+    private val _subscriptionDetails = MutableStateFlow(
+        SubscriptionDetails(
+            status = SubscriptionStatus.Free,
+            expiryDate = null,
+            remainingFreeNotes = 3,
+            isGracePeriod = false,
+            gracePeriodEndDate = null
+        )
+    )
     override val subscriptionDetails: Flow<SubscriptionDetails> = _subscriptionDetails.asStateFlow()
 
-    private val _currentPlan = MutableStateFlow<SubscriptionPlan>(SubscriptionPlan.FREE)
-    override fun getCurrentPlan(): Flow<SubscriptionPlan?> = _currentPlan.asStateFlow()
-
-    private val _subscriptionPlans = MutableStateFlow<List<ProductDetails>>(emptyList())
-
-    private var currentPurchase: Purchase? = null
-
-    private val monthlySkuDetails = MutableStateFlow<ProductDetails?>(null)
-    private val annualSkuDetails = MutableStateFlow<ProductDetails?>(null)
-
-    private val _availablePlans = MutableStateFlow<List<SubscriptionPlan>>(emptyList())
-    override val availablePlans: Flow<List<SubscriptionPlan>> = _availablePlans.asStateFlow()
-
-    private val purchasesUpdatedListener = PurchasesUpdatedListener { billingResult, purchases ->
-        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
-            coroutineScope.launch(Dispatchers.IO) {
-                for (purchase in purchases) {
-                    handlePurchase(purchase)
+    override suspend fun startBillingConnection() {
+        billingClient = BillingClient.newBuilder(context)
+            .setListener { billingResult, purchases -> 
+                coroutineScope.launch {
+                    handlePurchaseUpdate(billingResult, purchases)
                 }
             }
-        }
-    }
-
-    init {
-        startBillingConnection()
-    }
-
-    override suspend fun startBillingConnection() {
-        billingClient.startConnection(object : BillingClientStateListener {
+            .enablePendingPurchases()
+            .build()
+            
+        billingClient?.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                     coroutineScope.launch {
@@ -80,15 +63,30 @@ class BillingRepositoryImpl @Inject constructor(
                     }
                 }
             }
-
+            
             override fun onBillingServiceDisconnected() {
-                startBillingConnection()
+                coroutineScope.launch {
+                    startBillingConnection()
+                }
             }
         })
     }
 
     override suspend fun endBillingConnection() {
-        billingClient.endConnection()
+        billingClient?.endConnection()
+        billingClient = null
+    }
+
+    override suspend fun purchaseMonthlySubscription() {
+        currentActivity?.let { activity ->
+            purchaseSubscription(activity, SubscriptionPlan.Monthly)
+        }
+    }
+
+    override suspend fun purchaseAnnualSubscription() {
+        currentActivity?.let { activity ->
+            purchaseSubscription(activity, SubscriptionPlan.Annual)
+        }
     }
 
     override suspend fun querySubscriptions() {
@@ -96,58 +94,111 @@ class BillingRepositoryImpl @Inject constructor(
             .setProductList(
                 listOf(
                     QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(SubscriptionPlan.MONTHLY.productId)
+                        .setProductId(SubscriptionPlan.Monthly.id)
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build(),
                     QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(SubscriptionPlan.ANNUAL.productId)
+                        .setProductId(SubscriptionPlan.Annual.id)
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build()
                 )
             )
             .build()
+            
+        billingClient?.queryProductDetails(params)
+    }
 
-        val result = billingClient.queryProductDetails(params)
-        if (result.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-            _subscriptionPlans.value = result.productDetailsList ?: emptyList()
+    override suspend fun isSubscriptionActive(): Boolean {
+        return checkSubscriptionStatus()
+    }
+
+    override suspend fun getRemainingFreeNotes(): Int {
+        val weeklyLimit = 3
+        return weeklyLimit - getWeeklyTranscriptionCount()
+    }
+
+    override suspend fun decrementFreeNotes() {
+        incrementWeeklyTranscriptionCount()
+    }
+
+    override fun getSubscriptionPlans(): Flow<List<SubscriptionPlan>> = flow {
+        emit(listOf(SubscriptionPlan.Free, SubscriptionPlan.Monthly, SubscriptionPlan.Annual))
+    }
+
+    override fun getCurrentPlan(): Flow<SubscriptionPlan?> = currentPlan
+
+    override suspend fun querySubscriptionPlans(): List<SubscriptionPlan> {
+        return listOf(SubscriptionPlan.Free, SubscriptionPlan.Monthly, SubscriptionPlan.Annual)
+    }
+
+    override suspend fun purchaseSubscription(activity: Activity, plan: SubscriptionPlan) {
+        currentActivity = activity
+        when (plan) {
+            is SubscriptionPlan.Monthly -> launchBillingFlow(activity, plan)
+            is SubscriptionPlan.Annual -> launchBillingFlow(activity, plan)
+            else -> {} // Free plan doesn't need billing flow
         }
     }
 
-    override suspend fun purchaseMonthlySubscription() {
-        purchaseSubscription(SubscriptionPlan.MONTHLY.productId)
-    }
-
-    override suspend fun purchaseAnnualSubscription() {
-        purchaseSubscription(SubscriptionPlan.ANNUAL.productId)
-    }
-
-    override suspend fun purchaseSubscription(planId: String): Result<Unit> {
-        val productDetails = _subscriptionPlans.value.find { it.productId == planId }
-        return if (productDetails != null) {
-            val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken
-            if (offerToken != null) {
-                val billingFlowParams = BillingFlowParams.newBuilder()
-                    .setProductDetailsParamsList(
-                        listOf(
-                            BillingFlowParams.ProductDetailsParams.newBuilder()
-                                .setProductDetails(productDetails)
-                                .setOfferToken(offerToken)
-                                .build()
-                        )
-                    )
-                    .build()
-                // Note: This would need to be called from an Activity context
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("No offer token available for subscription"))
+    override suspend fun purchaseSubscription(planId: String): Result<Unit> = runCatching {
+        currentActivity?.let { activity ->
+            when (planId) {
+                SubscriptionPlan.Monthly.id -> purchaseSubscription(activity, SubscriptionPlan.Monthly)
+                SubscriptionPlan.Annual.id -> purchaseSubscription(activity, SubscriptionPlan.Annual)
             }
+        }
+        Result.success(Unit)
+    }
+
+    override suspend fun cancelSubscription(): Result<Unit> = runCatching {
+        handleSubscriptionCanceled()
+        Result.success(Unit)
+    }
+
+    override suspend fun restorePurchases(): Result<Unit> = runCatching {
+        checkSubscriptionStatus()
+        Result.success(Unit)
+    }
+
+    override suspend fun acknowledgeSubscription(purchaseToken: String) {
+        val params = AcknowledgePurchaseParams.newBuilder()
+            .setPurchaseToken(purchaseToken)
+            .build()
+        billingClient?.acknowledgePurchase(params)
+    }
+
+    override suspend fun consumePurchase(purchaseToken: String) {
+        val params = ConsumeParams.newBuilder()
+            .setPurchaseToken(purchaseToken)
+            .build()
+        billingClient?.consumePurchase(params)
+    }
+
+    override suspend fun getWeeklyTranscriptionCount(): Int {
+        return preferences.weeklyTranscriptionCount.first()
+    }
+
+    override suspend fun incrementWeeklyTranscriptionCount() {
+        preferences.incrementWeeklyTranscriptionCount()
+    }
+
+    override suspend fun resetWeeklyTranscriptionCount() {
+        preferences.resetWeeklyTranscriptionCount()
+    }
+
+    override suspend fun checkWeeklyTranscriptionLimit(): Boolean {
+        return if (isSubscriptionActive()) {
+            true
         } else {
-            Result.failure(Exception("Product details not found for plan: $planId"))
+            getRemainingFreeNotes() > 0
         }
     }
 
     override suspend fun handlePurchase(purchaseToken: String) {
-        acknowledgeSubscription(purchaseToken)
+        val params = AcknowledgePurchaseParams.newBuilder()
+            .setPurchaseToken(purchaseToken)
+            .build()
+        billingClient?.acknowledgePurchase(params)
         updateSubscriptionStatus(SubscriptionStatus.Premium(
             expirationDate = System.currentTimeMillis() + SUBSCRIPTION_DURATION,
             isAutoRenewing = true,
@@ -163,196 +214,81 @@ class BillingRepositoryImpl @Inject constructor(
         updateSubscriptionStatus(SubscriptionStatus.Free)
     }
 
-    override suspend fun acknowledgeSubscription(purchaseToken: String) {
-        val params = AcknowledgePurchaseParams.newBuilder()
-            .setPurchaseToken(purchaseToken)
-            .build()
-        billingClient.acknowledgePurchase(params)
-    }
-
-    override suspend fun consumePurchase(purchaseToken: String) {
-        val params = ConsumeParams.newBuilder()
-            .setPurchaseToken(purchaseToken)
-            .build()
-        billingClient.consumePurchase(params)
-    }
-
-    override suspend fun restorePurchases(): Result<Unit> {
-        return try {
-            val params = QueryPurchasesParams.newBuilder()
-                .setProductType(BillingClient.ProductType.SUBS)
-                .build()
-            val result = billingClient.queryPurchasesAsync(params)
-            if (result.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                val activePurchase = result.purchasesList.firstOrNull { 
-                    it.purchaseState == Purchase.PurchaseState.PURCHASED 
-                }
-                if (activePurchase != null) {
-                    handlePurchase(activePurchase.purchaseToken)
-                } else {
-                    handleSubscriptionExpired()
-                }
-            }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    override suspend fun cancelSubscription(): Result<Unit> {
-        return try {
-            handleSubscriptionCanceled()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    override suspend fun isSubscriptionActive(): Boolean {
-        return when (val status = _subscriptionStatus.value) {
-            is SubscriptionStatus.Premium -> true
-            else -> false
-        }
-    }
-
-    override suspend fun getRemainingFreeNotes(): Int {
-        return when (val status = _subscriptionStatus.value) {
-            is SubscriptionStatus.Free -> SubscriptionPlan.FREE.weeklyTranscriptionLimit
-            else -> Int.MAX_VALUE
-        }
-    }
-
-    override suspend fun decrementFreeNotes() {
-        // This should be handled by UserPreferencesDataStore
-        userPreferences.incrementWeeklyTranscriptionCount()
-    }
-
-    override fun getSubscriptionPlans(): Flow<List<SubscriptionPlan>> = 
-        _subscriptionPlans.map { productDetails ->
-            productDetails.map { details ->
-                SubscriptionPlan(
-                    id = details.productId,
-                    name = details.title,
-                    description = details.description,
-                    price = details.subscriptionOfferDetails?.firstOrNull()?.pricingPhases
-                        ?.pricingPhaseList?.firstOrNull()?.formattedPrice ?: "",
-                    period = when {
-                        details.productId.contains("monthly") -> SubscriptionPeriod.MONTHLY
-                        details.productId.contains("annual") -> SubscriptionPeriod.ANNUAL
-                        else -> SubscriptionPeriod.NONE
-                    },
-                    productId = details.productId
-                )
+    private suspend fun handlePurchaseUpdate(billingResult: BillingResult, purchases: List<com.android.billingclient.api.Purchase>?) {
+        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
+            for (purchase in purchases) {
+                handlePurchase(purchase.purchaseToken)
             }
         }
-
-    private fun updateSubscriptionStatus(status: SubscriptionStatus) {
-        _subscriptionStatus.value = status
-        when (status) {
-            is SubscriptionStatus.Free -> {
-                _currentPlan.value = SubscriptionPlan.FREE
-            }
-            is SubscriptionStatus.Premium -> {
-                _currentPlan.value = when (status.plan.period) {
-                    SubscriptionPeriod.MONTHLY -> SubscriptionPlan.MONTHLY
-                    SubscriptionPeriod.ANNUAL -> SubscriptionPlan.ANNUAL
-                    else -> SubscriptionPlan.FREE
-                }
-            }
-            else -> { /* no-op */ }
-        }
     }
 
-    private fun queryAvailableSubscriptions() {
+    private suspend fun launchBillingFlow(activity: Activity, plan: SubscriptionPlan) {
         val params = QueryProductDetailsParams.newBuilder()
             .setProductList(
                 listOf(
                     QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId("monthly_subscription")
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build(),
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId("annual_subscription")
+                        .setProductId(plan.id)
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build()
                 )
             )
             .build()
-
-        billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                _availablePlans.value = productDetailsList.map { details ->
-                    SubscriptionPlan(
-                        id = details.productId,
-                        name = details.title,
-                        description = details.description,
-                        price = details.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice ?: "",
-                        period = when {
-                            details.productId.contains("monthly") -> SubscriptionPeriod.MONTHLY
-                            details.productId.contains("annual") -> SubscriptionPeriod.ANNUAL
-                            else -> SubscriptionPeriod.MONTHLY
-                        },
-                        type = SubscriptionType.PREMIUM
+            
+        withContext(Dispatchers.IO) {
+            val result = billingClient?.queryProductDetails(params)
+            val productDetails = result?.productDetailsList?.firstOrNull() ?: return@withContext
+            
+            val billingFlowParams = BillingFlowParams.newBuilder()
+                .setProductDetailsParamsList(
+                    listOf(
+                        BillingFlowParams.ProductDetailsParams.newBuilder()
+                            .setProductDetails(productDetails)
+                            .build()
                     )
-                }
-            }
+                )
+                .build()
+                
+            billingClient?.launchBillingFlow(activity, billingFlowParams)
         }
     }
 
-    private fun checkSubscriptionStatus() {
-        billingClient.queryPurchasesAsync(
-            QueryPurchasesParams.newBuilder()
+    private suspend fun checkSubscriptionStatus(): Boolean {
+        return withContext(Dispatchers.IO) {
+            val params = QueryPurchasesParams.newBuilder()
                 .setProductType(BillingClient.ProductType.SUBS)
                 .build()
-        ) { billingResult, purchases ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                val activePurchase = purchases.firstOrNull { purchase ->
-                    purchase.purchaseState == Purchase.PurchaseState.PURCHASED
-                }
-
-                if (activePurchase != null) {
-                    verifySubscription(activePurchase.purchaseToken)
-                } else {
-                    updateSubscriptionStatus(SubscriptionStatus.Free)
-                }
-            }
+                
+            val result = billingClient?.queryPurchasesAsync(params)
+            result?.purchasesList?.any { 
+                it.purchaseState == com.android.billingclient.api.Purchase.PurchaseState.PURCHASED
+            } ?: false
         }
     }
 
-    private fun verifySubscription(purchaseToken: String) {
-        // Here you would typically verify the purchase with your backend
-        // For now, we'll just assume it's valid
-        updateSubscriptionStatus(SubscriptionStatus.Premium(
-            expirationDate = System.currentTimeMillis() + SUBSCRIPTION_DURATION,
-            isAutoRenewing = true,
-            plan = _currentPlan.value
-        ))
-    }
-
-    override suspend fun checkWeeklyTranscriptionLimit(): Boolean {
-        return when (_subscriptionStatus.value) {
-            SubscriptionStatus.Free -> {
-                val count = userPreferences.weeklyTranscriptionCount.first()
-                count < FREE_WEEKLY_LIMIT
-            }
-            SubscriptionStatus.Premium -> true
-            else -> false
+    private suspend fun updateSubscriptionStatus(status: SubscriptionStatus) {
+        _subscriptionStatus.value = status
+        preferences.setSubscriptionStatus(status)
+        
+        // Update subscription details
+        _subscriptionDetails.value = when (status) {
+            is SubscriptionStatus.Premium -> SubscriptionDetails(
+                status = status,
+                expiryDate = status.expirationDate,
+                remainingFreeNotes = Int.MAX_VALUE,
+                isGracePeriod = false,
+                gracePeriodEndDate = null
+            )
+            else -> SubscriptionDetails(
+                status = status,
+                expiryDate = null,
+                remainingFreeNotes = getRemainingFreeNotes(),
+                isGracePeriod = false,
+                gracePeriodEndDate = null
+            )
         }
-    }
-
-    override suspend fun getWeeklyTranscriptionCount(): Int {
-        return userPreferences.getWeeklyTranscriptionCount()
-    }
-
-    override suspend fun incrementWeeklyTranscriptionCount() {
-        userPreferences.incrementWeeklyTranscriptionCount()
-    }
-
-    override suspend fun resetWeeklyTranscriptionCount() {
-        userPreferences.resetWeeklyTranscriptionCount()
     }
 
     companion object {
-        private const val FREE_WEEKLY_LIMIT = 3
+        private const val SUBSCRIPTION_DURATION = 30L * 24 * 60 * 60 * 1000 // 30 days in milliseconds
     }
 } 

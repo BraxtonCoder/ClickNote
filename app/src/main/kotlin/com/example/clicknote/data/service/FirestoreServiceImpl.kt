@@ -5,12 +5,17 @@ import com.example.clicknote.domain.model.Folder
 import com.example.clicknote.domain.service.FirestoreService
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Transaction as FirebaseTransaction
+import com.google.firebase.firestore.WriteBatch as FirebaseWriteBatch
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.time.LocalDateTime
 
 @Singleton
 class FirestoreServiceImpl @Inject constructor(
@@ -28,7 +33,7 @@ class FirestoreServiceImpl @Inject constructor(
         val existingNote = noteRef.get().await()
         if (existingNote.exists()) {
             val cloudNote = existingNote.toObject(Note::class.java)!!
-            if (cloudNote.updatedAt > note.updatedAt) {
+            if (cloudNote.modifiedAt > note.modifiedAt) {
                 throw IllegalStateException("Note conflict detected")
             }
         }
@@ -77,7 +82,7 @@ class FirestoreServiceImpl @Inject constructor(
             .collection("users")
             .document(userId)
             .collection("notes")
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .orderBy("modifiedAt", Query.Direction.DESCENDING)
             .get()
             .await()
 
@@ -200,15 +205,19 @@ class FirestoreServiceImpl @Inject constructor(
         }
     }
 
-    override suspend fun <T> runTransaction(action: suspend (Transaction) -> T): Result<T> = runCatching {
-        firestore.runTransaction { transaction ->
-            action(transaction)
-        }.await()
+    override suspend fun <T> runTransaction(action: suspend (FirebaseTransaction) -> T): Result<T> = runCatching {
+        withContext(Dispatchers.IO) {
+            firestore.runTransaction { transaction ->
+                action(transaction)
+            }.await()
+        }
     }
 
-    override suspend fun runBatch(action: suspend (WriteBatch) -> Unit): Result<Unit> = runCatching {
-        val batch = firestore.batch()
-        action(batch)
-        batch.commit().await()
+    override suspend fun runBatch(action: suspend (FirebaseWriteBatch) -> Unit): Result<Unit> = runCatching {
+        withContext(Dispatchers.IO) {
+            val batch = firestore.batch()
+            action(batch)
+            batch.commit().await()
+        }
     }
 } 

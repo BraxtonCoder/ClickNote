@@ -5,7 +5,7 @@ import com.example.clicknote.data.entity.NoteWithFolderEntity
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
-import com.example.clicknote.util.DateTimeUtils
+import java.time.LocalDateTime
 
 /**
  * Converts a NoteEntity to a domain Note model
@@ -15,9 +15,9 @@ fun NoteEntity.toDomain(): Note {
         id = id,
         title = title,
         content = content,
-        createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
-        modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        deletedAt = deletedAt,
         isDeleted = isDeleted,
         isPinned = isPinned,
         isLongForm = isLongForm,
@@ -48,9 +48,9 @@ fun Note.toEntity(): NoteEntity {
         id = id,
         title = title,
         content = content,
-        createdAt = DateTimeUtils.localDateTimeToTimestamp(createdAt),
-        modifiedAt = DateTimeUtils.localDateTimeToTimestamp(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        deletedAt = deletedAt,
         isDeleted = isDeleted,
         isPinned = isPinned,
         isLongForm = isLongForm,
@@ -78,7 +78,7 @@ fun createNote(
     source: NoteSource = NoteSource.MANUAL,
     folderId: String? = null
 ): NoteEntity {
-    val now = System.currentTimeMillis()
+    val now = LocalDateTime.now()
     return NoteEntity(
         id = java.util.UUID.randomUUID().toString(),
         title = title,

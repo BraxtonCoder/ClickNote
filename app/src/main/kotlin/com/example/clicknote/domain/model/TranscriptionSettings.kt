@@ -1,17 +1,12 @@
 package com.example.clicknote.domain.model
 
 data class TranscriptionSettings(
-    val language: String? = null,
-    val model: String = "whisper-1",
-    val prompt: String? = null,
-    val temperature: Float = 0f,
-    val speakerDetection: Boolean = false,
-    val enhanceAudio: Boolean = false,
-    val saveAudio: Boolean = true,
-    val maxDuration: Long? = null,
-    val sampleRate: Int = 16000,
-    val channels: Int = 1,
-    val bitsPerSample: Int = 16
+    val noteId: String,
+    val language: String = "en",
+    val model: String = "base",
+    val enableSpeakerDetection: Boolean = false,
+    val enableTimestamps: Boolean = true,
+    val enablePunctuation: Boolean = true
 )
 
 enum class AudioQuality {

@@ -24,10 +24,8 @@ class ServiceLifecycleManagerImpl @Inject constructor(
     override suspend fun initializeService(type: ServiceType) {
         scope.launch(Dispatchers.IO) {
             try {
-                val service = serviceRegistry.getService(type)
-                if (service == null) {
-                    throw IllegalStateException("Service not found for type: $type")
-                }
+                val service = serviceRegistry.getService(type) as? Service
+                    ?: throw IllegalStateException("Service not found for type: $type")
 
                 if (!service.isInitialized.first()) {
                     service.initialize()
@@ -42,10 +40,8 @@ class ServiceLifecycleManagerImpl @Inject constructor(
     override suspend fun activateService(serviceId: String) {
         scope.launch(Dispatchers.IO) {
             try {
-                val service = serviceRegistry.getService(serviceId)
-                if (service == null) {
-                    throw IllegalStateException("Service not found with id: $serviceId")
-                }
+                val service = serviceRegistry.getService(serviceId) as? Service
+                    ?: throw IllegalStateException("Service not found with id: $serviceId")
 
                 if (service !is ActivatableService) {
                     throw IllegalStateException("Service $serviceId is not activatable")
@@ -67,10 +63,8 @@ class ServiceLifecycleManagerImpl @Inject constructor(
     override suspend fun deactivateService(serviceId: String) {
         scope.launch(Dispatchers.IO) {
             try {
-                val service = serviceRegistry.getService(serviceId)
-                if (service == null) {
-                    throw IllegalStateException("Service not found with id: $serviceId")
-                }
+                val service = serviceRegistry.getService(serviceId) as? Service
+                    ?: throw IllegalStateException("Service not found with id: $serviceId")
 
                 if (service !is ActivatableService) {
                     throw IllegalStateException("Service $serviceId is not activatable")
@@ -87,10 +81,8 @@ class ServiceLifecycleManagerImpl @Inject constructor(
     override suspend fun cleanupService(serviceId: String) {
         scope.launch(Dispatchers.IO) {
             try {
-                val service = serviceRegistry.getService(serviceId)
-                if (service == null) {
-                    throw IllegalStateException("Service not found with id: $serviceId")
-                }
+                val service = serviceRegistry.getService(serviceId) as? Service
+                    ?: throw IllegalStateException("Service not found with id: $serviceId")
 
                 service.cleanup()
                 eventHandler.handleServiceCleanup(service)
@@ -103,7 +95,7 @@ class ServiceLifecycleManagerImpl @Inject constructor(
     override suspend fun handleServiceError(serviceId: String, error: Throwable) {
         scope.launch(Dispatchers.IO) {
             try {
-                val service = serviceRegistry.getService(serviceId)
+                val service = serviceRegistry.getService(serviceId) as? Service
                 if (service != null) {
                     eventHandler.handleServiceError(service, error)
                 }
@@ -114,11 +106,10 @@ class ServiceLifecycleManagerImpl @Inject constructor(
     }
 
     override suspend fun getService(serviceId: String): Service? {
-        return serviceRegistry.getService(serviceId)
+        return serviceRegistry.getService(serviceId) as? Service
     }
 
     override suspend fun getService(type: ServiceType): Service? {
-        return serviceRegistry.getService(type)
+        return serviceRegistry.getService(type) as? Service
     }
-} 
 } 

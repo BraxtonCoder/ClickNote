@@ -15,4 +15,5 @@ interface SubscriptionRepository {
     suspend fun resetWeeklyRecordings()
     suspend fun cancelSubscription()
     suspend fun restoreSubscription(plan: SubscriptionPlan)
+    suspend fun isSubscriptionActive(): Boolean
 }

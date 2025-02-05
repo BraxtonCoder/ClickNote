@@ -4,8 +4,7 @@ import com.example.clicknote.data.dao.TranscriptionSegmentDao
 import com.example.clicknote.data.entity.TranscriptionSegment as TranscriptionSegmentEntity
 import com.example.clicknote.domain.model.TranscriptionSegment
 import com.example.clicknote.domain.repository.TranscriptionSegmentRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,19 +32,19 @@ class TranscriptionSegmentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertSegment(segment: TranscriptionSegment) {
-        segmentDao.insertSegment(segment.toEntity())
+        segmentDao.insertSegment(TranscriptionSegmentEntity.fromDomain(segment.noteId, segment))
     }
 
     override suspend fun insertSegments(segments: List<TranscriptionSegment>) {
-        segmentDao.insertSegments(segments.map { it.toEntity() })
+        segmentDao.insertSegments(segments.map { TranscriptionSegmentEntity.fromDomain(it.noteId, it) })
     }
 
     override suspend fun updateSegment(segment: TranscriptionSegment) {
-        segmentDao.updateSegment(segment.toEntity())
+        segmentDao.updateSegment(TranscriptionSegmentEntity.fromDomain(segment.noteId, segment))
     }
 
     override suspend fun deleteSegment(segment: TranscriptionSegment) {
-        segmentDao.deleteSegment(segment.toEntity())
+        segmentDao.deleteSegment(TranscriptionSegmentEntity.fromDomain(segment.noteId, segment))
     }
 
     override suspend fun deleteSegmentsByNoteId(noteId: String) {
@@ -68,29 +67,5 @@ class TranscriptionSegmentRepositoryImpl @Inject constructor(
 
     override fun getUniqueSpeakers(noteId: String): Flow<List<String>> {
         return segmentDao.getUniqueSpeakers(noteId)
-    }
-
-    private fun TranscriptionSegmentEntity.toDomain(): TranscriptionSegment {
-        return TranscriptionSegment(
-            id = id,
-            noteId = noteId,
-            text = text,
-            startTime = startTime,
-            endTime = endTime,
-            speaker = speaker,
-            confidence = confidence
-        )
-    }
-
-    private fun TranscriptionSegment.toEntity(): TranscriptionSegmentEntity {
-        return TranscriptionSegmentEntity(
-            id = id,
-            noteId = noteId,
-            text = text,
-            startTime = startTime,
-            endTime = endTime,
-            speaker = speaker,
-            confidence = confidence
-        )
     }
 } 

@@ -47,9 +47,9 @@ data class FolderEntity(
             id = id,
             name = name,
             color = color,
-            createdAt = java.time.Instant.ofEpochMilli(createdAt).atZone(ZoneOffset.UTC),
-            modifiedAt = java.time.Instant.ofEpochMilli(modifiedAt).atZone(ZoneOffset.UTC),
-            deletedAt = java.time.Instant.ofEpochMilli(deletedAt ?: 0).atZone(ZoneOffset.UTC),
+            createdAt = LocalDateTime.ofEpochSecond(createdAt / 1000, 0, ZoneOffset.UTC),
+            modifiedAt = LocalDateTime.ofEpochSecond(modifiedAt / 1000, 0, ZoneOffset.UTC),
+            deletedAt = deletedAt?.let { LocalDateTime.ofEpochSecond(it / 1000, 0, ZoneOffset.UTC) },
             isDeleted = isDeleted,
             sortOrder = sortOrder,
             noteCount = noteCount
@@ -58,15 +58,14 @@ data class FolderEntity(
 
     companion object {
         fun fromDomain(domain: Folder): FolderEntity {
-            val now = System.currentTimeMillis()
             return FolderEntity(
                 id = domain.id,
                 name = domain.name,
                 color = domain.color,
                 noteCount = domain.noteCount,
-                createdAt = domain.createdAt.toEpochSecond() * 1000,
-                modifiedAt = domain.modifiedAt.toEpochSecond() * 1000,
-                deletedAt = domain.deletedAt?.toEpochSecond()?.times(1000),
+                createdAt = domain.createdAt.toEpochSecond(ZoneOffset.UTC) * 1000,
+                modifiedAt = domain.modifiedAt.toEpochSecond(ZoneOffset.UTC) * 1000,
+                deletedAt = domain.deletedAt?.toEpochSecond(ZoneOffset.UTC)?.times(1000),
                 isDeleted = domain.isDeleted,
                 sortOrder = domain.sortOrder
             )

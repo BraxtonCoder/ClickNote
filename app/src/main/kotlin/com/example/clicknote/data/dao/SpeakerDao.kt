@@ -11,10 +11,10 @@ interface SpeakerDao {
     fun getAllSpeakers(): Flow<List<Speaker>>
 
     @Query("SELECT * FROM speakers WHERE id = :id")
-    suspend fun getSpeakerById(id: String): Speaker?
+    fun getSpeakerById(id: String): Flow<Speaker?>
 
     @Query("SELECT * FROM speakers WHERE voiceSignature = :voiceSignature")
-    suspend fun getSpeakerByVoiceSignature(voiceSignature: String): Speaker?
+    fun getSpeakerByVoiceSignature(voiceSignature: String): Flow<Speaker?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSpeaker(speaker: Speaker)
@@ -25,48 +25,21 @@ interface SpeakerDao {
     @Delete
     suspend fun deleteSpeaker(speaker: Speaker)
 
-    @Query("UPDATE speakers SET lastUsed = :timestamp WHERE id = :speakerId")
-    suspend fun updateLastUsed(speakerId: String, timestamp: LocalDateTime = LocalDateTime.now())
+    @Query("UPDATE speakers SET lastUsed = :lastUsed WHERE id = :speakerId")
+    suspend fun updateLastUsed(speakerId: String, lastUsed: LocalDateTime)
 
-    @Query("UPDATE speakers SET name = :newName, isCustomName = true, updatedAt = :timestamp WHERE id = :speakerId")
-    suspend fun updateSpeakerName(
-        speakerId: String,
-        newName: String,
-        timestamp: LocalDateTime = LocalDateTime.now()
-    )
+    @Query("UPDATE speakers SET name = :name WHERE id = :speakerId")
+    suspend fun updateSpeakerName(speakerId: String, name: String)
 
-    @Query("UPDATE speakers SET color = :newColor, updatedAt = :timestamp WHERE id = :speakerId")
-    suspend fun updateSpeakerColor(
-        speakerId: String,
-        newColor: Int,
-        timestamp: LocalDateTime = LocalDateTime.now()
-    )
+    @Query("UPDATE speakers SET color = :color WHERE id = :speakerId")
+    suspend fun updateSpeakerColor(speakerId: String, color: Int)
 
-    @Query("""
-        SELECT * FROM speakers 
-        WHERE name LIKE '%' || :query || '%' 
-        ORDER BY lastUsed DESC
-    """)
+    @Query("SELECT * FROM speakers WHERE name LIKE '%' || :query || '%'")
     fun searchSpeakers(query: String): Flow<List<Speaker>>
 
-    @Query("SELECT * FROM speakers WHERE isCustomName = 1 ORDER BY name ASC")
+    @Query("SELECT * FROM speakers WHERE isCustomName = 1")
     fun getCustomNamedSpeakers(): Flow<List<Speaker>>
 
-    @Transaction
-    suspend fun getOrCreateSpeaker(voiceSignature: String, defaultName: String, color: Int): Speaker {
-        val existingSpeaker = getSpeakerByVoiceSignature(voiceSignature)
-        if (existingSpeaker != null) {
-            updateLastUsed(existingSpeaker.id)
-            return existingSpeaker
-        }
-
-        val newSpeaker = Speaker(
-            id = java.util.UUID.randomUUID().toString(),
-            name = defaultName,
-            voiceSignature = voiceSignature,
-            color = color
-        )
-        insertSpeaker(newSpeaker)
-        return newSpeaker
-    }
+    @Query("SELECT * FROM speakers WHERE voiceSignature = :voiceSignature LIMIT 1")
+    suspend fun findSpeakerByVoiceSignature(voiceSignature: String): Speaker?
 } 

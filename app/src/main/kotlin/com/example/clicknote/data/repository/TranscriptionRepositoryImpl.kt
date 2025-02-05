@@ -1,178 +1,156 @@
 package com.example.clicknote.data.repository
 
+import android.content.Context
 import com.example.clicknote.data.dao.TranscriptionMetadataDao
 import com.example.clicknote.data.entity.TranscriptionMetadata
-import com.example.clicknote.domain.model.TranscriptionSegment
-import com.example.clicknote.domain.model.TranscriptionStatus
-import com.example.clicknote.domain.model.TranscriptionEvent
-import com.example.clicknote.domain.model.TranscriptionResult
-import com.example.clicknote.domain.model.TranscriptionSettings
+import com.example.clicknote.domain.model.*
+import com.example.clicknote.domain.repository.TranscriptionRepository
 import com.example.clicknote.service.WhisperService
 import com.example.clicknote.service.SpeakerDetectionService
-import com.example.clicknote.util.PermissionChecker
-import com.example.clicknote.domain.repository.TranscriptionRepository
+import com.example.clicknote.service.SpeakerDetectionService.DetectionResult
+import com.example.clicknote.service.SummaryService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import java.io.File
-import java.io.IOException
 import java.time.LocalDateTime
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TranscriptionRepositoryImpl @Inject constructor(
-    private val transcriptionMetadataDao: TranscriptionMetadataDao,
+    @ApplicationContext private val context: Context,
+    private val metadataDao: TranscriptionMetadataDao,
     private val whisperService: WhisperService,
-    private val speakerDetectionService: SpeakerDetectionService,
-    private val permissionChecker: PermissionChecker
+    private val speakerService: SpeakerDetectionService,
+    private val summaryService: SummaryService
 ) : TranscriptionRepository {
 
     private val _events = MutableSharedFlow<TranscriptionEvent>()
-    val events: Flow<TranscriptionEvent> = _events.asSharedFlow()
+    override val events: Flow<TranscriptionEvent> = _events.asSharedFlow()
 
-    override fun getMetadataForNote(noteId: String): Flow<TranscriptionMetadata?> =
-        transcriptionMetadataDao.getMetadataForNote(noteId)
+    override fun getMetadataForNote(noteId: String): Flow<TranscriptionMetadata?> = flow {
+        val metadata = metadataDao.getMetadataForNote(noteId)
+        emit(metadata)
+    }
 
-    override fun getMetadataInDateRange(
-        startDate: LocalDateTime,
-        endDate: LocalDateTime
-    ): Flow<List<TranscriptionMetadata>> =
-        transcriptionMetadataDao.getMetadataInDateRange(startDate, endDate)
+    override fun getMetadataInDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<TranscriptionMetadata>> = flow {
+        val metadata = metadataDao.getMetadataInDateRange(startDate, endDate)
+        emit(metadata)
+    }
 
-    override suspend fun getTranscriptionCount(
-        startDate: LocalDateTime,
-        endDate: LocalDateTime
-    ): Int =
-        transcriptionMetadataDao.getTranscriptionCount(startDate, endDate)
+    override suspend fun getTranscriptionCount(): Int =
+        metadataDao.getTranscriptionCount()
 
-    override suspend fun getAverageConfidenceScore(
-        startDate: LocalDateTime,
-        endDate: LocalDateTime
-    ): Float =
-        transcriptionMetadataDao.getAverageConfidenceScore(startDate, endDate)
+    override suspend fun getAverageConfidenceScore(): Float =
+        metadataDao.getAverageConfidence() ?: 0f
 
-    override suspend fun getAverageProcessingTime(
-        startDate: LocalDateTime,
-        endDate: LocalDateTime
-    ): Long =
-        transcriptionMetadataDao.getAverageProcessingTime(startDate, endDate) ?: 0L
+    override suspend fun getAverageProcessingTime(): Long =
+        metadataDao.getAverageProcessingTime() ?: 0L
 
     override suspend fun saveTranscription(metadata: TranscriptionMetadata) {
-        transcriptionMetadataDao.insert(metadata)
+        metadataDao.insert(metadata)
     }
 
     override suspend fun updateTranscriptionStatus(noteId: String, status: TranscriptionStatus) {
-        transcriptionMetadataDao.updateStatus(noteId, status)
+        metadataDao.updateStatus(noteId, status.name)
     }
 
-    override suspend fun transcribeAudio(
-        noteId: String,
-        audioFile: File
-    ): Result<List<TranscriptionSegment>> = try {
+    override suspend fun transcribeAudio(audioData: ByteArray, settings: TranscriptionSettings): Result<String> = runCatching {
+        val tempFile = File.createTempFile("audio", ".wav", context.cacheDir)
+        tempFile.writeBytes(audioData)
+        
+        updateTranscriptionStatus(settings.noteId, TranscriptionStatus.PROCESSING)
         val startTime = System.currentTimeMillis()
-        val result = whisperService.transcribeAudio(audioFile)
-        val endTime = System.currentTimeMillis()
-
-        if (result.isSuccess) {
-            transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.COMPLETED)
-            transcriptionMetadataDao.updateProcessingTime(noteId, endTime - startTime)
-            _events.emit(TranscriptionEvent.Completed(noteId, result.getOrNull()))
-        } else {
-            transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.ERROR)
-            _events.emit(TranscriptionEvent.Failed(noteId, result.exceptionOrNull()?.message))
-        }
-
-        result
-    } catch (e: Exception) {
-        transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.ERROR)
-        Result.failure(e)
+        
+        val result = whisperService.transcribe(tempFile)
+        val processingTime = System.currentTimeMillis() - startTime
+        
+        result.fold(
+            onSuccess = { text ->
+                updateTranscriptionStatus(settings.noteId, TranscriptionStatus.COMPLETED)
+                metadataDao.updateProcessingTime(settings.noteId, processingTime)
+                text
+            },
+            onFailure = { error ->
+                updateTranscriptionStatus(settings.noteId, TranscriptionStatus.ERROR)
+                throw error
+            }
+        )
     }
 
-    override suspend fun transcribeAudioStream(
-        noteId: String,
-        audioData: ByteArray
-    ): Result<List<TranscriptionSegment>> = try {
+    override suspend fun transcribeFile(file: File, settings: TranscriptionSettings): Result<String> = runCatching {
+        updateTranscriptionStatus(settings.noteId, TranscriptionStatus.PROCESSING)
         val startTime = System.currentTimeMillis()
-        val result = whisperService.transcribeAudioStream(audioData)
-        val endTime = System.currentTimeMillis()
+        
+        val result = whisperService.transcribe(file)
+        val processingTime = System.currentTimeMillis() - startTime
+        
+        result.fold(
+            onSuccess = { text ->
+                updateTranscriptionStatus(settings.noteId, TranscriptionStatus.COMPLETED)
+                metadataDao.updateProcessingTime(settings.noteId, processingTime)
+                text
+            },
+            onFailure = { error ->
+                updateTranscriptionStatus(settings.noteId, TranscriptionStatus.ERROR)
+                throw error
+            }
+        )
+    }
 
-        if (result.isSuccess) {
-            transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.COMPLETED)
-            transcriptionMetadataDao.updateProcessingTime(noteId, endTime - startTime)
-            _events.emit(TranscriptionEvent.Completed(noteId, result.getOrNull()))
-        } else {
-            transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.ERROR)
-            _events.emit(TranscriptionEvent.Failed(noteId, result.exceptionOrNull()?.message))
+    override suspend fun generateSummary(text: String): Result<String> = runCatching {
+        val summary = summaryService.generateSummary(text)
+        summary.content
+    }
+
+    override suspend fun detectSpeakers(file: File): Result<List<String>> = runCatching {
+        when (val result = speakerService.detectSpeakers(file)) {
+            is DetectionResult.Success -> {
+                result.segments.map { segment -> "Speaker ${segment.speakerId}" }.distinct()
+            }
+            is DetectionResult.Error -> {
+                throw IllegalStateException(result.message)
+            }
         }
+    }
 
-        result
-    } catch (e: Exception) {
-        transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.ERROR)
-        Result.failure(e)
+    override suspend fun getAvailableLanguages(): List<String> = runCatching {
+        whisperService.getAvailableLanguages().getOrDefault(emptyList())
+    }.getOrDefault(emptyList())
+
+    override fun cancelTranscription() {
+        whisperService.cancelTranscription()
+    }
+
+    override suspend fun cleanup() {
+        context.cacheDir.listFiles()?.forEach { file ->
+            if (file.name.startsWith("audio") && file.extension == "wav") {
+                file.delete()
+            }
+        }
     }
 
     override suspend fun getMetadataById(id: String): TranscriptionMetadata? =
-        transcriptionMetadataDao.getMetadataById(id)
+        metadataDao.getMetadataById(id)
 
     override suspend fun deleteById(id: String) {
-        transcriptionMetadataDao.deleteById(id)
+        metadataDao.deleteById(id)
     }
 
-    override suspend fun saveAudioFile(noteId: String, audioFile: File): Result<String> = try {
-        val result = whisperService.saveAudioFile(noteId, audioFile)
-        if (result.isSuccess) {
-            transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.AUDIO_SAVED)
-            _events.emit(TranscriptionEvent.AudioSaved(noteId, result.getOrNull() ?: ""))
+    override suspend fun saveAudioFile(noteId: String, audioFile: File): Result<String> = runCatching {
+        val fileName = "audio_$noteId.wav"
+        val destFile = File(context.filesDir, fileName)
+        audioFile.copyTo(destFile, overwrite = true)
+        updateTranscriptionStatus(noteId, TranscriptionStatus.AUDIO_SAVED)
+        destFile.absolutePath
+    }
+
+    override suspend fun deleteAudioFile(noteId: String): Result<Unit> = runCatching {
+        val fileName = "audio_$noteId.wav"
+        val file = File(context.filesDir, fileName)
+        if (file.exists()) {
+            file.delete()
         }
-        result
-    } catch (e: Exception) {
-        Result.failure(e)
+        updateTranscriptionStatus(noteId, TranscriptionStatus.AUDIO_DELETED)
     }
-
-    override suspend fun deleteAudioFile(noteId: String): Result<Unit> = try {
-        val result = whisperService.deleteAudioFile(noteId)
-        if (result.isSuccess) {
-            transcriptionMetadataDao.updateStatus(noteId, TranscriptionStatus.AUDIO_DELETED)
-            _events.emit(TranscriptionEvent.AudioDeleted(noteId))
-        }
-        result
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
-
-    suspend fun saveTranscriptionResult(result: TranscriptionResult) {
-        val metadata = TranscriptionMetadata(
-            noteId = result.noteId,
-            text = result.text,
-            confidence = result.confidence,
-            language = result.language,
-            duration = result.duration,
-            speakers = result.speakers,
-            summary = result.summary,
-            audioPath = result.audioPath,
-            createdAt = LocalDateTime.now(),
-            updatedAt = LocalDateTime.now(),
-            status = TranscriptionStatus.COMPLETED,
-            processingTime = result.processingTime,
-            wordCount = result.text.split(" ").size,
-            confidenceScore = result.confidence
-        )
-        transcriptionMetadataDao.insert(metadata)
-    }
-
-    private fun TranscriptionMetadata.toResult(): TranscriptionResult =
-        TranscriptionResult(
-            noteId = noteId,
-            text = text,
-            confidence = confidence,
-            language = language,
-            duration = duration,
-            speakers = speakers,
-            segments = emptyList(), // TODO: Implement segment conversion
-            summary = summary,
-            audioPath = audioPath,
-            processingTime = processingTime,
-            createdAt = createdAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
-            updatedAt = updatedAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000
-        )
 }

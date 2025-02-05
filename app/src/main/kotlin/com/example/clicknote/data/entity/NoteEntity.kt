@@ -5,7 +5,6 @@ import com.example.clicknote.data.converter.RoomConverters
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
-import com.example.clicknote.util.DateTimeUtils
 import java.time.LocalDateTime
 
 @Entity(

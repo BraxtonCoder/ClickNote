@@ -2,6 +2,41 @@ package com.example.clicknote.data.mapper
 
 import com.example.clicknote.domain.model.*
 import com.example.clicknote.util.DateTimeUtils
+import java.time.LocalDateTime
+
+data class FirebaseNote(
+    val id: String = "",
+    val userId: String = "",
+    val title: String = "",
+    val content: String = "",
+    val createdAt: Long = 0L,
+    val modifiedAt: Long = 0L,
+    val deletedAt: Long? = null,
+    val isDeleted: Boolean = false,
+    val isPinned: Boolean = false,
+    val isLongForm: Boolean = false,
+    val hasAudio: Boolean = false,
+    val audioUrl: String? = null,
+    val duration: Long = 0L,
+    val source: String = NoteSource.MANUAL.name,
+    val folderId: String? = null,
+    val summary: String? = null,
+    val keyPoints: List<String> = emptyList(),
+    val speakers: List<String> = emptyList(),
+    val platform: String = "android",
+    val syncStatus: String = SyncStatus.PENDING.name
+)
+
+data class FirebaseFolder(
+    val id: String = "",
+    val userId: String = "",
+    val name: String = "",
+    val color: Int = 0,
+    val createdAt: Long = 0L,
+    val modifiedAt: Long = 0L,
+    val deletedAt: Long? = null,
+    val isDeleted: Boolean = false
+)
 
 fun Note.toFirebaseNote(userId: String): FirebaseNote {
     return FirebaseNote(
@@ -47,7 +82,7 @@ fun FirebaseNote.toDomain(): Note {
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
-        syncStatus = syncStatus?.let { SyncStatus.valueOf(it) } ?: SyncStatus.SYNCED
+        syncStatus = SyncStatus.valueOf(syncStatus)
     )
 }
 
@@ -72,6 +107,8 @@ fun FirebaseFolder.toDomain(): Folder {
         createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
         modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
         deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
-        isDeleted = isDeleted
+        isDeleted = isDeleted,
+        sortOrder = 0,
+        noteCount = 0
     )
 } 

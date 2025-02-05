@@ -4,14 +4,18 @@ import com.example.clicknote.domain.model.*
 import kotlinx.coroutines.flow.Flow
 
 interface SummaryService {
+    data class Summary(
+        val content: String,
+        val keyPoints: List<String> = emptyList(),
+        val topics: List<String> = emptyList()
+    )
+
     val summaryState: Flow<SummaryState>
     val progress: Flow<Float>
     val templates: Flow<List<SummaryTemplate>>
 
-    suspend fun generateSummary(
-        text: String,
-        options: SummaryOptions = SummaryOptions()
-    ): Result<Summary>
+    suspend fun generateSummary(text: String): Summary
+    suspend fun cleanup()
 
     suspend fun generateDetailedSummary(
         text: String,

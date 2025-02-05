@@ -21,12 +21,12 @@ class SpeakerRepositoryImpl @Inject constructor(
         }
     }
     
-    override suspend fun getSpeakerById(id: String): Speaker? {
-        return speakerDao.getSpeakerById(id)?.toDomain()
+    override fun getSpeakerById(id: String): Flow<Speaker?> {
+        return speakerDao.getSpeakerById(id).map { it?.toDomain() }
     }
     
-    override suspend fun getSpeakerByVoiceSignature(voiceSignature: String): Speaker? {
-        return speakerDao.getSpeakerByVoiceSignature(voiceSignature)?.toDomain()
+    override fun getSpeakerByVoiceSignature(voiceSignature: String): Flow<Speaker?> {
+        return speakerDao.getSpeakerByVoiceSignature(voiceSignature).map { it?.toDomain() }
     }
     
     override suspend fun insertSpeaker(speaker: Speaker) {
@@ -66,11 +66,23 @@ class SpeakerRepositoryImpl @Inject constructor(
     }
     
     override suspend fun getOrCreateSpeaker(voiceSignature: String): Speaker {
-        return speakerDao.getOrCreateSpeaker(
+        val existingSpeaker = speakerDao.findSpeakerByVoiceSignature(voiceSignature)
+        if (existingSpeaker != null) {
+            return existingSpeaker.toDomain()
+        }
+
+        val newSpeaker = SpeakerEntity(
+            id = UUID.randomUUID().toString(),
+            name = "Speaker ${UUID.randomUUID().toString().take(4)}",
             voiceSignature = voiceSignature,
-            defaultName = "Speaker ${UUID.randomUUID().toString().take(4)}",
-            color = generateRandomColor()
-        ).toDomain()
+            color = generateRandomColor(),
+            isCustomName = false,
+            createdAt = LocalDateTime.now(),
+            updatedAt = LocalDateTime.now(),
+            lastUsed = LocalDateTime.now()
+        )
+        speakerDao.insertSpeaker(newSpeaker)
+        return newSpeaker.toDomain()
     }
 
     private fun generateRandomColor(): Int {
@@ -88,23 +100,19 @@ class SpeakerRepositoryImpl @Inject constructor(
     private fun SpeakerEntity.toDomain() = Speaker(
         id = id,
         name = name,
-        voiceSignature = voiceSignature,
-        color = color,
-        isCustomName = isCustomName,
-        confidence = 1.0f, // Default confidence for existing speakers
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        lastUsed = lastUsed
+        confidence = 1.0f,
+        startTime = lastUsed.toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+        endTime = lastUsed.toEpochSecond(java.time.ZoneOffset.UTC) * 1000
     )
 
     private fun Speaker.toEntity() = SpeakerEntity(
         id = id,
         name = name,
-        voiceSignature = voiceSignature,
-        color = color ?: generateRandomColor(),
-        isCustomName = isCustomName,
-        createdAt = createdAt ?: LocalDateTime.now(),
-        updatedAt = updatedAt ?: LocalDateTime.now(),
-        lastUsed = lastUsed ?: LocalDateTime.now()
+        voiceSignature = "", // Since domain model doesn't have this field
+        color = generateRandomColor(),
+        isCustomName = false,
+        createdAt = LocalDateTime.now(),
+        updatedAt = LocalDateTime.now(),
+        lastUsed = LocalDateTime.ofEpochSecond(startTime / 1000, 0, java.time.ZoneOffset.UTC)
     )
 } 

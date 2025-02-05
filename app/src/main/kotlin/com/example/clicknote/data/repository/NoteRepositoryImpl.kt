@@ -3,14 +3,16 @@ package com.example.clicknote.data.repository
 import com.example.clicknote.data.dao.NoteDao
 import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.domain.model.Note
+import com.example.clicknote.domain.model.NoteSource
+import com.example.clicknote.domain.model.SyncStatus
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.util.DateTimeUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 
 @Singleton
 class NoteRepositoryImpl @Inject constructor(
@@ -38,10 +40,7 @@ class NoteRepositoryImpl @Inject constructor(
         }
 
     override fun getNotesByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<Note>> =
-        noteDao.getNotesByDateRange(
-            DateTimeUtils.localDateTimeToTimestamp(startDate),
-            DateTimeUtils.localDateTimeToTimestamp(endDate)
-        ).map { entities ->
+        noteDao.getNotesByDateRange(startDate, endDate).map { entities ->
             entities.map { it.toDomain() }
         }
 
@@ -49,7 +48,7 @@ class NoteRepositoryImpl @Inject constructor(
         noteDao.getNoteById(id)?.toDomain()
 
     override suspend fun insertNote(note: Note): String {
-        val now = System.currentTimeMillis()
+        val now = LocalDateTime.now()
         val entity = NoteEntity(
             id = UUID.randomUUID().toString(),
             title = note.title,
@@ -70,21 +69,21 @@ class NoteRepositoryImpl @Inject constructor(
             speakers = note.speakers,
             syncStatus = note.syncStatus.name
         )
-        noteDao.insert(entity)
+        noteDao.insertNote(entity)
         return entity.id
     }
 
     override suspend fun updateNote(note: Note) {
-        val now = System.currentTimeMillis()
-        noteDao.update(
+        val now = LocalDateTime.now()
+        noteDao.updateNote(
             NoteEntity(
                 id = note.id,
                 title = note.title,
                 content = note.content,
-                createdAt = DateTimeUtils.localDateTimeToTimestamp(note.createdAt),
+                createdAt = note.createdAt,
                 modifiedAt = now,
                 isDeleted = note.isDeleted,
-                deletedAt = note.deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
+                deletedAt = note.deletedAt,
                 isPinned = note.isPinned,
                 isLongForm = note.isLongForm,
                 hasAudio = note.hasAudio,
@@ -101,8 +100,7 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteNote(note: Note) {
-        val now = System.currentTimeMillis()
-        noteDao.moveToTrash(note.id, now)
+        noteDao.moveToTrash(note.id, LocalDateTime.now())
     }
 
     override suspend fun permanentlyDeleteNote(note: Note) {
@@ -114,7 +112,7 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun moveToFolder(noteId: String, folderId: String?) {
-        noteDao.updateFolder(noteId, folderId)
+        noteDao.updateNoteFolder(noteId, folderId)
     }
 
     override suspend fun pinNote(noteId: String, isPinned: Boolean) {
@@ -134,30 +132,31 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteExpiredNotes(expirationDate: LocalDateTime) {
-        noteDao.deleteExpiredNotes(DateTimeUtils.localDateTimeToTimestamp(expirationDate))
+        noteDao.deleteExpiredNotes(expirationDate)
     }
 
-    override suspend fun noteExists(id: String): Boolean =
-        noteDao.noteExists(id)
+    override suspend fun noteExists(id: String): Boolean {
+        return noteDao.getNoteById(id) != null
+    }
 
     private fun NoteEntity.toDomain() = Note(
         id = id,
         title = title,
         content = content,
-        createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
-        modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        deletedAt = deletedAt,
         isDeleted = isDeleted,
         isPinned = isPinned,
         isLongForm = isLongForm,
         hasAudio = hasAudio,
         audioPath = audioPath,
         duration = duration,
-        source = com.example.clicknote.domain.model.NoteSource.valueOf(source),
+        source = NoteSource.valueOf(source),
         folderId = folderId,
         summary = summary,
         keyPoints = keyPoints,
         speakers = speakers,
-        syncStatus = com.example.clicknote.domain.model.SyncStatus.valueOf(syncStatus)
+        syncStatus = SyncStatus.valueOf(syncStatus)
     )
 } 

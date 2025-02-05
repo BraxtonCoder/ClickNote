@@ -5,8 +5,7 @@ import com.example.clicknote.data.entity.FolderEntity
 import com.example.clicknote.domain.model.Folder
 import com.example.clicknote.domain.repository.FolderRepository
 import com.example.clicknote.util.DateTimeUtils
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.UUID
@@ -35,7 +34,7 @@ class FolderRepositoryImpl @Inject constructor(
             modifiedAt = now,
             isDeleted = false,
             deletedAt = null,
-            sortOrder = 0 // Default sort order
+            sortOrder = 0
         )
         folderDao.insert(entity)
         return entity.id
@@ -53,7 +52,7 @@ class FolderRepositoryImpl @Inject constructor(
                 modifiedAt = now,
                 isDeleted = folder.isDeleted,
                 deletedAt = folder.deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
-                sortOrder = 0 // Maintain existing sort order
+                sortOrder = 0
             )
         )
     }

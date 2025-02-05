@@ -14,6 +14,7 @@ import javax.inject.Singleton
 import com.example.clicknote.domain.model.CloudProvider
 import com.example.clicknote.domain.model.TranscriptionLanguage
 import com.example.clicknote.domain.model.CloudStorageType
+import com.example.clicknote.domain.model.SubscriptionStatus
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
@@ -41,6 +42,8 @@ interface UserPreferencesDataStore {
     val isFirstTimeUser: Flow<Boolean>
     val lastTranscriptionReset: Flow<Long>
     val cloudStorageType: Flow<CloudStorageType>
+    val subscriptionStatus: Flow<SubscriptionStatus>
+    val offlineModeEnabled: Flow<Boolean>
 
     suspend fun setCallRecordingEnabled(enabled: Boolean)
     suspend fun setAudioSavingEnabled(enabled: Boolean)
@@ -66,6 +69,8 @@ interface UserPreferencesDataStore {
     suspend fun setIsFirstTimeUser(isFirst: Boolean)
     suspend fun setLastTranscriptionReset(timestamp: Long)
     suspend fun setCloudStorageType(type: CloudStorageType)
+    suspend fun setSubscriptionStatus(status: SubscriptionStatus)
+    suspend fun setOfflineModeEnabled(enabled: Boolean)
 }
 
 @Singleton
@@ -189,6 +194,16 @@ class UserPreferencesDataStoreImpl @Inject constructor(
             CloudStorageType.values()[preferences[booleanPreferencesKey("cloud_storage_type")]?.toInt() ?: 0]
         }
 
+    override val subscriptionStatus: Flow<SubscriptionStatus> = context.dataStore.data
+        .map { preferences ->
+            SubscriptionStatus.values()[preferences[booleanPreferencesKey("subscription_status")]?.toInt() ?: 0]
+        }
+
+    override val offlineModeEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[booleanPreferencesKey("offline_mode_enabled")] ?: false
+        }
+
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("call_recording_enabled")] = enabled
@@ -290,6 +305,18 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override suspend fun setCloudStorageType(type: CloudStorageType) {
         context.dataStore.edit { preferences ->
             preferences[booleanPreferencesKey("cloud_storage_type")] = type.ordinal
+        }
+    }
+
+    override suspend fun setSubscriptionStatus(status: SubscriptionStatus) {
+        context.dataStore.edit { preferences ->
+            preferences[booleanPreferencesKey("subscription_status")] = status.ordinal
+        }
+    }
+
+    override suspend fun setOfflineModeEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[booleanPreferencesKey("offline_mode_enabled")] = enabled
         }
     }
 }

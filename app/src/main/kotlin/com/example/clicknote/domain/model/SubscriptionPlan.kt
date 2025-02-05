@@ -54,33 +54,4 @@ enum class SubscriptionPeriod {
 enum class SubscriptionType {
     FREE,
     PREMIUM
-}
-
-enum class SubscriptionPlan(
-    val displayName: String,
-    val price: Double,
-    val weeklyLimit: Int,
-    val description: String
-) {
-    FREE(
-        displayName = "Free Plan",
-        price = 0.0,
-        weeklyLimit = 3,
-        description = "3 transcriptions per week"
-    ),
-    MONTHLY(
-        displayName = "Monthly Plan",
-        price = 9.99,
-        weeklyLimit = Int.MAX_VALUE,
-        description = "Unlimited transcriptions"
-    ),
-    ANNUAL(
-        displayName = "Annual Plan",
-        price = 98.0,
-        weeklyLimit = Int.MAX_VALUE,
-        description = "Unlimited transcriptions"
-    );
-
-    val isPremium: Boolean
-        get() = this != FREE
 } 

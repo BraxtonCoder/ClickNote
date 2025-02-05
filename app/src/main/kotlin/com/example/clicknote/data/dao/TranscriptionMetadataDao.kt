@@ -55,4 +55,19 @@ interface TranscriptionMetadataDao {
 
     @Query("UPDATE transcription_metadata SET is_deleted = 1 WHERE note_id = :noteId")
     suspend fun deleteByNoteId(noteId: String)
+
+    @Query("SELECT * FROM transcription_metadata WHERE createdAt BETWEEN :startDate AND :endDate")
+    suspend fun getMetadataInDateRange(startDate: LocalDateTime, endDate: LocalDateTime): List<TranscriptionMetadata>
+
+    @Query("SELECT * FROM transcription_metadata WHERE id = :id")
+    suspend fun getMetadataById(id: String): TranscriptionMetadata?
+
+    @Query("DELETE FROM transcription_metadata WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("UPDATE transcription_metadata SET status = :status WHERE noteId = :noteId")
+    suspend fun updateStatus(noteId: String, status: String)
+
+    @Query("UPDATE transcription_metadata SET processingTime = :processingTime WHERE noteId = :noteId")
+    suspend fun updateProcessingTime(noteId: String, processingTime: Long)
 } 

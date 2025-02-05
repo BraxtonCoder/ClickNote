@@ -51,14 +51,16 @@ class CloudSyncRepositoryImpl @Inject constructor(
                 _isSyncing.value = true
                 _syncProgress.value = 0f
 
-                val notes = noteRepository.getAllNotes().first()
-                val total = notes.size
-                var current = 0
+                val notes = noteRepository.getNotes().first()
+                val total = notes.size.toFloat()
+                var current = 0f
 
                 notes.forEach { note ->
-                    syncNote(note)
-                    current++
-                    _syncProgress.value = current.toFloat() / total
+                    withContext(Dispatchers.IO) {
+                        syncNote(note)
+                        current++
+                        _syncProgress.value = current / total
+                    }
                 }
 
                 _syncProgress.value = 1f
@@ -149,14 +151,15 @@ class CloudSyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteNote(noteId: String) {
+        val note = noteRepository.getNoteById(noteId) ?: return
         when (getCloudStoragePreference()) {
             CloudStorageType.LOCAL -> {
-                noteRepository.deleteNote(noteId)
+                noteRepository.deleteNote(note)
             }
             CloudStorageType.LOCAL_CLOUD -> {
                 try {
                     // Delete locally
-                    noteRepository.deleteNote(noteId)
+                    noteRepository.deleteNote(note)
                     
                     // Delete from user's cloud storage
                     deleteFromLocalCloud(noteId)
@@ -171,7 +174,7 @@ class CloudSyncRepositoryImpl @Inject constructor(
             CloudStorageType.FIREBASE -> {
                 try {
                     // Delete from Firestore
-                    noteRepository.deleteNote(noteId)
+                    noteRepository.deleteNote(note)
                     
                     // Delete from Firebase Storage
                     deleteFromFirebase(noteId)

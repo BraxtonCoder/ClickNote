@@ -7,16 +7,15 @@ import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
 import com.example.clicknote.util.DateTimeUtils
 import java.time.LocalDateTime
-import java.time.ZoneOffset
 
 fun NoteEntity.toDomain(): Note {
     return Note(
         id = id,
         title = title,
         content = content,
-        createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
-        modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        deletedAt = deletedAt,
         isDeleted = isDeleted,
         isPinned = isPinned,
         isLongForm = isLongForm,
@@ -37,9 +36,9 @@ fun Note.toEntity(): NoteEntity {
         id = id,
         title = title,
         content = content,
-        createdAt = DateTimeUtils.localDateTimeToTimestamp(createdAt),
-        modifiedAt = DateTimeUtils.localDateTimeToTimestamp(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        deletedAt = deletedAt,
         isDeleted = isDeleted,
         isPinned = isPinned,
         isLongForm = isLongForm,
@@ -69,8 +68,8 @@ fun createNote(
         id = java.util.UUID.randomUUID().toString(),
         title = title,
         content = content,
-        createdAt = DateTimeUtils.localDateTimeToTimestamp(now),
-        modifiedAt = DateTimeUtils.localDateTimeToTimestamp(now),
+        createdAt = now,
+        modifiedAt = now,
         deletedAt = null,
         isDeleted = false,
         isPinned = false,
@@ -104,7 +103,7 @@ fun NoteEntity.Companion.create(
     isPinned: Boolean = false,
     isLongForm: Boolean = false
 ): NoteEntity {
-    val now = System.currentTimeMillis()
+    val now = LocalDateTime.now()
     return NoteEntity(
         id = java.util.UUID.randomUUID().toString(),
         title = title,

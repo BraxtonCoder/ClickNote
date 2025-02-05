@@ -95,8 +95,12 @@ class UserPreferencesDataStoreImpl @Inject constructor(
 
     override val cloudProvider: Flow<CloudProvider> = context.dataStore.data
         .map { preferences ->
-            val provider = preferences[PreferencesKeys.CLOUD_PROVIDER] ?: CloudProvider.NONE.name
-            CloudProvider.valueOf(provider)
+            val provider = preferences[PreferencesKeys.CLOUD_PROVIDER] ?: CloudProvider.LOCAL.name
+            try {
+                CloudProvider.valueOf(provider)
+            } catch (e: IllegalArgumentException) {
+                CloudProvider.LOCAL
+            }
         }
 
     override val buttonTriggerDelay: Flow<Long> = context.dataStore.data
@@ -119,8 +123,12 @@ class UserPreferencesDataStoreImpl @Inject constructor(
 
     override val cloudStorageType: Flow<CloudStorageType> = context.dataStore.data
         .map { preferences ->
-            val type = preferences[PreferencesKeys.CLOUD_STORAGE_TYPE] ?: CloudStorageType.NONE.name
-            CloudStorageType.valueOf(type)
+            val typeString = preferences[PreferencesKeys.CLOUD_STORAGE_TYPE] ?: CloudStorageType.NONE.name
+            try {
+                CloudStorageType.valueOf(typeString)
+            } catch (e: IllegalArgumentException) {
+                CloudStorageType.NONE
+            }
         }
 
     override val weeklyTranscriptionCount: Flow<Int> = context.dataStore.data
@@ -131,12 +139,14 @@ class UserPreferencesDataStoreImpl @Inject constructor(
 
     override val subscriptionStatus: Flow<SubscriptionStatus> = context.dataStore.data
         .map { preferences ->
-            val status = preferences[PreferencesKeys.SUBSCRIPTION_STATUS] ?: "FREE"
+            val status = preferences[PreferencesKeys.SUBSCRIPTION_STATUS] ?: SubscriptionStatus.Free.toString()
             SubscriptionStatus.fromString(status)
         }
 
     override val offlineModeEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] ?: false }
+        .map { preferences ->
+            preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] ?: false
+        }
 
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->

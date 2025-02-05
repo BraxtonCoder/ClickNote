@@ -62,4 +62,7 @@ interface FolderDao {
 
     @Query("UPDATE folders SET color = :color WHERE id = :id")
     suspend fun updateColor(id: String, color: Int)
+
+    @Query("SELECT * FROM folders WHERE name LIKE '%' || :query || '%' AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
+    fun searchFolders(query: String): Flow<List<FolderEntity>>
 } 

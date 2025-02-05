@@ -167,4 +167,13 @@ interface NoteDao {
         ORDER BY modified_at DESC
     """)
     fun getFailedSyncNotes(): Flow<List<NoteEntity>>
+
+    @Query("UPDATE note_entity SET speakers = :speakers WHERE id = :noteId")
+    suspend fun updateSpeakers(noteId: String, speakers: List<String>)
+
+    @Query("UPDATE note_entity SET summary = :summary WHERE id = :noteId")
+    suspend fun updateSummary(noteId: String, summary: String?)
+
+    @Query("UPDATE note_entity SET key_points = :keyPoints WHERE id = :noteId")
+    suspend fun updateKeyPoints(noteId: String, keyPoints: List<String>)
 } 

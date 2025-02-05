@@ -4,9 +4,12 @@ import android.content.Context
 import com.example.clicknote.data.dao.NoteDao
 import com.example.clicknote.data.entity.NoteEntity
 import com.example.clicknote.domain.model.Note
-import com.example.clicknote.domain.model.SyncStatus
+import com.example.clicknote.domain.model.NoteSource
+import com.example.clicknote.domain.model.SyncStatus as DomainSyncStatus
+import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.repository.AuthService
 import com.example.clicknote.domain.repository.SyncRepository
+import com.example.clicknote.domain.repository.SyncStatus
 import com.example.clicknote.worker.SyncWorker
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,28 +26,28 @@ class SyncRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val noteDao: NoteDao,
     private val authService: AuthService,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val preferences: UserPreferencesDataStore
 ) : SyncRepository {
 
-    private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.IDLE)
+    private val _syncStatus = MutableStateFlow(SyncStatus.IDLE)
     override fun getSyncStatus(): Flow<SyncStatus> = _syncStatus.asStateFlow()
 
-    private val _lastSyncTime = MutableStateFlow<Long>(0)
+    private val _lastSyncTime = MutableStateFlow(0L)
     override fun getLastSyncTime(): Flow<Long> = _lastSyncTime.asStateFlow()
 
     override fun getPendingNotes(): Flow<List<Note>> = flow {
-        withContext(Dispatchers.IO) {
-            val notes = noteDao.getNotesBySyncStatus(SyncStatus.SYNCING)
-            emit(notes.map { it.toDomain() })
-        }
+        val pendingNotes = noteDao.getNotesBySyncStatus(DomainSyncStatus.PENDING)
+        emit(pendingNotes.map { it.toDomain() })
     }
 
-    override suspend fun syncNotes(): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun syncNotes(): Result<Unit> = runCatching {
+        _syncStatus.value = SyncStatus.SYNCING
         try {
-            _syncStatus.value = SyncStatus.SYNCING
-            
+            val pendingNotes = noteDao.getNotesBySyncStatus(DomainSyncStatus.PENDING)
+            noteDao.updateSyncStatus(pendingNotes.map { it.id }, DomainSyncStatus.SYNCING)
+
             val userId = authService.userId.first() ?: throw IllegalStateException("User not signed in")
-            val pendingNotes = noteDao.getNotesBySyncStatus(SyncStatus.SYNCING)
             
             pendingNotes.forEach { note ->
                 try {
@@ -52,12 +55,12 @@ class SyncRepositoryImpl @Inject constructor(
                         .document(userId)
                         .collection("notes")
                         .document(note.id)
-                        .set(note)
+                        .set(note.toFirebaseMap())
                         .await()
                     
-                    noteDao.updateSyncStatus(note.id, SyncStatus.SUCCESS)
+                    noteDao.updateSyncStatus(listOf(note.id), DomainSyncStatus.SUCCESS)
                 } catch (e: Exception) {
-                    noteDao.updateSyncStatus(note.id, SyncStatus.ERROR)
+                    noteDao.updateSyncStatus(listOf(note.id), DomainSyncStatus.ERROR)
                 }
             }
             
@@ -66,31 +69,34 @@ class SyncRepositoryImpl @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             _syncStatus.value = SyncStatus.ERROR
-            Result.failure(e)
+            throw e
         }
     }
 
-    override suspend fun syncNote(noteId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun syncNote(noteId: String): Result<Unit> = runCatching {
+        val note = noteDao.getNoteById(noteId) ?: throw IllegalStateException("Note not found")
+        noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.SYNCING)
+
+        val userId = authService.userId.first() ?: throw IllegalStateException("User not signed in")
+        
         try {
-            val userId = authService.userId.first() ?: throw IllegalStateException("User not signed in")
-            val note = noteDao.getNoteById(noteId) ?: throw IllegalStateException("Note not found")
-            
             firestore.collection("users")
                 .document(userId)
                 .collection("notes")
                 .document(noteId)
-                .set(note)
+                .set(note.toFirebaseMap())
                 .await()
             
-            noteDao.updateSyncStatus(noteId, SyncStatus.SUCCESS)
+            noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.SUCCESS)
             Result.success(Unit)
         } catch (e: Exception) {
-            noteDao.updateSyncStatus(noteId, SyncStatus.ERROR)
-            Result.failure(e)
+            noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.ERROR)
+            throw e
         }
     }
 
-    override suspend fun pullNotes(): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun pullNotes(): Result<Unit> = runCatching {
+        _syncStatus.value = SyncStatus.SYNCING
         try {
             val userId = authService.userId.first() ?: throw IllegalStateException("User not signed in")
             
@@ -103,17 +109,20 @@ class SyncRepositoryImpl @Inject constructor(
                 .mapNotNull { it.toObject(NoteEntity::class.java) }
             
             cloudNotes.forEach { note ->
-                noteDao.insertNote(note.copy(syncStatus = SyncStatus.SUCCESS))
+                noteDao.insertNote(note.copy(syncStatus = DomainSyncStatus.SUCCESS.name))
             }
             
+            _syncStatus.value = SyncStatus.SUCCESS
+            _lastSyncTime.value = System.currentTimeMillis()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            _syncStatus.value = SyncStatus.ERROR
+            throw e
         }
     }
 
-    override suspend fun updateNoteStatus(noteId: String, status: SyncStatus) = withContext(Dispatchers.IO) {
-        noteDao.updateSyncStatus(noteId, status)
+    override suspend fun updateNoteStatus(noteId: String, status: Int) {
+        noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.values()[status])
     }
 
     override suspend fun schedulePeriodicSync() {
@@ -138,11 +147,31 @@ class SyncRepositoryImpl @Inject constructor(
             hasAudio = hasAudio,
             audioPath = audioPath,
             duration = duration,
-            source = source,
+            source = NoteSource.valueOf(source),
             summary = summary,
             keyPoints = keyPoints,
             speakers = speakers,
-            syncStatus = syncStatus
+            syncStatus = DomainSyncStatus.valueOf(syncStatus)
         )
     }
+
+    private fun NoteEntity.toFirebaseMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "title" to title,
+        "content" to content,
+        "createdAt" to createdAt,
+        "modifiedAt" to modifiedAt,
+        "folderId" to folderId,
+        "isDeleted" to isDeleted,
+        "isPinned" to isPinned,
+        "isLongForm" to isLongForm,
+        "hasAudio" to hasAudio,
+        "audioPath" to audioPath,
+        "duration" to duration,
+        "source" to source,
+        "summary" to summary,
+        "keyPoints" to keyPoints,
+        "speakers" to speakers,
+        "syncStatus" to syncStatus
+    )
 } 

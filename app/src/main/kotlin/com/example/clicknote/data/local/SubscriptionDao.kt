@@ -1,16 +1,16 @@
 package com.example.clicknote.data.local
 
 import androidx.room.*
-import com.example.clicknote.data.model.SubscriptionStatus
+import com.example.clicknote.data.entity.SubscriptionStatusEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SubscriptionDao {
     @Query("SELECT * FROM subscription_status LIMIT 1")
-    suspend fun getSubscriptionStatus(): SubscriptionStatus?
+    suspend fun getSubscriptionStatus(): SubscriptionStatusEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun updateSubscriptionStatus(status: SubscriptionStatus)
+    suspend fun updateSubscriptionStatus(status: SubscriptionStatusEntity)
 
     @Query("DELETE FROM subscription_status")
     suspend fun clearSubscriptionStatus()
@@ -22,5 +22,5 @@ interface SubscriptionDao {
     suspend fun getRemainingFreeNotes(userId: String): Int?
 
     @Query("SELECT * FROM subscription_status WHERE userId = :userId")
-    fun observeSubscriptionStatus(userId: String): Flow<SubscriptionStatus?>
+    fun observeSubscriptionStatus(userId: String): Flow<SubscriptionStatusEntity?>
 } 

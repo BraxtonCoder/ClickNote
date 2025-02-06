@@ -9,8 +9,7 @@ import com.example.clicknote.domain.model.Folder
     tableName = "folders",
     indices = [
         Index("name", unique = true),
-        Index("created_at"),
-        Index("sort_order")
+        Index("created_at")
     ]
 )
 data class FolderEntity(
@@ -24,35 +23,31 @@ data class FolderEntity(
     @ColumnInfo(name = "color")
     val color: Int,
 
-    @ColumnInfo(name = "note_count")
-    val noteCount: Int = 0,
-
     @ColumnInfo(name = "created_at")
-    val createdAt: Long,
+    val createdAt: LocalDateTime,
 
     @ColumnInfo(name = "modified_at")
-    val modifiedAt: Long,
-
-    @ColumnInfo(name = "deleted_at")
-    val deletedAt: Long? = null,
+    val modifiedAt: LocalDateTime,
 
     @ColumnInfo(name = "is_deleted")
     val isDeleted: Boolean = false,
 
-    @ColumnInfo(name = "sort_order")
-    val sortOrder: Int = 0
+    @ColumnInfo(name = "parent_id")
+    val parentId: String? = null,
+
+    @ColumnInfo(name = "position")
+    val position: Int = 0
 ) {
     fun toDomain(): Folder {
         return Folder(
             id = id,
             name = name,
             color = color,
-            createdAt = LocalDateTime.ofEpochSecond(createdAt / 1000, 0, ZoneOffset.UTC),
-            modifiedAt = LocalDateTime.ofEpochSecond(modifiedAt / 1000, 0, ZoneOffset.UTC),
-            deletedAt = deletedAt?.let { LocalDateTime.ofEpochSecond(it / 1000, 0, ZoneOffset.UTC) },
+            createdAt = createdAt,
+            modifiedAt = modifiedAt,
             isDeleted = isDeleted,
-            sortOrder = sortOrder,
-            noteCount = noteCount
+            parentId = parentId,
+            position = position
         )
     }
 
@@ -62,31 +57,63 @@ data class FolderEntity(
                 id = domain.id,
                 name = domain.name,
                 color = domain.color,
-                noteCount = domain.noteCount,
-                createdAt = domain.createdAt.toEpochSecond(ZoneOffset.UTC) * 1000,
-                modifiedAt = domain.modifiedAt.toEpochSecond(ZoneOffset.UTC) * 1000,
-                deletedAt = domain.deletedAt?.toEpochSecond(ZoneOffset.UTC)?.times(1000),
+                createdAt = domain.createdAt,
+                modifiedAt = domain.modifiedAt,
                 isDeleted = domain.isDeleted,
-                sortOrder = domain.sortOrder
+                parentId = domain.parentId,
+                position = domain.position
             )
         }
 
         fun create(
             name: String,
-            color: Int
+            color: Int,
+            parentId: String? = null,
+            position: Int = 0
         ): FolderEntity {
-            val now = System.currentTimeMillis()
+            val now = LocalDateTime.now()
             return FolderEntity(
                 id = java.util.UUID.randomUUID().toString(),
                 name = name,
                 color = color,
-                noteCount = 0,
                 createdAt = now,
                 modifiedAt = now,
-                deletedAt = null,
                 isDeleted = false,
-                sortOrder = 0
+                parentId = parentId,
+                position = position
             )
         }
     }
+}
+
+/**
+ * Extension function to convert FolderEntity to domain Folder
+ */
+fun FolderEntity.toDomain(): Folder {
+    return Folder(
+        id = id,
+        name = name,
+        color = color,
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        isDeleted = isDeleted,
+        parentId = parentId,
+        position = position
+    )
+}
+
+/**
+ * Extension function to convert domain Folder to FolderEntity
+ */
+fun Folder.toEntity(): FolderEntity {
+    return FolderEntity(
+        id = id,
+        name = name,
+        color = color,
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        isDeleted = isDeleted,
+        parentId = parentId,
+        position = position
+    )
 } 

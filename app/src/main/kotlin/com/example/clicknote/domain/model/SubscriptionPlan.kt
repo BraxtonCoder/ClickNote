@@ -4,51 +4,64 @@ package com.example.clicknote.domain.model
  * Represents available subscription plans
  */
 sealed class SubscriptionPlan {
-    abstract val id: String
-    abstract val displayName: String
-    abstract val price: Double
-    abstract val weeklyLimit: Int
-    abstract val description: String
-
     object Free : SubscriptionPlan() {
-        override val id = "free"
-        override val displayName = "Free Plan"
-        override val price = 0.0
-        override val weeklyLimit = 3
-        override val description = "3 transcriptions per week"
+        override val name: String = "Free"
+        override val price: Double = 0.0
+        override val period: SubscriptionPeriod = SubscriptionPeriod.NONE
+        override val transcriptionsPerWeek: Int = 3
+        override val features: List<String> = listOf(
+            "3 transcriptions per week",
+            "Basic transcription",
+            "Local storage only",
+            "Standard support"
+        )
     }
 
-    object Monthly : SubscriptionPlan() {
-        override val id = "monthly_subscription"
-        override val displayName = "Monthly Plan"
-        override val price = 9.99
-        override val weeklyLimit = Int.MAX_VALUE
-        override val description = "Unlimited transcriptions"
+    data class Monthly(
+        override val price: Double = 9.99
+    ) : SubscriptionPlan() {
+        override val name: String = "Monthly"
+        override val period: SubscriptionPeriod = SubscriptionPeriod.MONTHLY
+        override val transcriptionsPerWeek: Int = Int.MAX_VALUE
+        override val features: List<String> = listOf(
+            "Unlimited transcriptions",
+            "Advanced AI transcription",
+            "Cloud storage",
+            "Priority support",
+            "All premium features"
+        )
     }
 
-    object Annual : SubscriptionPlan() {
-        override val id = "annual_subscription"
-        override val displayName = "Annual Plan"
-        override val price = 98.0
-        override val weeklyLimit = Int.MAX_VALUE
-        override val description = "Unlimited transcriptions"
+    data class Annual(
+        override val price: Double = 98.0
+    ) : SubscriptionPlan() {
+        override val name: String = "Annual"
+        override val period: SubscriptionPeriod = SubscriptionPeriod.ANNUAL
+        override val transcriptionsPerWeek: Int = Int.MAX_VALUE
+        override val features: List<String> = listOf(
+            "Unlimited transcriptions",
+            "Advanced AI transcription",
+            "Cloud storage",
+            "Priority support",
+            "All premium features",
+            "2 months free"
+        )
     }
+
+    abstract val name: String
+    abstract val price: Double
+    abstract val period: SubscriptionPeriod
+    abstract val transcriptionsPerWeek: Int
+    abstract val features: List<String>
 
     companion object {
         fun fromId(id: String): SubscriptionPlan = when (id) {
-            Free.id -> Free
-            Monthly.id -> Monthly
-            Annual.id -> Annual
+            Free.name -> Free
+            Monthly().name -> Monthly()
+            Annual().name -> Annual()
             else -> Free
         }
     }
-}
-
-enum class SubscriptionPeriod {
-    WEEKLY,
-    MONTHLY,
-    ANNUAL,
-    NONE
 }
 
 enum class SubscriptionType {

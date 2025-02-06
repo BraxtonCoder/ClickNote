@@ -147,26 +147,26 @@ interface NoteDao {
 
         try {
             insertAll(serverNotes)
-            updateSyncStatus(localNotes.map { it.id }, SyncStatus.SUCCESS)
+            updateSyncStatus(localNotes.map { it.id }, SyncStatus.SYNCED)
         } catch (e: Exception) {
-            updateSyncStatus(localNotes.map { it.id }, SyncStatus.ERROR)
+            updateSyncStatus(localNotes.map { it.id }, SyncStatus.FAILED)
             throw e
         }
     }
 
     @Query("""
         SELECT * FROM note_entity 
-        WHERE sync_status = 'SUCCESS'
+        WHERE sync_status = :syncedStatus
         ORDER BY modified_at DESC
     """)
-    fun getSyncedNotes(): Flow<List<NoteEntity>>
+    fun getSyncedNotes(syncedStatus: String = SyncStatus.SYNCED.name): Flow<List<NoteEntity>>
 
     @Query("""
         SELECT * FROM note_entity 
-        WHERE sync_status = 'ERROR'
+        WHERE sync_status = :failedStatus
         ORDER BY modified_at DESC
     """)
-    fun getFailedSyncNotes(): Flow<List<NoteEntity>>
+    fun getFailedSyncNotes(failedStatus: String = SyncStatus.FAILED.name): Flow<List<NoteEntity>>
 
     @Query("UPDATE note_entity SET speakers = :speakers WHERE id = :noteId")
     suspend fun updateSpeakers(noteId: String, speakers: List<String>)

@@ -136,4 +136,18 @@ enum class SentimentLabel {
     NEUTRAL,
     POSITIVE,
     VERY_POSITIVE
+}
+
+/**
+ * Types of named entities that can be recognized in text
+ */
+enum class NamedEntityType {
+    PERSON,         // Names of people
+    ORGANIZATION,   // Names of organizations
+    LOCATION,       // Place names
+    DATE,          // Date references
+    TIME,          // Time references
+    EVENT,         // Event names
+    TOPIC,         // Topic or subject matter
+    KEYWORD        // Important keywords
 } 

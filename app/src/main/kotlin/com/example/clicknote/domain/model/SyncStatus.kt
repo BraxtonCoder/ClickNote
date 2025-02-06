@@ -1,41 +1,23 @@
 package com.example.clicknote.domain.model
 
 /**
- * Represents the synchronization status of a note
+ * Represents the synchronization status of a note or other data
  */
 enum class SyncStatus {
-    /**
-     * Note needs to be synced to the cloud
-     */
-    PENDING,
+    PENDING,    // Waiting to be synced
+    SYNCING,    // Currently being synced
+    SYNCED,     // Successfully synced
+    FAILED,     // Sync failed
+    CONFLICT,   // Sync conflict detected
+    OFFLINE;    // Offline, will sync when online
 
-    /**
-     * Note is currently being synced
-     */
-    SYNCING,
-
-    /**
-     * Note has been successfully synced
-     */
-    SUCCESS,
-
-    /**
-     * Error occurred during sync
-     */
-    ERROR,
-
-    /**
-     * Note was created while offline
-     */
-    OFFLINE,
-
-    /**
-     * Note has been deleted
-     */
-    DELETED,
-
-    /**
-     * Note has been modified locally and needs to be synced
-     */
-    MODIFIED
+    companion object {
+        fun fromString(status: String): SyncStatus {
+            return try {
+                valueOf(status.uppercase())
+            } catch (e: IllegalArgumentException) {
+                PENDING
+            }
+        }
+    }
 } 

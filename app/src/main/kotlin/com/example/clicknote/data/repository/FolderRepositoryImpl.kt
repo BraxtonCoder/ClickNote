@@ -8,6 +8,7 @@ import com.example.clicknote.util.DateTimeUtils
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.time.LocalDateTime
 import java.util.UUID
 
 @Singleton
@@ -24,52 +25,49 @@ class FolderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertFolder(folder: Folder): Result<Unit> = runCatching {
-        val now = System.currentTimeMillis()
+        val now = LocalDateTime.now()
         val entity = FolderEntity(
             id = folder.id.ifEmpty { UUID.randomUUID().toString() },
             name = folder.name,
             color = folder.color,
-            noteCount = folder.noteCount,
             createdAt = now,
             modifiedAt = now,
             isDeleted = false,
-            deletedAt = null,
-            sortOrder = 0
+            parentId = folder.parentId,
+            position = folder.position
         )
         folderDao.insert(entity)
     }
 
     override suspend fun insertFolders(folders: List<Folder>): Result<Unit> = runCatching {
         val entities = folders.map { folder ->
-            val now = System.currentTimeMillis()
+            val now = LocalDateTime.now()
             FolderEntity(
                 id = folder.id.ifEmpty { UUID.randomUUID().toString() },
                 name = folder.name,
                 color = folder.color,
-                noteCount = folder.noteCount,
                 createdAt = now,
                 modifiedAt = now,
                 isDeleted = false,
-                deletedAt = null,
-                sortOrder = 0
+                parentId = folder.parentId,
+                position = folder.position
             )
         }
         folderDao.insertAll(entities)
     }
 
     override suspend fun updateFolder(folder: Folder): Result<Unit> = runCatching {
-        val now = System.currentTimeMillis()
+        val now = LocalDateTime.now()
         folderDao.update(
             FolderEntity(
                 id = folder.id,
                 name = folder.name,
                 color = folder.color,
-                noteCount = folder.noteCount,
-                createdAt = DateTimeUtils.localDateTimeToTimestamp(folder.createdAt),
+                createdAt = folder.createdAt,
                 modifiedAt = now,
                 isDeleted = folder.isDeleted,
-                deletedAt = folder.deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
-                sortOrder = 0
+                parentId = folder.parentId,
+                position = folder.position
             )
         )
     }
@@ -93,16 +91,6 @@ class FolderRepositoryImpl @Inject constructor(
             entities.map { it.toDomain() }
         }
 
-    suspend fun incrementNoteCount(folderId: String) {
-        val folder = folderDao.getFolderById(folderId) ?: return
-        folderDao.update(folder.copy(noteCount = folder.noteCount + 1))
-    }
-
-    suspend fun decrementNoteCount(folderId: String) {
-        val folder = folderDao.getFolderById(folderId) ?: return
-        folderDao.update(folder.copy(noteCount = (folder.noteCount - 1).coerceAtLeast(0)))
-    }
-
     suspend fun folderNameExists(name: String): Boolean =
         folderDao.folderExists(name)
 
@@ -110,10 +98,10 @@ class FolderRepositoryImpl @Inject constructor(
         id = id,
         name = name,
         color = color,
-        noteCount = noteCount,
-        createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
-        modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
         isDeleted = isDeleted,
-        deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) }
+        parentId = parentId,
+        position = position
     )
 } 

@@ -5,9 +5,11 @@ import com.example.clicknote.data.entity.NoteWithFolderEntity
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
-import com.example.clicknote.util.DateTimeUtils
 import java.time.LocalDateTime
 
+/**
+ * Extension function to convert a NoteEntity to a domain Note
+ */
 fun NoteEntity.toDomain(): Note {
     return Note(
         id = id,
@@ -15,24 +17,24 @@ fun NoteEntity.toDomain(): Note {
         content = content,
         createdAt = createdAt,
         modifiedAt = modifiedAt,
-        deletedAt = deletedAt,
-        isDeleted = isDeleted,
+        source = NoteSource.fromString(source),
+        syncStatus = SyncStatus.fromString(syncStatus),
+        folderId = folderId,
+        isArchived = isArchived,
         isPinned = isPinned,
-        isLongForm = isLongForm,
+        isDeleted = isDeleted,
         hasAudio = hasAudio,
         audioPath = audioPath,
-        duration = duration,
-        source = NoteSource.valueOf(source),
-        folderId = folderId,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        tags = tags,
-        userId = userId,
-        syncStatus = SyncStatus.valueOf(syncStatus)
+        duration = duration?.toInt(),
+        transcriptionLanguage = transcriptionLanguage,
+        speakerCount = speakerCount,
+        metadata = metadata
     )
 }
 
+/**
+ * Extension function to convert a domain Note to a NoteEntity
+ */
 fun Note.toEntity(): NoteEntity {
     return NoteEntity(
         id = id,
@@ -40,32 +42,33 @@ fun Note.toEntity(): NoteEntity {
         content = content,
         createdAt = createdAt,
         modifiedAt = modifiedAt,
-        deletedAt = deletedAt,
-        isDeleted = isDeleted,
+        source = source.name,
+        syncStatus = syncStatus.name,
+        folderId = folderId,
+        isArchived = isArchived,
         isPinned = isPinned,
-        isLongForm = isLongForm,
+        isDeleted = isDeleted,
         hasAudio = hasAudio,
         audioPath = audioPath,
-        duration = duration,
-        source = source.name,
-        folderId = folderId,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        tags = tags,
-        userId = userId,
-        syncStatus = syncStatus.name
+        duration = duration?.toLong(),
+        transcriptionLanguage = transcriptionLanguage,
+        speakerCount = speakerCount,
+        metadata = metadata
     )
 }
 
+/**
+ * Helper function to create a new note entity
+ */
 fun createNote(
     title: String,
     content: String,
-    isLongForm: Boolean = false,
     audioPath: String? = null,
-    duration: Long = 0L,
+    duration: Long? = null,
     source: NoteSource = NoteSource.MANUAL,
-    folderId: String? = null
+    folderId: String? = null,
+    isPinned: Boolean = false,
+    isArchived: Boolean = false
 ): NoteEntity {
     val now = LocalDateTime.now()
     return NoteEntity(
@@ -74,21 +77,18 @@ fun createNote(
         content = content,
         createdAt = now,
         modifiedAt = now,
-        deletedAt = null,
+        source = source.name,
+        syncStatus = SyncStatus.PENDING.name,
+        folderId = folderId,
+        isArchived = isArchived,
+        isPinned = isPinned,
         isDeleted = false,
-        isPinned = false,
-        isLongForm = isLongForm,
         hasAudio = audioPath != null,
         audioPath = audioPath,
         duration = duration,
-        source = source.name,
-        folderId = folderId,
-        summary = null,
-        keyPoints = emptyList(),
-        speakers = emptyMap(),
-        tags = emptyList(),
-        userId = null,
-        syncStatus = SyncStatus.PENDING.name
+        transcriptionLanguage = null,
+        speakerCount = null,
+        metadata = emptyMap()
     )
 }
 
@@ -96,18 +96,21 @@ fun NoteWithFolderEntity.toNote(): Note = note.toDomain().copy(
     folderId = folder?.id
 )
 
-fun NoteEntity.Companion.create(
+/**
+ * Helper function to create a new note entity with additional options
+ */
+fun createNoteWithOptions(
     title: String,
     content: String,
-    summary: String? = null,
-    keyPoints: List<String> = emptyList(),
-    speakers: Map<String, String> = emptyMap(),
     audioPath: String? = null,
-    duration: Long = 0L,
+    duration: Long? = null,
     source: NoteSource = NoteSource.MANUAL,
     folderId: String? = null,
     isPinned: Boolean = false,
-    isLongForm: Boolean = false
+    isArchived: Boolean = false,
+    transcriptionLanguage: String? = null,
+    speakerCount: Int? = null,
+    metadata: Map<String, String> = emptyMap()
 ): NoteEntity {
     val now = LocalDateTime.now()
     return NoteEntity(
@@ -116,20 +119,17 @@ fun NoteEntity.Companion.create(
         content = content,
         createdAt = now,
         modifiedAt = now,
-        deletedAt = null,
-        isDeleted = false,
+        source = source.name,
+        syncStatus = SyncStatus.PENDING.name,
+        folderId = folderId,
+        isArchived = isArchived,
         isPinned = isPinned,
-        isLongForm = isLongForm,
+        isDeleted = false,
         hasAudio = audioPath != null,
         audioPath = audioPath,
         duration = duration,
-        source = source.name,
-        folderId = folderId,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        tags = emptyList(),
-        userId = null,
-        syncStatus = SyncStatus.PENDING.name
+        transcriptionLanguage = transcriptionLanguage,
+        speakerCount = speakerCount,
+        metadata = metadata
     )
 } 

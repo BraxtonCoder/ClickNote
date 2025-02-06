@@ -58,14 +58,14 @@ class SyncRepositoryImpl @Inject constructor(
                         .set(note.toFirebaseMap())
                         .await()
                     
-                    noteDao.updateSyncStatus(listOf(note.id), DomainSyncStatus.SUCCESS)
+                    noteDao.updateSyncStatus(listOf(note.id), DomainSyncStatus.SYNCED)
                 } catch (e: Exception) {
-                    noteDao.updateSyncStatus(listOf(note.id), DomainSyncStatus.ERROR)
+                    noteDao.updateSyncStatus(listOf(note.id), DomainSyncStatus.FAILED)
                 }
             }
             
             _lastSyncTime.value = System.currentTimeMillis()
-            _syncStatus.value = SyncStatus.SUCCESS
+            _syncStatus.value = SyncStatus.IDLE
             Result.success(Unit)
         } catch (e: Exception) {
             _syncStatus.value = SyncStatus.ERROR
@@ -87,10 +87,10 @@ class SyncRepositoryImpl @Inject constructor(
                 .set(note.toFirebaseMap())
                 .await()
             
-            noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.SUCCESS)
+            noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.SYNCED)
             Result.success(Unit)
         } catch (e: Exception) {
-            noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.ERROR)
+            noteDao.updateSyncStatus(listOf(noteId), DomainSyncStatus.FAILED)
             throw e
         }
     }
@@ -109,10 +109,10 @@ class SyncRepositoryImpl @Inject constructor(
                 .mapNotNull { it.toObject(NoteEntity::class.java) }
             
             cloudNotes.forEach { note ->
-                noteDao.insertNote(note.copy(syncStatus = DomainSyncStatus.SUCCESS.name))
+                noteDao.insertNote(note.copy(syncStatus = DomainSyncStatus.SYNCED.name))
             }
             
-            _syncStatus.value = SyncStatus.SUCCESS
+            _syncStatus.value = SyncStatus.IDLE
             _lastSyncTime.value = System.currentTimeMillis()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -140,18 +140,18 @@ class SyncRepositoryImpl @Inject constructor(
             content = content,
             createdAt = createdAt,
             modifiedAt = modifiedAt,
+            source = NoteSource.valueOf(source),
+            syncStatus = DomainSyncStatus.valueOf(syncStatus),
             folderId = folderId,
-            isDeleted = isDeleted,
+            isArchived = isArchived,
             isPinned = isPinned,
-            isLongForm = isLongForm,
+            isDeleted = isDeleted,
             hasAudio = hasAudio,
             audioPath = audioPath,
-            duration = duration,
-            source = NoteSource.valueOf(source),
-            summary = summary,
-            keyPoints = keyPoints,
-            speakers = speakers,
-            syncStatus = DomainSyncStatus.valueOf(syncStatus)
+            duration = duration?.toInt(),
+            transcriptionLanguage = transcriptionLanguage,
+            speakerCount = speakerCount,
+            metadata = metadata
         )
     }
 
@@ -161,17 +161,17 @@ class SyncRepositoryImpl @Inject constructor(
         "content" to content,
         "createdAt" to createdAt,
         "modifiedAt" to modifiedAt,
+        "source" to source,
+        "syncStatus" to syncStatus,
         "folderId" to folderId,
-        "isDeleted" to isDeleted,
+        "isArchived" to isArchived,
         "isPinned" to isPinned,
-        "isLongForm" to isLongForm,
+        "isDeleted" to isDeleted,
         "hasAudio" to hasAudio,
         "audioPath" to audioPath,
         "duration" to duration,
-        "source" to source,
-        "summary" to summary,
-        "keyPoints" to keyPoints,
-        "speakers" to speakers,
-        "syncStatus" to syncStatus
+        "transcriptionLanguage" to transcriptionLanguage,
+        "speakerCount" to speakerCount,
+        "metadata" to metadata
     )
 } 

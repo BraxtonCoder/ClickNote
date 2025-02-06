@@ -68,8 +68,9 @@ class BillingServiceImpl @Inject constructor(
     private suspend fun handlePurchase(purchase: Purchase) {
         if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
             when {
-                purchase.products.contains(MONTHLY_SUB_ID) -> _subscriptionStatus.value = SubscriptionPlan.Monthly
-                purchase.products.contains(ANNUAL_SUB_ID) -> _subscriptionStatus.value = SubscriptionPlan.Annual
+                purchase.products.contains(MONTHLY_SUB_ID) -> _subscriptionStatus.value = SubscriptionPlan.Monthly()
+                purchase.products.contains(ANNUAL_SUB_ID) -> _subscriptionStatus.value = SubscriptionPlan.Annual()
+                else -> _subscriptionStatus.value = SubscriptionPlan.Free
             }
 
             if (!purchase.isAcknowledged) {
@@ -83,9 +84,9 @@ class BillingServiceImpl @Inject constructor(
 
     override suspend fun launchBillingFlow(activity: Activity, plan: SubscriptionPlan) {
         val productId = when (plan) {
-            SubscriptionPlan.Monthly -> MONTHLY_SUB_ID
-            SubscriptionPlan.Annual -> ANNUAL_SUB_ID
-            SubscriptionPlan.Free -> return
+            is SubscriptionPlan.Monthly -> MONTHLY_SUB_ID
+            is SubscriptionPlan.Annual -> ANNUAL_SUB_ID
+            is SubscriptionPlan.Free -> return
         }
 
         val productList = listOf(

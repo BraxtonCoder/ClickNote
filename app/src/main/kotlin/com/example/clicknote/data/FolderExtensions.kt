@@ -2,60 +2,58 @@ package com.example.clicknote.data
 
 import com.example.clicknote.data.entity.FolderEntity
 import com.example.clicknote.domain.model.Folder
-import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneId
 
+/**
+ * Extension function to convert FolderEntity to domain Folder
+ */
 fun FolderEntity.toDomain(): Folder {
     return Folder(
         id = id,
         name = name,
         color = color,
-        noteCount = noteCount,
-        createdAt = timestampToLocalDateTime(createdAt),
-        modifiedAt = timestampToLocalDateTime(modifiedAt),
-        deletedAt = deletedAt?.let { timestampToLocalDateTime(it) },
-        isDeleted = isDeleted
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        isDeleted = isDeleted,
+        parentId = parentId,
+        position = position
     )
 }
 
+/**
+ * Extension function to convert domain Folder to FolderEntity
+ */
 fun Folder.toEntity(): FolderEntity {
     return FolderEntity(
         id = id,
         name = name,
         color = color,
-        noteCount = noteCount,
-        createdAt = localDateTimeToTimestamp(createdAt),
-        modifiedAt = localDateTimeToTimestamp(modifiedAt),
-        deletedAt = deletedAt?.let { localDateTimeToTimestamp(it) },
-        isDeleted = isDeleted
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        isDeleted = isDeleted,
+        parentId = parentId,
+        position = position
     )
 }
 
+/**
+ * Helper function to create a new folder entity
+ */
 fun createFolder(
     name: String,
-    color: Int
+    color: Int,
+    parentId: String? = null,
+    position: Int = 0
 ): FolderEntity {
-    val now = System.currentTimeMillis()
+    val now = LocalDateTime.now()
     return FolderEntity(
         id = java.util.UUID.randomUUID().toString(),
         name = name,
         color = color,
-        noteCount = 0,
         createdAt = now,
         modifiedAt = now,
-        deletedAt = null,
-        isDeleted = false
+        isDeleted = false,
+        parentId = parentId,
+        position = position
     )
-}
-
-private fun timestampToLocalDateTime(timestamp: Long): LocalDateTime {
-    return LocalDateTime.ofInstant(
-        Instant.ofEpochMilli(timestamp),
-        ZoneId.systemDefault()
-    )
-}
-
-private fun localDateTimeToTimestamp(dateTime: LocalDateTime): Long {
-    return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 } 

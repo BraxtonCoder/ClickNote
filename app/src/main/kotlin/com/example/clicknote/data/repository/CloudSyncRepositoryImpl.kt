@@ -86,63 +86,84 @@ class CloudSyncRepositoryImpl @Inject constructor(
     override suspend fun syncNote(note: Note) {
         when (getCloudStoragePreference()) {
             CloudStorageType.LOCAL -> {
-                // Save locally only
-                noteRepository.updateNote(note).getOrNull()
+                noteRepository.updateNote(note)
             }
             CloudStorageType.LOCAL_CLOUD -> {
-                try {
-                    // Save locally first
-                    noteRepository.updateNote(note).getOrNull()
-                    
-                    // Sync with user's personal cloud storage
-                    note.audioPath?.let { path ->
-                        // Upload audio to user's cloud storage
-                        syncAudioToLocalCloud(path, note.id)
+                withContext(scope.coroutineContext) {
+                    try {
+                        noteRepository.updateNote(note)
+                        
+                        note.audioPath?.let { path ->
+                            syncAudioToLocalCloud(path, note.id)
+                        }
+                        
+                        syncNoteDataToLocalCloud(note)
+                        
+                        if (note.content.isNotEmpty()) {
+                            syncSummaryToLocalCloud(note.content, note.id)
+                        }
+                    } catch (e: Exception) {
+                        _syncErrors.value = _syncErrors.value + SyncError(
+                            message = "Failed to sync note to local cloud: ${e.message}",
+                            type = SyncErrorType.NETWORK,
+                            noteId = note.id
+                        )
                     }
-                    
-                    // Sync note data
-                    syncNoteDataToLocalCloud(note)
-                    
-                    // Sync summary if exists
-                    note.summary?.let { summary ->
-                        syncSummaryToLocalCloud(summary, note.id)
-                    }
-                } catch (e: Exception) {
-                    _syncErrors.value = _syncErrors.value + SyncError(
-                        message = "Failed to sync note to local cloud: ${e.message}",
-                        type = SyncErrorType.NETWORK,
-                        noteId = note.id
-                    )
                 }
             }
             CloudStorageType.FIREBASE -> {
-                try {
-                    // Sync note data
-                    noteRepository.updateNote(note).getOrNull()
-                    
-                    // Sync audio file if exists
-                    note.audioPath?.let { path ->
-                        // Upload to Google Cloud Storage
-                        syncAudioToFirebase(path, note.id)
+                withContext(scope.coroutineContext) {
+                    try {
+                        noteRepository.updateNote(note)
+                        
+                        note.audioPath?.let { path ->
+                            syncAudioToFirebase(path, note.id)
+                        }
+                        
+                        if (note.content.isNotEmpty()) {
+                            syncSummaryToFirebase(note.content, note.id)
+                        }
+                    } catch (e: Exception) {
+                        _syncErrors.value = _syncErrors.value + SyncError(
+                            message = "Failed to sync note to Firebase: ${e.message}",
+                            type = SyncErrorType.NETWORK,
+                            noteId = note.id
+                        )
                     }
-                    
-                    // Sync summary if exists
-                    note.summary?.let { summary ->
-                        // Store in Firestore
-                        syncSummaryToFirebase(summary, note.id)
-                    }
-                } catch (e: Exception) {
-                    _syncErrors.value = _syncErrors.value + SyncError(
-                        message = "Failed to sync note to Firebase: ${e.message}",
-                        type = SyncErrorType.NETWORK,
-                        noteId = note.id
-                    )
                 }
             }
             CloudStorageType.NONE -> {
                 // No sync needed
             }
         }
+    }
+
+    private suspend fun syncAudioToLocalCloud(path: String, noteId: String): Result<Unit> = runCatching {
+        // Implementation for syncing audio to local cloud
+    }
+
+    private suspend fun syncNoteDataToLocalCloud(note: Note): Result<Unit> = runCatching {
+        // Implementation for syncing note data to local cloud
+    }
+
+    private suspend fun syncSummaryToLocalCloud(summary: String, noteId: String): Result<Unit> = runCatching {
+        // Implementation for syncing summary to local cloud
+    }
+
+    private suspend fun syncAudioToFirebase(path: String, noteId: String): Result<Unit> = runCatching {
+        // Implementation for syncing audio to Firebase
+    }
+
+    private suspend fun syncSummaryToFirebase(summary: String, noteId: String): Result<Unit> = runCatching {
+        // Implementation for syncing summary to Firebase
+    }
+
+    private suspend fun deleteFromLocalCloud(noteId: String): Result<Unit> = runCatching {
+        // Implementation for deleting from local cloud
+    }
+
+    private suspend fun deleteFromFirebase(noteId: String): Result<Unit> = runCatching {
+        // Implementation for deleting from Firebase
     }
 
     override suspend fun syncNotes(notes: List<Note>) {
@@ -155,36 +176,34 @@ class CloudSyncRepositoryImpl @Inject constructor(
         val note = noteRepository.getNoteById(noteId).getOrNull() ?: return
         when (getCloudStoragePreference()) {
             CloudStorageType.LOCAL -> {
-                noteRepository.deleteNote(note.id).getOrNull()
+                noteRepository.deleteNote(note.id)
             }
             CloudStorageType.LOCAL_CLOUD -> {
-                try {
-                    // Delete locally
-                    noteRepository.deleteNote(note.id).getOrNull()
-                    
-                    // Delete from user's cloud storage
-                    deleteFromLocalCloud(noteId)
-                } catch (e: Exception) {
-                    _syncErrors.value = _syncErrors.value + SyncError(
-                        message = "Failed to delete note from local cloud: ${e.message}",
-                        type = SyncErrorType.NETWORK,
-                        noteId = noteId
-                    )
+                scope.launch {
+                    try {
+                        noteRepository.deleteNote(note.id)
+                        deleteFromLocalCloud(noteId)
+                    } catch (e: Exception) {
+                        _syncErrors.value = _syncErrors.value + SyncError(
+                            message = "Failed to delete note from local cloud: ${e.message}",
+                            type = SyncErrorType.NETWORK,
+                            noteId = noteId
+                        )
+                    }
                 }
             }
             CloudStorageType.FIREBASE -> {
-                try {
-                    // Delete from Firestore
-                    noteRepository.deleteNote(note.id).getOrNull()
-                    
-                    // Delete from Firebase Storage
-                    deleteFromFirebase(noteId)
-                } catch (e: Exception) {
-                    _syncErrors.value = _syncErrors.value + SyncError(
-                        message = "Failed to delete note from Firebase: ${e.message}",
-                        type = SyncErrorType.NETWORK,
-                        noteId = noteId
-                    )
+                scope.launch {
+                    try {
+                        noteRepository.deleteNote(note.id)
+                        deleteFromFirebase(noteId)
+                    } catch (e: Exception) {
+                        _syncErrors.value = _syncErrors.value + SyncError(
+                            message = "Failed to delete note from Firebase: ${e.message}",
+                            type = SyncErrorType.NETWORK,
+                            noteId = noteId
+                        )
+                    }
                 }
             }
             CloudStorageType.NONE -> {
@@ -245,54 +264,26 @@ class CloudSyncRepositoryImpl @Inject constructor(
 
     private suspend fun calculateLocalStorageUsage(): Long {
         // Implementation to calculate local storage usage
-        return 0L // Placeholder
+        return 0L
+    }
+
+    private suspend fun getLocalCloudStorageUsage(): Long {
+        // Implementation to get local cloud storage usage
+        return 0L
     }
 
     private suspend fun getGoogleCloudStorageUsage(): Long {
-        // Implementation to get Google Cloud Storage usage
-        return 0L // Placeholder
+        // Implementation to get Google Cloud storage usage
+        return 0L
     }
 
     private suspend fun getAvailableLocalStorage(): Long {
         // Implementation to get available local storage
-        return Long.MAX_VALUE // Placeholder
-    }
-
-    private suspend fun syncAudioToLocalCloud(audioPath: String, noteId: String) {
-        // Implementation for syncing audio to local cloud storage
-    }
-
-    private suspend fun syncNoteDataToLocalCloud(note: Note) {
-        // Implementation for syncing note data to local cloud storage
-    }
-
-    private suspend fun syncSummaryToLocalCloud(summary: String, noteId: String) {
-        // Implementation for syncing summary to local cloud storage
-    }
-
-    private suspend fun deleteFromLocalCloud(noteId: String) {
-        // Implementation for deleting from local cloud storage
-    }
-
-    private suspend fun syncAudioToFirebase(audioPath: String, noteId: String) {
-        // Implementation for syncing audio to Firebase Storage
-    }
-
-    private suspend fun syncSummaryToFirebase(summary: String, noteId: String) {
-        // Implementation for syncing summary to Firebase
-    }
-
-    private suspend fun deleteFromFirebase(noteId: String) {
-        // Implementation for deleting from Firebase
-    }
-
-    private suspend fun getLocalCloudStorageUsage(): Long {
-        // Implementation to get user's cloud storage usage
-        return 0L // Placeholder
+        return 0L
     }
 
     private suspend fun getLocalCloudStorageLimit(): Long {
-        // Implementation to get user's cloud storage limit
-        return 15L * 1024 * 1024 * 1024 // 15GB (typical free tier limit)
+        // Implementation to get local cloud storage limit
+        return 0L
     }
 } 

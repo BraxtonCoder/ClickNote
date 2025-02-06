@@ -51,8 +51,8 @@ class AnalyticsServiceImpl @Inject constructor(
     override fun trackNoteCreated(note: Note) {
         val props = JSONObject().apply {
             put("note_id", note.id)
-            put("has_audio", note.hasAudio)
-            put("is_long_form", note.isLongForm)
+            put("has_audio", note.hasAudio as Boolean)
+            put("is_long_note", note.isLongNote as Boolean)
             put("word_count", note.content.split(" ").size)
             put("folder_id", note.folderId ?: "none")
         }
@@ -62,8 +62,8 @@ class AnalyticsServiceImpl @Inject constructor(
     override fun trackNoteDeleted(note: Note) {
         val props = JSONObject().apply {
             put("note_id", note.id)
-            put("has_audio", note.hasAudio)
-            put("is_long_form", note.isLongForm)
+            put("has_audio", note.hasAudio as Boolean)
+            put("is_long_note", note.isLongNote as Boolean)
         }
         mixpanel.trackMap("note_deleted", props.toMap())
     }
@@ -71,8 +71,8 @@ class AnalyticsServiceImpl @Inject constructor(
     override fun trackNoteRestored(note: Note) {
         val props = JSONObject().apply {
             put("note_id", note.id)
-            put("has_audio", note.hasAudio)
-            put("is_long_form", note.isLongForm)
+            put("has_audio", note.hasAudio as Boolean)
+            put("is_long_note", note.isLongNote as Boolean)
         }
         mixpanel.trackMap("note_restored", props.toMap())
     }

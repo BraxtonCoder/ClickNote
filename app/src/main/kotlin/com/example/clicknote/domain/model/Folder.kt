@@ -9,14 +9,11 @@ data class Folder(
     val id: String,
     val name: String,
     val color: Int,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    val modifiedAt: LocalDateTime = LocalDateTime.now(),
-    val deletedAt: LocalDateTime? = null,
+    val createdAt: LocalDateTime,
+    val modifiedAt: LocalDateTime,
     val isDeleted: Boolean = false,
-    val sortOrder: Int = 0,
-    val noteCount: Int = 0,
-    val userId: String? = null,
-    val syncStatus: SyncStatus = SyncStatus.PENDING
+    val parentId: String? = null,
+    val position: Int = 0
 ) {
     companion object {
         fun create(
@@ -28,12 +25,11 @@ data class Folder(
                 id = java.util.UUID.randomUUID().toString(),
                 name = name,
                 color = color,
-                noteCount = 0,
                 createdAt = now,
                 modifiedAt = now,
-                deletedAt = null,
                 isDeleted = false,
-                sortOrder = 0
+                parentId = null,
+                position = 0
             )
         }
 
@@ -42,7 +38,10 @@ data class Folder(
             name = "",
             color = 0,
             createdAt = LocalDateTime.now(),
-            modifiedAt = LocalDateTime.now()
+            modifiedAt = LocalDateTime.now(),
+            isDeleted = false,
+            parentId = null,
+            position = 0
         )
     }
 } 

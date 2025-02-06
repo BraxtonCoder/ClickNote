@@ -11,19 +11,13 @@ data class FirebaseNote(
     val content: String = "",
     val createdAt: Long = 0L,
     val modifiedAt: Long = 0L,
-    val deletedAt: Long? = null,
     val isDeleted: Boolean = false,
     val isPinned: Boolean = false,
-    val isLongForm: Boolean = false,
     val hasAudio: Boolean = false,
     val audioUrl: String? = null,
-    val duration: Long = 0L,
+    val duration: Int? = null,
     val source: String = NoteSource.MANUAL.name,
     val folderId: String? = null,
-    val summary: String? = null,
-    val keyPoints: List<String> = emptyList(),
-    val speakers: Map<String, String> = emptyMap(),
-    val tags: List<String> = emptyList(),
     val platform: String = "android",
     val syncStatus: String = SyncStatus.PENDING.name
 )
@@ -35,8 +29,9 @@ data class FirebaseFolder(
     val color: Int = 0,
     val createdAt: Long = 0L,
     val modifiedAt: Long = 0L,
-    val deletedAt: Long? = null,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val parentId: String? = null,
+    val position: Int = 0
 )
 
 fun Note.toFirebaseNote(userId: String): FirebaseNote {
@@ -47,19 +42,13 @@ fun Note.toFirebaseNote(userId: String): FirebaseNote {
         content = content,
         createdAt = DateTimeUtils.localDateTimeToTimestamp(createdAt),
         modifiedAt = DateTimeUtils.localDateTimeToTimestamp(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
         isDeleted = isDeleted,
         isPinned = isPinned,
-        isLongForm = isLongForm,
         hasAudio = hasAudio,
         audioUrl = audioPath,
         duration = duration,
         source = source.name,
         folderId = folderId,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        tags = tags,
         platform = "android",
         syncStatus = syncStatus.name
     )
@@ -72,20 +61,13 @@ fun FirebaseNote.toDomain(): Note {
         content = content,
         createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
         modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
         isDeleted = isDeleted,
         isPinned = isPinned,
-        isLongForm = isLongForm,
         hasAudio = hasAudio,
         audioPath = audioUrl,
         duration = duration,
         source = NoteSource.valueOf(source),
         folderId = folderId,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        tags = tags,
-        userId = userId,
         syncStatus = SyncStatus.valueOf(syncStatus)
     )
 }
@@ -98,8 +80,9 @@ fun Folder.toFirebaseFolder(userId: String): FirebaseFolder {
         color = color,
         createdAt = DateTimeUtils.localDateTimeToTimestamp(createdAt),
         modifiedAt = DateTimeUtils.localDateTimeToTimestamp(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.localDateTimeToTimestamp(it) },
-        isDeleted = isDeleted
+        isDeleted = isDeleted,
+        parentId = parentId,
+        position = position
     )
 }
 
@@ -110,10 +93,8 @@ fun FirebaseFolder.toDomain(): Folder {
         color = color,
         createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
         modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-        deletedAt = deletedAt?.let { DateTimeUtils.timestampToLocalDateTime(it) },
         isDeleted = isDeleted,
-        sortOrder = 0,
-        noteCount = 0,
-        userId = userId
+        parentId = parentId,
+        position = position
     )
 } 

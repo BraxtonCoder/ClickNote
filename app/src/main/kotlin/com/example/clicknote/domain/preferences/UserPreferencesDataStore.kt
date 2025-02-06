@@ -45,6 +45,7 @@ interface UserPreferencesDataStore {
     val subscriptionStatus: Flow<SubscriptionStatus>
     val offlineModeEnabled: Flow<Boolean>
     val isOnlineTranscriptionEnabled: Flow<Boolean>
+    val lastTranscriptionResetTime: Flow<Long>
 
     suspend fun setCallRecordingEnabled(enabled: Boolean)
     suspend fun setAudioSavingEnabled(enabled: Boolean)
@@ -210,6 +211,11 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override val isOnlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
             preferences[booleanPreferencesKey("online_transcription_enabled")] ?: false
+        }
+
+    override val lastTranscriptionResetTime: Flow<Long> = context.dataStore.data
+        .map { preferences ->
+            preferences[booleanPreferencesKey("last_transcription_reset_time")] ?: 0L
         }
 
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {

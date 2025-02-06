@@ -79,13 +79,13 @@ class BillingRepositoryImpl @Inject constructor(
 
     override suspend fun purchaseMonthlySubscription() {
         currentActivity?.let { activity ->
-            purchaseSubscription(activity, SubscriptionPlan.Monthly)
+            purchaseSubscription(activity, SubscriptionPlan.Monthly())
         }
     }
 
     override suspend fun purchaseAnnualSubscription() {
         currentActivity?.let { activity ->
-            purchaseSubscription(activity, SubscriptionPlan.Annual)
+            purchaseSubscription(activity, SubscriptionPlan.Annual())
         }
     }
 
@@ -94,11 +94,11 @@ class BillingRepositoryImpl @Inject constructor(
             .setProductList(
                 listOf(
                     QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(SubscriptionPlan.Monthly.id)
+                        .setProductId(SubscriptionPlan.Monthly().name)
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build(),
                     QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(SubscriptionPlan.Annual.id)
+                        .setProductId(SubscriptionPlan.Annual().name)
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build()
                 )
@@ -122,13 +122,21 @@ class BillingRepositoryImpl @Inject constructor(
     }
 
     override fun getSubscriptionPlans(): Flow<List<SubscriptionPlan>> = flow {
-        emit(listOf(SubscriptionPlan.Free, SubscriptionPlan.Monthly, SubscriptionPlan.Annual))
+        emit(listOf(
+            SubscriptionPlan.Free,
+            SubscriptionPlan.Monthly(),
+            SubscriptionPlan.Annual()
+        ))
     }
 
     override fun getCurrentPlan(): Flow<SubscriptionPlan?> = currentPlan
 
     override suspend fun querySubscriptionPlans(): List<SubscriptionPlan> {
-        return listOf(SubscriptionPlan.Free, SubscriptionPlan.Monthly, SubscriptionPlan.Annual)
+        return listOf(
+            SubscriptionPlan.Free,
+            SubscriptionPlan.Monthly(),
+            SubscriptionPlan.Annual()
+        )
     }
 
     override suspend fun purchaseSubscription(activity: Activity, plan: SubscriptionPlan) {
@@ -136,15 +144,15 @@ class BillingRepositoryImpl @Inject constructor(
         when (plan) {
             is SubscriptionPlan.Monthly -> launchBillingFlow(activity, plan)
             is SubscriptionPlan.Annual -> launchBillingFlow(activity, plan)
-            else -> {} // Free plan doesn't need billing flow
+            is SubscriptionPlan.Free -> {} // Free plan doesn't need billing flow
         }
     }
 
     override suspend fun purchaseSubscription(planId: String): Result<Unit> = runCatching {
         currentActivity?.let { activity ->
             when (planId) {
-                SubscriptionPlan.Monthly.id -> purchaseSubscription(activity, SubscriptionPlan.Monthly)
-                SubscriptionPlan.Annual.id -> purchaseSubscription(activity, SubscriptionPlan.Annual)
+                SubscriptionPlan.Monthly().name -> purchaseSubscription(activity, SubscriptionPlan.Monthly())
+                SubscriptionPlan.Annual().name -> purchaseSubscription(activity, SubscriptionPlan.Annual())
             }
         }
         Result.success(Unit)
@@ -227,7 +235,7 @@ class BillingRepositoryImpl @Inject constructor(
             .setProductList(
                 listOf(
                     QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(plan.id)
+                        .setProductId(plan.name)
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build()
                 )

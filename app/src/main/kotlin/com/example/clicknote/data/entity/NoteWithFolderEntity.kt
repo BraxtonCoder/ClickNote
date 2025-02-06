@@ -2,7 +2,8 @@ package com.example.clicknote.data.entity
 
 import androidx.room.Embedded
 import androidx.room.Relation
-import com.example.clicknote.domain.model.Note
+import com.example.clicknote.data.toDomain
+import com.example.clicknote.data.toEntity
 import com.example.clicknote.domain.model.NoteWithFolder
 
 /**
@@ -34,8 +35,8 @@ data class NoteWithFolderEntity(
          */
         fun fromDomain(domain: NoteWithFolder): NoteWithFolderEntity {
             return NoteWithFolderEntity(
-                note = NoteEntity.fromDomain(domain.note),
-                folder = domain.folder?.let { FolderEntity.fromDomain(it) }
+                note = domain.note.toEntity(),
+                folder = domain.folder?.toEntity()
             )
         }
     }

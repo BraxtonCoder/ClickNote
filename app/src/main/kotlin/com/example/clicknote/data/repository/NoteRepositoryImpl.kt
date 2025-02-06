@@ -49,19 +49,18 @@ class NoteRepositoryImpl @Inject constructor(
             content = note.content,
             createdAt = now,
             modifiedAt = now,
-            isDeleted = false,
-            deletedAt = null,
+            source = note.source.name,
+            syncStatus = note.syncStatus.name,
+            folderId = note.folderId,
+            isArchived = note.isArchived,
             isPinned = note.isPinned,
-            isLongForm = note.isLongForm,
+            isDeleted = note.isDeleted,
             hasAudio = note.hasAudio,
             audioPath = note.audioPath,
-            duration = note.duration,
-            source = note.source.name,
-            folderId = note.folderId,
-            summary = note.summary,
-            keyPoints = note.keyPoints,
-            speakers = note.speakers,
-            syncStatus = note.syncStatus.name
+            duration = note.duration?.toLong(),
+            transcriptionLanguage = note.transcriptionLanguage,
+            speakerCount = note.speakerCount,
+            metadata = note.metadata
         )
         noteDao.insertNote(entity)
     }
@@ -75,19 +74,18 @@ class NoteRepositoryImpl @Inject constructor(
                 content = note.content,
                 createdAt = now,
                 modifiedAt = now,
-                isDeleted = false,
-                deletedAt = null,
+                source = note.source.name,
+                syncStatus = note.syncStatus.name,
+                folderId = note.folderId,
+                isArchived = note.isArchived,
                 isPinned = note.isPinned,
-                isLongForm = note.isLongForm,
+                isDeleted = note.isDeleted,
                 hasAudio = note.hasAudio,
                 audioPath = note.audioPath,
-                duration = note.duration,
-                source = note.source.name,
-                folderId = note.folderId,
-                summary = note.summary,
-                keyPoints = note.keyPoints,
-                speakers = note.speakers,
-                syncStatus = note.syncStatus.name
+                duration = note.duration?.toLong(),
+                transcriptionLanguage = note.transcriptionLanguage,
+                speakerCount = note.speakerCount,
+                metadata = note.metadata
             )
         }
         noteDao.insertAll(entities)
@@ -102,19 +100,18 @@ class NoteRepositoryImpl @Inject constructor(
                 content = note.content,
                 createdAt = note.createdAt,
                 modifiedAt = now,
-                isDeleted = note.isDeleted,
-                deletedAt = note.deletedAt,
+                source = note.source.name,
+                syncStatus = note.syncStatus.name,
+                folderId = note.folderId,
+                isArchived = note.isArchived,
                 isPinned = note.isPinned,
-                isLongForm = note.isLongForm,
+                isDeleted = note.isDeleted,
                 hasAudio = note.hasAudio,
                 audioPath = note.audioPath,
-                duration = note.duration,
-                source = note.source.name,
-                folderId = note.folderId,
-                summary = note.summary,
-                keyPoints = note.keyPoints,
-                speakers = note.speakers,
-                syncStatus = note.syncStatus.name
+                duration = note.duration?.toLong(),
+                transcriptionLanguage = note.transcriptionLanguage,
+                speakerCount = note.speakerCount,
+                metadata = note.metadata
             )
         )
     }
@@ -149,15 +146,31 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateSpeakers(noteId: String, speakers: List<String>) {
-        noteDao.updateSpeakers(noteId, speakers)
+        val note = getNoteById(noteId).getOrNull() ?: return
+        val updatedMetadata = note.metadata.toMutableMap().apply {
+            put("speakers", speakers.joinToString(","))
+        }
+        updateNote(note.copy(metadata = updatedMetadata))
     }
 
     override suspend fun updateSummary(noteId: String, summary: String?) {
-        noteDao.updateSummary(noteId, summary)
+        val note = getNoteById(noteId).getOrNull() ?: return
+        val updatedMetadata = note.metadata.toMutableMap().apply {
+            if (summary != null) {
+                put("summary", summary)
+            } else {
+                remove("summary")
+            }
+        }
+        updateNote(note.copy(metadata = updatedMetadata))
     }
 
     override suspend fun updateKeyPoints(noteId: String, keyPoints: List<String>) {
-        noteDao.updateKeyPoints(noteId, keyPoints)
+        val note = getNoteById(noteId).getOrNull() ?: return
+        val updatedMetadata = note.metadata.toMutableMap().apply {
+            put("keyPoints", keyPoints.joinToString("\n"))
+        }
+        updateNote(note.copy(metadata = updatedMetadata))
     }
 
     override suspend fun deleteExpiredNotes(expirationDate: LocalDateTime) {
@@ -191,18 +204,17 @@ class NoteRepositoryImpl @Inject constructor(
         content = content,
         createdAt = createdAt,
         modifiedAt = modifiedAt,
-        deletedAt = deletedAt,
-        isDeleted = isDeleted,
+        source = NoteSource.valueOf(source),
+        syncStatus = SyncStatus.valueOf(syncStatus),
+        folderId = folderId,
+        isArchived = isArchived,
         isPinned = isPinned,
-        isLongForm = isLongForm,
+        isDeleted = isDeleted,
         hasAudio = hasAudio,
         audioPath = audioPath,
-        duration = duration,
-        source = NoteSource.valueOf(source),
-        folderId = folderId,
-        summary = summary,
-        keyPoints = keyPoints,
-        speakers = speakers,
-        syncStatus = SyncStatus.valueOf(syncStatus)
+        duration = duration?.toInt(),
+        transcriptionLanguage = transcriptionLanguage,
+        speakerCount = speakerCount,
+        metadata = metadata
     )
 } 

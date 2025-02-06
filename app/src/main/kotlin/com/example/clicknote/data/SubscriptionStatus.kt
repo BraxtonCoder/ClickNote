@@ -1,9 +1,1 @@
-package com.example.clicknote.data
-
-data class SubscriptionStatus(
-    val isActive: Boolean,
-    val type: String?,
-    val expiryDate: Long?,
-    val isGracePeriod: Boolean = false,
-    val error: String? = null
-) 
+// This file can be deleted as we're using domain/model/SubscriptionStatus.kt 

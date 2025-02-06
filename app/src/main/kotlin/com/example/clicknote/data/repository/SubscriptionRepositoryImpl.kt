@@ -37,20 +37,24 @@ class SubscriptionRepositoryImpl @Inject constructor(
         _isPremium.value = plan != SubscriptionPlan.Free
         
         _subscriptionStatus.value = when (plan) {
-            SubscriptionPlan.Free -> {
+            is SubscriptionPlan.Free -> {
                 _weeklyRecordingsCount.value = FREE_WEEKLY_LIMIT
                 SubscriptionStatus.Free
             }
-            SubscriptionPlan.Monthly -> SubscriptionStatus.Premium(
-                expirationDate = System.currentTimeMillis() + MONTHLY_DURATION,
-                isAutoRenewing = true,
-                plan = plan
-            )
-            SubscriptionPlan.Annual -> SubscriptionStatus.Premium(
-                expirationDate = System.currentTimeMillis() + ANNUAL_DURATION,
-                isAutoRenewing = true,
-                plan = plan
-            )
+            is SubscriptionPlan.Monthly -> {
+                SubscriptionStatus.Premium(
+                    expirationDate = System.currentTimeMillis() + MONTHLY_DURATION,
+                    isAutoRenewing = true,
+                    plan = SubscriptionPlan.Monthly()
+                )
+            }
+            is SubscriptionPlan.Annual -> {
+                SubscriptionStatus.Premium(
+                    expirationDate = System.currentTimeMillis() + ANNUAL_DURATION,
+                    isAutoRenewing = true,
+                    plan = SubscriptionPlan.Annual()
+                )
+            }
         }
         preferences.setSubscriptionStatus(_subscriptionStatus.value)
     }

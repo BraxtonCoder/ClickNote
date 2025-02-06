@@ -159,9 +159,10 @@ class UserPreferencesDataStoreImpl @Inject constructor(
             preferences[onlineTranscriptionEnabledKey] ?: true // Default to true
         }
 
-    override val lastTranscriptionResetTime: Flow<Long> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] ?: System.currentTimeMillis()
-    }
+    override val lastTranscriptionResetTime: Flow<Long> = context.dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] ?: System.currentTimeMillis()
+        }
 
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->

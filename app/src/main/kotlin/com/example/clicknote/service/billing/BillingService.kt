@@ -1,17 +1,17 @@
 package com.example.clicknote.service.billing
 
-import kotlinx.coroutines.flow.Flow
+import android.app.Activity
+import com.example.clicknote.domain.model.SubscriptionPlan
+import com.example.clicknote.domain.model.SubscriptionStatus
+import kotlinx.coroutines.flow.StateFlow
 
 interface BillingService {
-    suspend fun initialize()
-    suspend fun querySubscriptionPlans(): List<SubscriptionPlan>
-    suspend fun subscribe(plan: SubscriptionPlan)
-    suspend fun unsubscribe()
-    suspend fun restorePurchases()
-    fun observeSubscriptionStatus(): Flow<SubscriptionStatus>
-    suspend fun isSubscriptionActive(): Boolean
-    suspend fun getRemainingUsage(): Int
-    suspend fun consumeUsage()
+    val subscriptionStatus: StateFlow<SubscriptionStatus>
+    
+    suspend fun initializeBillingClient()
+    suspend fun launchBillingFlow(activity: Activity, plan: SubscriptionPlan)
+    suspend fun queryPurchases()
+    fun endConnection()
 }
 
 data class SubscriptionPlan(

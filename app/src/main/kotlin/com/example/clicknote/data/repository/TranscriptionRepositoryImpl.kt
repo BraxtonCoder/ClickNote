@@ -99,8 +99,7 @@ class TranscriptionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun generateSummary(text: String): Result<String> = runCatching {
-        val summary = summaryService.generateSummary(text)
-        summary.content
+        summaryService.generateSummary(text).getOrThrow().content
     }
 
     override suspend fun detectSpeakers(file: File): Result<List<String>> = runCatching {

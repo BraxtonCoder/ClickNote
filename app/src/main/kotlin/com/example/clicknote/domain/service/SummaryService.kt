@@ -1,17 +1,19 @@
 package com.example.clicknote.domain.service
 
+import com.example.clicknote.domain.model.Summary
+import com.example.clicknote.domain.model.SummaryRequest
+import com.example.clicknote.domain.model.SummaryOptions
+import com.example.clicknote.domain.model.TemplateType
 import kotlinx.coroutines.flow.Flow
 
-interface SummaryService : BaseService {
-    override val id: String
-    override fun cleanup()
-    override fun isInitialized(): Boolean
+interface SummaryService {
     suspend fun generateSummary(text: String): Result<Summary>
-    suspend fun generateSummaryWithTemplate(text: String, template: SummaryTemplate): Result<Summary>
-    fun getSummaryProgress(): Flow<Float>
-    fun cancelSummaryGeneration()
-    fun isSummarizing(): Boolean
-    suspend fun getAvailableTemplates(): Result<List<SummaryTemplate>>
+    suspend fun generateSummaryWithTemplate(text: String, template: TemplateType): Result<Summary>
+    suspend fun generateKeyPoints(text: String): Result<List<String>>
+    suspend fun generateSummaryWithOptions(request: SummaryRequest): Result<Summary>
+    fun observeSummaryProgress(): Flow<Float>
+    suspend fun cancelSummaryGeneration()
+    suspend fun isSummarizing(): Boolean
 }
 
 data class Summary(

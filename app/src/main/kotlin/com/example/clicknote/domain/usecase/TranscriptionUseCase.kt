@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 class TranscriptionUseCase @Inject constructor(
@@ -21,7 +22,7 @@ class TranscriptionUseCase @Inject constructor(
 
     suspend fun transcribeAudio(
         audioData: ByteArray,
-        settings: TranscriptionSettings = TranscriptionSettings()
+        settings: TranscriptionSettings = TranscriptionSettings(noteId = UUID.randomUUID().toString())
     ): Result<TranscriptionResult> {
         _transcriptionState.value = TranscriptionState.Processing
         return try {
@@ -41,7 +42,7 @@ class TranscriptionUseCase @Inject constructor(
 
     suspend fun transcribeFile(
         file: File,
-        settings: TranscriptionSettings = TranscriptionSettings()
+        settings: TranscriptionSettings = TranscriptionSettings(noteId = UUID.randomUUID().toString())
     ): Result<TranscriptionResult> {
         _transcriptionState.value = TranscriptionState.Processing
         return try {
@@ -61,7 +62,7 @@ class TranscriptionUseCase @Inject constructor(
 
     suspend fun generateSummary(
         text: String,
-        template: SummaryTemplate = SummaryTemplate.Default
+        template: SummaryTemplate = defaultTemplates.first()
     ): Result<Summary> {
         return try {
             val service = serviceProvider.getService()

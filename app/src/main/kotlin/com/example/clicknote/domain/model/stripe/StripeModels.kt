@@ -41,7 +41,7 @@ data class GetEphemeralKeyRequest(
 
 data class GetEphemeralKeyResponse(
     @SerializedName("id") val id: String,
-    @SerializedName("object") val object: String,
+    @SerializedName("object") val objectType: String,
     @SerializedName("associated_objects") val associatedObjects: List<AssociatedObject>,
     @SerializedName("created") val created: Long,
     @SerializedName("expires") val expires: Long,

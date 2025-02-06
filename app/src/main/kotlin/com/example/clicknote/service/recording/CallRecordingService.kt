@@ -321,4 +321,10 @@ class CallRecordingService : Service(), IRecordingService {
     override suspend fun setTranscriptionLanguage(language: String) {
         transcriptionLanguage = language
     }
+
+    companion object {
+        const val ACTION_START_RECORDING = "com.example.clicknote.action.START_RECORDING"
+        const val ACTION_STOP_RECORDING = "com.example.clicknote.action.STOP_RECORDING"
+        const val EXTRA_PHONE_NUMBER = "com.example.clicknote.extra.PHONE_NUMBER"
+    }
 } 

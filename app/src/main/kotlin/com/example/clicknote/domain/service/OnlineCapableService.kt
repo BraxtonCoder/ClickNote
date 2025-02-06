@@ -1,20 +1,32 @@
 package com.example.clicknote.domain.service
 
-import com.example.clicknote.domain.model.Summary
-import com.example.clicknote.domain.model.SummaryTemplate
-import com.example.clicknote.domain.model.TranscriptionSettings
+import com.example.clicknote.domain.model.*
+import kotlinx.coroutines.flow.Flow
 import java.io.File
 
+/**
+ * Interface for services that can perform online transcription operations
+ */
 interface OnlineCapableService : TranscriptionCapable {
-    override val id: String
-    override suspend fun cleanup()
-    override fun isInitialized(): Boolean
-    
-    override suspend fun transcribeAudio(audioData: ByteArray, settings: TranscriptionSettings): Result<String>
-    override suspend fun transcribeFile(file: File, settings: TranscriptionSettings): Result<String>
-    override suspend fun detectLanguage(audioData: ByteArray): Result<String>
-    override suspend fun getAvailableLanguages(): Result<List<String>>
-    override suspend fun detectSpeakers(audioData: ByteArray): Result<Int>
-    override suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>>
-    override suspend fun generateSummary(text: String, template: SummaryTemplate): Result<Summary>
+    /**
+     * Check if online services are available
+     */
+    suspend fun isOnlineAvailable(): Boolean
+
+    /**
+     * Get the current online service status
+     */
+    suspend fun getOnlineStatus(): OnlineServiceStatus
+
+    /**
+     * Events flow for tracking transcription events
+     */
+    override val events: Flow<TranscriptionEvent>
+}
+
+enum class OnlineServiceStatus {
+    AVAILABLE,
+    UNAVAILABLE,
+    ERROR,
+    RATE_LIMITED
 }

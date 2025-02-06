@@ -8,43 +8,63 @@ import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.ui.screens.Onboarding
 import javax.inject.Inject
 
-sealed class Screen(val route: String) {
-    object Home : Screen("home")
-    object Notes : Screen("notes")
-    object Settings : Screen("settings")
-    object PhoneAuth : Screen("phone_auth")
-    object Onboarding : Screen("onboarding")
-    object RecycleBin : Screen("recycle_bin")
-}
-
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    startDestination: String,
+    startDestination: String = Screen.Home.route,
     userPreferences: UserPreferencesDataStore
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        composable(Screen.Onboarding.route) {
-            Onboarding(navController = navController, userPreferences = userPreferences)
+        composable(Screen.Home.route) {
+            // Home screen composable
         }
         
         composable(Screen.Notes.route) {
-            // Notes screen implementation
+            // Notes screen composable
         }
         
         composable(Screen.Settings.route) {
-            // Settings screen implementation
+            // Settings screen composable
         }
         
         composable(Screen.PhoneAuth.route) {
-            // Phone auth screen implementation
+            // Phone auth screen composable
+        }
+        
+        composable(Screen.Onboarding.route) {
+            Onboarding(
+                navController = navController,
+                userPreferences = userPreferences
+            )
         }
         
         composable(Screen.RecycleBin.route) {
-            // Recycle bin screen implementation
+            // Recycle bin screen composable
+        }
+        
+        composable(Screen.NoteDetail.route) { backStackEntry ->
+            val noteId = backStackEntry.arguments?.getString("noteId")
+            // Note detail screen composable
+        }
+        
+        composable(Screen.FolderDetail.route) { backStackEntry ->
+            val folderId = backStackEntry.arguments?.getString("folderId")
+            // Folder detail screen composable
+        }
+        
+        composable(Screen.Search.route) {
+            // Search screen composable
+        }
+        
+        composable(Screen.Premium.route) {
+            // Premium screen composable
+        }
+        
+        composable(Screen.Profile.route) {
+            // Profile screen composable
         }
     }
 } 

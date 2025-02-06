@@ -132,21 +132,22 @@ class OpenAITranscriptionService @Inject constructor(
         text: String,
         template: SummaryTemplate
     ): Result<Summary> = runCatching {
-        // Get the appropriate prompt based on the template type
-        val prompt = when (template) {
-            is SummaryTemplate.Default -> "Provide a brief overview of the main points discussed."
-            is SummaryTemplate.Meeting -> "Summarize this meeting recording in a structured format including key points and action items."
-            is SummaryTemplate.Interview -> "Summarize this interview with key questions and answers."
-            is SummaryTemplate.Lecture -> "Create structured lecture notes including main concepts and key points."
-            is SummaryTemplate.Conversation -> "Summarize this conversation highlighting the main topics discussed."
-            is SummaryTemplate.Custom -> template.prompt
+        // Build a prompt based on the template's properties
+        val prompt = buildString {
+            append("Generate a summary with the following requirements:\n")
+            append("Type: ${template.type}\n")
+            append("Style: ${template.style}\n")
+            append("Format: ${template.format}\n")
+            append("Maximum Length: ${template.maxLength} words\n")
+            append("\nText to summarize:\n")
+            append(text)
         }
 
         // Use OpenAI chat completion for summarization (to be implemented)
         Summary(
             id = UUID.randomUUID().toString(),
             noteId = UUID.randomUUID().toString(), // This should ideally come from the note being summarized
-            content = "Summary not implemented yet: $prompt",
+            content = "Summary not implemented yet. Template: ${template.name}",
             wordCount = 4,
             sourceWordCount = text.split(" ").size
         )

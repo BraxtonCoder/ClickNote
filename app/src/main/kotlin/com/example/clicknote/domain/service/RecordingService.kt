@@ -1,21 +1,21 @@
 package com.example.clicknote.domain.service
 
+import com.example.clicknote.domain.model.RecordingState
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 interface RecordingService {
-    fun startRecording(outputFile: File)
-    fun stopRecording(): Result<File>
-    fun pauseRecording()
-    fun resumeRecording()
-    fun isRecording(): Boolean
-    fun isPaused(): Boolean
-    fun getAmplitude(): Flow<Float>
-    fun getDuration(): Flow<Long>
-    fun getRecordingState(): Flow<RecordingState>
-    fun getOutputFile(): File?
-    fun cancelRecording()
-    fun release()
+    val recordingState: Flow<RecordingState>
+    val recordingDuration: Flow<Long>
+    val recordingError: Flow<String?>
+    
+    suspend fun startRecording(outputFile: File): Result<Unit>
+    suspend fun stopRecording(): Result<File>
+    suspend fun pauseRecording(): Result<Unit>
+    suspend fun resumeRecording(): Result<Unit>
+    suspend fun cancelRecording()
+    suspend fun isRecording(): Boolean
+    suspend fun cleanup()
 }
 
 enum class RecordingState {

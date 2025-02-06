@@ -58,42 +58,45 @@ class LocalizationManager @Inject constructor(
 
     fun isCurrentRTL(): Boolean {
         val currentLocale = getCurrentLocale()
-        return isRTL(currentLocale.language)
+        return isRTL(currentLocale?.language ?: "en")
     }
 
     fun getDeviceLanguage(): TranscriptionLanguage {
         val locale = LocaleListCompat.getAdjustedDefault()[0]
-        return TranscriptionLanguage.fromCode(locale.language) ?: TranscriptionLanguage.ENGLISH
+        return TranscriptionLanguage.fromCode(locale?.language ?: "en") ?: TranscriptionLanguage.ENGLISH
     }
 
-    fun formatNumber(number: Number, locale: Locale = getCurrentLocale()): String {
+    fun formatNumber(number: Number, locale: Locale = getCurrentLocale() ?: Locale.ENGLISH): String {
         return NumberFormat.getInstance(locale).format(number)
     }
 
-    fun formatCurrency(amount: Double, currencyCode: String = "GBP", locale: Locale = getCurrentLocale()): String {
+    fun formatCurrency(amount: Double, currencyCode: String = "GBP"): String {
+        val locale = getCurrentLocale() ?: Locale.ENGLISH
         val format = NumberFormat.getCurrencyInstance(locale)
         format.currency = Currency.getInstance(currencyCode)
         return format.format(amount)
     }
 
-    fun formatDate(date: Date, locale: Locale = getCurrentLocale()): String {
+    fun formatDate(date: Date): String {
+        val locale = getCurrentLocale() ?: Locale.ENGLISH
         val dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM, locale)
         return dateFormat.format(date)
     }
 
-    private fun getCurrentLocale(): Locale {
+    private fun getCurrentLocale(): Locale? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             context.resources.configuration.locales[0]
         } else {
+            @Suppress("DEPRECATION")
             context.resources.configuration.locale
         }
     }
 
     companion object {
-        private val RTL_LANGUAGES = setOf("ar", "dv", "fa", "he", "ps", "sd", "ur", "ug")
-        private val ASIAN_LANGUAGES = setOf("zh", "ja", "ko", "th", "vi", "km", "my", "lo", "ka")
-        private val EUROPEAN_LANGUAGES = setOf("en", "fr", "de", "it", "es", "pt", "ru", "pl", "nl", "cs", "sv", "da", "fi", "no", "hu", "ro", "bg", "el", "sk", "hr")
-        private val AFRICAN_LANGUAGES = setOf("am", "ha", "ig", "rw", "so", "sw", "yo", "zu", "xh", "st", "ny")
+        private val RTL_LANGUAGES = setOf("ar", "fa", "he", "ur")
+        private val ASIAN_LANGUAGES = setOf("zh", "ja", "ko", "vi", "th", "hi")
+        private val EUROPEAN_LANGUAGES = setOf("en", "es", "fr", "de", "it", "pt", "ru")
+        private val AFRICAN_LANGUAGES = setOf("sw", "am", "ha")
         private const val TAG = "LocalizationManager"
     }
 } 

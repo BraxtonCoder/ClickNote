@@ -15,8 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.clicknote.presentation.navigation.Screen
+import com.example.clicknote.navigation.Screen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     navController: NavController,
@@ -46,7 +47,7 @@ fun SettingsScreen(
                     currentPlan = state.currentPlan?.name ?: "Free Plan",
                     remainingFreeNotes = state.remainingFreeNotes,
                     onManageSubscriptionClick = {
-                        navController.navigate(Screen.Subscription.route)
+                        navController.navigate(Screen.Premium.route)
                     }
                 )
             }
@@ -66,48 +67,23 @@ private fun SubscriptionSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
+            .clickable(onClick = onManageSubscriptionClick)
     ) {
         Text(
             text = "Subscription",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
-        
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onManageSubscriptionClick),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Row(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = currentPlan,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    if (!isSubscribed) {
-                        Text(
-                            text = "$remainingFreeNotes notes remaining this week",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Manage subscription",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        Text(
+            text = "Current Plan: $currentPlan",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        if (!isSubscribed) {
+            Text(
+                text = "Remaining Free Notes: $remainingFreeNotes",
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 } 

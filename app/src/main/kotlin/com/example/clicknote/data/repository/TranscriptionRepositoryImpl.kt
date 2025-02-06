@@ -5,10 +5,10 @@ import com.example.clicknote.data.dao.TranscriptionMetadataDao
 import com.example.clicknote.data.entity.TranscriptionMetadata
 import com.example.clicknote.domain.model.*
 import com.example.clicknote.domain.repository.TranscriptionRepository
+import com.example.clicknote.domain.service.SummaryService
 import com.example.clicknote.service.WhisperService
 import com.example.clicknote.service.SpeakerDetectionService
 import com.example.clicknote.service.SpeakerDetectionService.DetectionResult
-import com.example.clicknote.service.SummaryService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import java.io.File
@@ -99,7 +99,7 @@ class TranscriptionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun generateSummary(text: String): Result<String> = runCatching {
-        summaryService.generateSummary(text).getOrThrow().content
+        summaryService.generateQuickSummary(text).getOrThrow()
     }
 
     override suspend fun detectSpeakers(file: File): Result<List<String>> = runCatching {

@@ -16,55 +16,56 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.example.clicknote.domain.model.Folder
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FolderScreen(
-    onFolderClick: (String) -> Unit,
+    navController: NavController,
     viewModel: FolderViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        when (val state = uiState) {
-            is FolderUiState.Loading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            }
-            is FolderUiState.Success -> {
-                FolderList(
-                    folders = state.folders,
-                    onFolderClick = onFolderClick
-                )
-            }
-            is FolderUiState.Error -> {
-                Text(
-                    text = state.message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(16.dp)
-                )
-            }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Folders") },
+                actions = {
+                    IconButton(onClick = { showCreateDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Create Folder")
+                    }
+                }
+            )
         }
-
-        FloatingActionButton(
-            onClick = { showCreateDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Create Folder")
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            when (uiState) {
+                is FolderUiState.Loading -> {
+                    CircularProgressIndicator()
+                }
+                is FolderUiState.Success -> {
+                    val folders = (uiState as FolderUiState.Success).folders
+                    FolderList(
+                        folders = folders,
+                        onFolderClick = { folder ->
+                            navController.navigate("folder/${folder.id}")
+                        }
+                    )
+                }
+                is FolderUiState.Error -> {
+                    Text((uiState as FolderUiState.Error).message)
+                }
+            }
         }
     }
 
     if (showCreateDialog) {
         CreateFolderDialog(
             onDismiss = { showCreateDialog = false },
-            onCreate = { name, color ->
-                viewModel.createFolder(name, color)
+            onCreate = { name, _ ->
+                viewModel.createFolder(name)
                 showCreateDialog = false
             }
         )
@@ -74,7 +75,7 @@ fun FolderScreen(
 @Composable
 fun FolderList(
     folders: List<Folder>,
-    onFolderClick: (String) -> Unit
+    onFolderClick: (Folder) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -84,7 +85,7 @@ fun FolderList(
         items(folders) { folder ->
             FolderItem(
                 folder = folder,
-                onClick = { onFolderClick(folder.id) }
+                onClick = { onFolderClick(folder) }
             )
         }
     }

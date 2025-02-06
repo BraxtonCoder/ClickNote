@@ -9,15 +9,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.clicknote.R
-import com.example.clicknote.domain.model.CloudProvider
+import com.example.clicknote.domain.model.CloudStorageType
 
 @Composable
 fun StorageLocationDialog(
-    selectedProvider: CloudProvider,
-    onProviderSelected: (CloudProvider) -> Unit,
+    selectedProvider: CloudStorageType,
+    onProviderSelected: (CloudStorageType) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -31,29 +32,29 @@ fun StorageLocationDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 StorageOption(
-                    provider = CloudProvider.NONE,
+                    provider = CloudStorageType.NONE,
                     title = stringResource(R.string.local_storage),
                     description = stringResource(R.string.store_locally),
                     icon = Icons.Default.Storage,
-                    isSelected = selectedProvider == CloudProvider.NONE,
+                    isSelected = selectedProvider == CloudStorageType.NONE,
                     onSelect = onProviderSelected
                 )
                 
                 StorageOption(
-                    provider = CloudProvider.GOOGLE_CLOUD,
+                    provider = CloudStorageType.FIREBASE,
                     title = stringResource(R.string.google_cloud),
                     description = stringResource(R.string.store_in_google_cloud),
                     icon = Icons.Default.Cloud,
-                    isSelected = selectedProvider == CloudProvider.GOOGLE_CLOUD,
+                    isSelected = selectedProvider == CloudStorageType.FIREBASE,
                     onSelect = onProviderSelected
                 )
                 
                 StorageOption(
-                    provider = CloudProvider.LOCAL_CLOUD,
+                    provider = CloudStorageType.LOCAL_CLOUD,
                     title = stringResource(R.string.local_cloud),
                     description = stringResource(R.string.store_in_local_cloud),
                     icon = Icons.Default.CloudOff,
-                    isSelected = selectedProvider == CloudProvider.LOCAL_CLOUD,
+                    isSelected = selectedProvider == CloudStorageType.LOCAL_CLOUD,
                     onSelect = onProviderSelected
                 )
             }
@@ -68,17 +69,18 @@ fun StorageLocationDialog(
 
 @Composable
 private fun StorageOption(
-    provider: CloudProvider,
+    provider: CloudStorageType,
     title: String,
     description: String,
     icon: ImageVector,
     isSelected: Boolean,
-    onSelect: (CloudProvider) -> Unit
+    onSelect: (CloudStorageType) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
@@ -86,17 +88,7 @@ private fun StorageOption(
             onClick = { onSelect(provider) }
         )
         
-        Spacer(modifier = Modifier.width(8.dp))
-        
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
-        )
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium
@@ -107,5 +99,11 @@ private fun StorageOption(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
     }
 } 

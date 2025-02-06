@@ -9,12 +9,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.clicknote.domain.model.SubscriptionPlan
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionScreen(
     onNavigateBack: () -> Unit,
@@ -100,8 +102,8 @@ fun SubscriptionScreen(
                             "Multiple speaker detection",
                             "Call recording transcription"
                         ),
-                        isCurrentPlan = state.currentPlan?.id == "monthly",
-                        onClick = { viewModel.subscribe("monthly") }
+                        isCurrentPlan = state.currentPlan == SubscriptionPlan.Monthly(),
+                        onClick = { viewModel.subscribe(SubscriptionPlan.Monthly()) }
                     )
                 }
 
@@ -117,8 +119,8 @@ fun SubscriptionScreen(
                             "Premium support",
                             "Early access to new features"
                         ),
-                        isCurrentPlan = state.currentPlan?.id == "annual",
-                        onClick = { viewModel.subscribe("annual") }
+                        isCurrentPlan = state.currentPlan == SubscriptionPlan.Annual(),
+                        onClick = { viewModel.subscribe(SubscriptionPlan.Annual()) }
                     )
                 }
 
@@ -126,10 +128,10 @@ fun SubscriptionScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                if (state.error != null) {
+                state.error?.let { errorMessage ->
                     item {
                         Text(
-                            text = state.error,
+                            text = errorMessage,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
@@ -231,7 +233,7 @@ private fun SubscriptionPlanCard(
                 fontWeight = FontWeight.Bold
             )
             
-            Row(verticalAlignment = Alignment.Baseline) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = price,
                     style = MaterialTheme.typography.headlineMedium,
@@ -252,13 +254,9 @@ private fun SubscriptionPlanCard(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
+                        tint = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = feature,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text(text = feature)
                 }
             }
 
@@ -269,16 +267,7 @@ private fun SubscriptionPlanCard(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Text(if (title == "Free Plan") "Current Plan" else "Subscribe")
-                }
-            } else {
-                OutlinedButton(
-                    onClick = { /* Current plan, no action needed */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                ) {
-                    Text("Current Plan")
+                    Text("Select Plan")
                 }
             }
         }

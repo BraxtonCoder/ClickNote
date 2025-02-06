@@ -10,6 +10,11 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -20,6 +25,7 @@ interface PhoneStateReceiverEntryPoint {
 class PhoneStateReceiver : BroadcastReceiver() {
 
     private lateinit var userPreferences: UserPreferencesDataStore
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onReceive(context: Context, intent: Intent) {
         val entryPoint = EntryPointAccessors.fromApplication(
@@ -33,32 +39,39 @@ class PhoneStateReceiver : BroadcastReceiver() {
         val state = intent.getStringExtra(TelephonyManager.EXTRA_STATE)
         val phoneNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
 
-        when (state) {
-            TelephonyManager.EXTRA_STATE_RINGING -> {
-                if (userPreferences.isCallRecordingEnabled()) {
-                    startCallRecordingService(context, phoneNumber)
+        scope.launch {
+            val isCallRecordingEnabled = userPreferences.callRecordingEnabled.first()
+            
+            when (state) {
+                TelephonyManager.EXTRA_STATE_RINGING -> {
+                    if (isCallRecordingEnabled) {
+                        startCallRecordingService(context, phoneNumber)
+                    }
                 }
-            }
-            TelephonyManager.EXTRA_STATE_OFFHOOK -> {
-                if (userPreferences.isCallRecordingEnabled()) {
-                    startCallRecordingService(context, phoneNumber)
+                TelephonyManager.EXTRA_STATE_OFFHOOK -> {
+                    if (isCallRecordingEnabled) {
+                        startCallRecordingService(context, phoneNumber)
+                    }
                 }
-            }
-            TelephonyManager.EXTRA_STATE_IDLE -> {
-                stopCallRecordingService(context)
+                TelephonyManager.EXTRA_STATE_IDLE -> {
+                    stopCallRecordingService(context)
+                }
             }
         }
     }
 
     private fun startCallRecordingService(context: Context, phoneNumber: String?) {
         val intent = Intent(context, CallRecordingService::class.java).apply {
-            putExtra(TelephonyManager.EXTRA_INCOMING_NUMBER, phoneNumber)
+            action = CallRecordingService.ACTION_START_RECORDING
+            putExtra(CallRecordingService.EXTRA_PHONE_NUMBER, phoneNumber)
         }
         context.startService(intent)
     }
 
     private fun stopCallRecordingService(context: Context) {
-        val intent = Intent(context, CallRecordingService::class.java)
-        context.stopService(intent)
+        val intent = Intent(context, CallRecordingService::class.java).apply {
+            action = CallRecordingService.ACTION_STOP_RECORDING
+        }
+        context.startService(intent)
     }
 } 

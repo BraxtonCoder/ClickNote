@@ -13,6 +13,7 @@ import javax.inject.Inject
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.model.AudioQuality
 import com.example.clicknote.domain.model.CloudProvider
+import org.json.JSONObject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -33,7 +34,7 @@ class SettingsViewModel @Inject constructor(
 
     private fun observeSubscriptionStatus() {
         viewModelScope.launch {
-            subscriptionRepository.getCurrentPlan()
+            subscriptionRepository.currentPlan
                 .catch { e ->
                     _state.update { 
                         it.copy(error = e.message ?: "Failed to load subscription status")
@@ -43,7 +44,7 @@ class SettingsViewModel @Inject constructor(
                     _state.update { 
                         it.copy(
                             currentPlan = plan,
-                            isSubscribed = plan != null && plan.id != "free"
+                            isSubscribed = plan != SubscriptionPlan.Free
                         )
                     }
                 }
@@ -51,7 +52,7 @@ class SettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val remainingNotes = subscriptionRepository.getRemainingFreeNotes()
+                val remainingNotes = FREE_WEEKLY_LIMIT - subscriptionRepository.weeklyRecordingsCount.first()
                 _state.update { it.copy(remainingFreeNotes = remainingNotes) }
             } catch (e: Exception) {
                 _state.update { 
@@ -67,7 +68,7 @@ class SettingsViewModel @Inject constructor(
                 _state.update { it.copy(saveAudio = enabled) }
             }
             userPreferences.audioQuality.collect { quality ->
-                _state.update { it.copy(audioQuality = quality) }
+                _state.update { it.copy(audioQuality = AudioQuality.valueOf(quality)) }
             }
             userPreferences.showSilentNotifications.collect { enabled ->
                 _state.update { it.copy(showSilentNotifications = enabled) }
@@ -82,7 +83,7 @@ class SettingsViewModel @Inject constructor(
                 _state.update { it.copy(vibrationEnabled = enabled) }
             }
             userPreferences.buttonTriggerDelay.collect { delay ->
-                _state.update { it.copy(buttonTriggerDelay = delay) }
+                _state.update { it.copy(buttonTriggerDelay = delay.toInt()) }
             }
         }
     }
@@ -103,71 +104,58 @@ class SettingsViewModel @Inject constructor(
     fun updateSaveAudio(enabled: Boolean) {
         viewModelScope.launch {
             userPreferences.setAudioSavingEnabled(enabled)
-            analytics.track("Setting Changed", mapOf(
-                "setting" to "save_audio",
-                "value" to enabled.toString()
-            ))
+            trackSettingChange("save_audio", enabled)
         }
     }
 
     fun updateAudioQuality(quality: AudioQuality) {
         viewModelScope.launch {
-            userPreferences.setAudioQuality(quality)
-            analytics.track("Setting Changed", mapOf(
-                "setting" to "audio_quality",
-                "value" to quality.name
-            ))
+            userPreferences.setAudioQuality(quality.name)
+            trackSettingChange("audio_quality", quality.name)
         }
     }
 
     fun updateShowSilentNotifications(enabled: Boolean) {
         viewModelScope.launch {
             userPreferences.setShowSilentNotifications(enabled)
-            analytics.track("Setting Changed", mapOf(
-                "setting" to "silent_notifications",
-                "value" to enabled.toString()
-            ))
+            trackSettingChange("silent_notifications", enabled)
         }
     }
 
     fun updateCloudStorageEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferences.setCloudSyncEnabled(enabled)
-            analytics.track("Setting Changed", mapOf(
-                "setting" to "cloud_storage",
-                "value" to enabled.toString()
-            ))
+            trackSettingChange("cloud_storage", enabled)
         }
     }
 
     fun updateCloudProvider(provider: CloudProvider) {
         viewModelScope.launch {
             userPreferences.setCloudProvider(provider)
-            analytics.track("Setting Changed", mapOf(
-                "setting" to "cloud_provider",
-                "value" to provider.name
-            ))
+            trackSettingChange("cloud_provider", provider.name)
         }
     }
 
     fun updateVibrationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferences.setVibrationEnabled(enabled)
-            analytics.track("Setting Changed", mapOf(
-                "setting" to "vibration",
-                "value" to enabled.toString()
-            ))
+            trackSettingChange("vibration", enabled)
         }
     }
 
     fun updateButtonTriggerDelay(delay: Int) {
         viewModelScope.launch {
-            userPreferences.setButtonTriggerDelay(delay)
-            analytics.track("Setting Changed", mapOf(
-                "setting" to "button_trigger_delay",
-                "value" to delay.toString()
-            ))
+            userPreferences.setButtonTriggerDelay(delay.toLong())
+            trackSettingChange("button_trigger_delay", delay)
         }
+    }
+
+    private fun trackSettingChange(setting: String, value: Any) {
+        val properties = JSONObject().apply {
+            put("setting", setting)
+            put("value", value.toString())
+        }
+        analytics.track("Setting Changed", properties)
     }
 
     fun signOut() {
@@ -176,17 +164,21 @@ class SettingsViewModel @Inject constructor(
             analytics.track("User Signed Out")
         }
     }
+
+    companion object {
+        private const val FREE_WEEKLY_LIMIT = 3
+    }
 }
 
 data class SettingsState(
     val isSubscribed: Boolean = false,
-    val currentPlan: SubscriptionPlan? = null,
+    val currentPlan: SubscriptionPlan = SubscriptionPlan.Free,
     val remainingFreeNotes: Int = 0,
     val saveAudio: Boolean = true,
     val audioQuality: AudioQuality = AudioQuality.HIGH,
     val showSilentNotifications: Boolean = true,
     val cloudStorageEnabled: Boolean = false,
-    val selectedCloudProvider: CloudProvider = CloudProvider.AWS,
+    val selectedCloudProvider: CloudProvider = CloudProvider.LOCAL,
     val vibrationEnabled: Boolean = true,
     val buttonTriggerDelay: Int = 750,
     val isSignedIn: Boolean = false,

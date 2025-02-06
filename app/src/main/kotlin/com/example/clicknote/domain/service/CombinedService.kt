@@ -6,10 +6,6 @@ import com.example.clicknote.domain.model.TranscriptionSettings
 import java.io.File
 
 interface CombinedService : BaseOnlineService {
-    override val id: String
-    override suspend fun cleanup()
-    override fun isInitialized(): Boolean
-    
     suspend fun transcribeAudio(audioData: ByteArray, settings: TranscriptionSettings): Result<String>
     suspend fun transcribeFile(file: File, settings: TranscriptionSettings): Result<String>
     suspend fun detectLanguage(audioData: ByteArray): Result<String>

@@ -116,12 +116,15 @@ class TranscriptionServiceImpl @Inject constructor(
         }
     }
 
-    override suspend fun generateSummary(text: String): Result<String> = coroutineScope {
-        return@coroutineScope try {
-            generateSummary(text, SummaryTemplate.Default).map { it.content }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    override suspend fun generateSummary(text: String): Result<String> = runCatching {
+        // Use the default general brief template
+        val defaultTemplate = defaultTemplates.find { it.id == "general_brief" }
+            ?: throw IllegalStateException("Default template not found")
+            
+        // Generate summary using the template
+        generateSummary(text, defaultTemplate).map { summary ->
+            summary.content
+        }.getOrThrow()
     }
 
     override suspend fun detectLanguage(audioData: ByteArray): Result<String> = coroutineScope {

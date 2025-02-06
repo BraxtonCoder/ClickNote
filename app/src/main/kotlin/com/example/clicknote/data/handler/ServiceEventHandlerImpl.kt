@@ -27,7 +27,6 @@ class ServiceEventHandlerImpl @Inject constructor(
     private val _currentService = MutableStateFlow<TranscriptionCapable?>(null)
     override val currentService: Flow<TranscriptionCapable?> = _currentService.asStateFlow()
 
-    private val _serviceState = MutableStateFlow<ServiceState?>(null)
     private val _serviceEvents = MutableSharedFlow<ServiceEvent>()
 
     override suspend fun handleServiceActivated(service: Service) {
@@ -35,7 +34,7 @@ class ServiceEventHandlerImpl @Inject constructor(
             try {
                 if (service is TranscriptionCapable) {
                     _currentService.value = service
-                    stateManager.updateState(service.id, ServiceState.Active(service))
+                    stateManager.updateState(ServiceState.Active(service.id))
                     _serviceEvents.emit(ServiceActivated(service.id))
                 }
             } catch (e: Exception) {
@@ -49,7 +48,7 @@ class ServiceEventHandlerImpl @Inject constructor(
             try {
                 if (_currentService.value?.id == service.id) {
                     _currentService.value = null
-                    stateManager.updateState(service.id, ServiceState.Idle)
+                    stateManager.updateState(ServiceState.Inactive(service.id))
                     _serviceEvents.emit(ServiceDeactivated(service.id))
                 }
             } catch (e: Exception) {
@@ -64,7 +63,7 @@ class ServiceEventHandlerImpl @Inject constructor(
                 if (_currentService.value?.id == service.id) {
                     _currentService.value = null
                 }
-                stateManager.updateState(service.id, ServiceState.Error(error))
+                stateManager.updateState(ServiceState.Error(service.id, error))
                 _serviceEvents.emit(ServiceError(service.id, error))
             } catch (e: Exception) {
                 // Log error but don't recursively handle it
@@ -77,7 +76,7 @@ class ServiceEventHandlerImpl @Inject constructor(
             try {
                 if (service is TranscriptionCapable) {
                     service.initialize()
-                    stateManager.updateState(service.id, ServiceState.Active(service))
+                    stateManager.updateState(ServiceState.Initialized(service.id))
                     val context = TranscriptionServiceContext()
                     _serviceEvents.emit(ServiceInitialized(service.id, context))
                 }
@@ -94,7 +93,7 @@ class ServiceEventHandlerImpl @Inject constructor(
                     _currentService.value = null
                 }
                 service.cleanup()
-                stateManager.updateState(service.id, ServiceState.Idle)
+                stateManager.updateState(ServiceState.Cleaned(service.id))
                 _serviceEvents.emit(ServiceCleaned(service.id))
             } catch (e: Exception) {
                 handleServiceError(service, e)

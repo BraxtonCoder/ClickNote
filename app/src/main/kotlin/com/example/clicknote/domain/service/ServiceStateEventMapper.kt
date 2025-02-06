@@ -1,7 +1,7 @@
 package com.example.clicknote.domain.service
 
 import com.example.clicknote.domain.event.ServiceEvent
-import com.example.clicknote.domain.model.ServiceState
+import com.example.clicknote.domain.state.ServiceState
 import kotlinx.coroutines.flow.Flow
 
 interface ServiceStateEventMapper {

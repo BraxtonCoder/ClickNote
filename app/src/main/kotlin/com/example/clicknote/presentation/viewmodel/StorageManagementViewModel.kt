@@ -20,7 +20,7 @@ class StorageManagementViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = CloudProvider.NONE
+            initialValue = CloudProvider.LOCAL
         )
 
     fun updateCloudProvider(provider: CloudProvider) {

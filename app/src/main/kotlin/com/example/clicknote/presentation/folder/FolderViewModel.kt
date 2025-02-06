@@ -23,21 +23,30 @@ class FolderViewModel @Inject constructor(
 
     private fun loadFolders() {
         viewModelScope.launch {
-            folderRepository.getAllFolders()
-                .catch { error ->
-                    _uiState.value = FolderUiState.Error(error.message ?: "Unknown error")
-                }
-                .collect { folders ->
-                    _uiState.value = FolderUiState.Success(folders)
-                }
+            try {
+                folderRepository.getAllFolders()
+                    .onSuccess { folders ->
+                        _uiState.value = FolderUiState.Success(folders)
+                    }
+                    .onFailure { error ->
+                        _uiState.value = FolderUiState.Error(error.message ?: "Unknown error")
+                    }
+            } catch (e: Exception) {
+                _uiState.value = FolderUiState.Error(e.message ?: "Unknown error")
+            }
         }
     }
 
-    fun createFolder(name: String, color: Int) {
+    fun createFolder(name: String) {
         viewModelScope.launch {
             try {
-                val folder = Folder.create(name = name, color = color)
-                folderRepository.createFolder(folder)
+                folderRepository.createFolder(name = name, color = generateRandomColor())
+                    .onSuccess {
+                        loadFolders()
+                    }
+                    .onFailure { error ->
+                        _uiState.value = FolderUiState.Error(error.message ?: "Failed to create folder")
+                    }
             } catch (e: Exception) {
                 _uiState.value = FolderUiState.Error(e.message ?: "Failed to create folder")
             }
@@ -48,6 +57,12 @@ class FolderViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 folderRepository.deleteFolder(id)
+                    .onSuccess {
+                        loadFolders()
+                    }
+                    .onFailure { error ->
+                        _uiState.value = FolderUiState.Error(error.message ?: "Failed to delete folder")
+                    }
             } catch (e: Exception) {
                 _uiState.value = FolderUiState.Error(e.message ?: "Failed to delete folder")
             }
@@ -62,6 +77,20 @@ class FolderViewModel @Inject constructor(
                 _uiState.value = FolderUiState.Error(e.message ?: "Failed to update folder")
             }
         }
+    }
+
+    private fun generateRandomColor(): Int {
+        val colors = listOf(
+            0xFF1976D2.toInt(), // Blue
+            0xFF388E3C.toInt(), // Green
+            0xFFF57C00.toInt(), // Orange
+            0xFF7B1FA2.toInt(), // Purple
+            0xFFD32F2F.toInt(), // Red
+            0xFF00796B.toInt(), // Teal
+            0xFF689F38.toInt(), // Light Green
+            0xFFE64A19.toInt()  // Deep Orange
+        )
+        return colors.random()
     }
 }
 

@@ -6,7 +6,9 @@ data class TranscriptionSettings(
     val model: String = "base",
     val enableSpeakerDetection: Boolean = false,
     val enableTimestamps: Boolean = true,
-    val enablePunctuation: Boolean = true
+    val enablePunctuation: Boolean = true,
+    val preferOfflineMode: Boolean = false,
+    val isNetworkAvailable: Boolean = true
 )
 
 enum class AudioQuality {

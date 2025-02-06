@@ -21,6 +21,7 @@ import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.service.transcription.TranscriptionManager
 import com.example.clicknote.util.NotificationHelper
+import com.example.clicknote.domain.model.RecordingState
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.AndroidEntryPoint
@@ -353,11 +354,4 @@ interface RecordingService {
     fun getAmplitude(): Flow<Float>
     fun getDuration(): Flow<Long>
     suspend fun cleanup()
-}
-
-enum class RecordingState {
-    IDLE,
-    RECORDING,
-    PAUSED,
-    ERROR
 } 

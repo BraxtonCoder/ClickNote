@@ -1,9 +1,9 @@
 package com.example.clicknote.domain.service
 
-interface BaseOnlineService {
+interface BaseOnlineService : BaseService {
     suspend fun isOnline(): Boolean
     suspend fun initialize()
-    suspend fun cleanup()
+    override suspend fun cleanup()
     suspend fun getServiceStatus(): ServiceStatus
     
     enum class ServiceStatus {

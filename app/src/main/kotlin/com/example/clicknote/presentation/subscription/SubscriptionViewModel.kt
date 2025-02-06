@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import org.json.JSONObject
 
 @HiltViewModel
 class SubscriptionViewModel @Inject constructor(
@@ -29,13 +30,13 @@ class SubscriptionViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true) }
             
             try {
-                subscriptionRepository.getCurrentPlan()
+                subscriptionRepository.currentPlan
                     .collect { plan ->
                         _state.update { 
                             it.copy(
                                 isLoading = false,
                                 currentPlan = plan,
-                                isSubscribed = plan != null && plan.id != "free"
+                                isSubscribed = plan != SubscriptionPlan.Free
                             )
                         }
                     }
@@ -50,55 +51,37 @@ class SubscriptionViewModel @Inject constructor(
         }
     }
 
-    fun subscribe(planId: String) {
+    fun subscribe(plan: SubscriptionPlan) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             
             try {
-                analytics.track("Subscription Started", mapOf(
-                    "plan_id" to planId,
-                    "plan_type" to if (planId == "monthly") "Monthly" else "Annual"
-                ))
-
-                val result = subscriptionRepository.purchaseSubscription(planId)
-                if (result.isSuccess) {
-                    analytics.track("Subscription Completed", mapOf(
-                        "plan_id" to planId,
-                        "plan_type" to if (planId == "monthly") "Monthly" else "Annual"
-                    ))
-                    loadCurrentSubscription()
-                } else {
-                    val error = result.exceptionOrNull()?.message ?: "Failed to process subscription"
-                    _state.update { it.copy(isLoading = false, error = error) }
-                    analytics.track("Subscription Failed", mapOf(
-                        "plan_id" to planId,
-                        "error" to error
-                    ))
-                }
+                subscriptionRepository.updateSubscriptionState(plan)
+                analytics.track("Subscription Changed", JSONObject().apply {
+                    put("plan", plan.javaClass.simpleName)
+                })
             } catch (e: Exception) {
-                val error = e.message ?: "Failed to process subscription"
-                _state.update { it.copy(isLoading = false, error = error) }
-                analytics.track("Subscription Failed", mapOf(
-                    "plan_id" to planId,
-                    "error" to error
-                ))
+                _state.update { 
+                    it.copy(error = e.message ?: "Failed to update subscription")
+                }
+            } finally {
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
 
     private fun trackScreenView() {
-        analytics.track("Screen View", mapOf(
-            "screen_name" to "Subscription",
-            "is_subscribed" to state.value.isSubscribed
-        ))
+        analytics.track("Screen View", JSONObject().apply {
+            put("screen", "Subscription")
+        })
     }
 
     override fun onCleared() {
         super.onCleared()
-        analytics.track("Screen Exit", mapOf(
-            "screen_name" to "Subscription",
-            "duration_seconds" to ((System.currentTimeMillis() - screenStartTime) / 1000)
-        ))
+        analytics.track("Screen Exit", JSONObject().apply {
+            put("screen_name", "Subscription")
+            put("duration_seconds", (System.currentTimeMillis() - screenStartTime) / 1000)
+        })
     }
 
     private val screenStartTime = System.currentTimeMillis()
@@ -107,6 +90,6 @@ class SubscriptionViewModel @Inject constructor(
 data class SubscriptionState(
     val isLoading: Boolean = false,
     val isSubscribed: Boolean = false,
-    val currentPlan: SubscriptionPlan? = null,
+    val currentPlan: SubscriptionPlan = SubscriptionPlan.Free,
     val error: String? = null
 ) 

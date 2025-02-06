@@ -85,6 +85,12 @@ data class SummaryOptions(
 
 enum class TemplateType {
     GENERAL,
+    BUSINESS,
+    ACADEMIC,
+    TECHNICAL,
+    CREATIVE,
+    MEDICAL,
+    LEGAL,
     MEETING_MINUTES,
     LECTURE_NOTES,
     INTERVIEW,
@@ -111,6 +117,17 @@ enum class SummaryFormat {
     TIMELINE,
     KEY_VALUE_PAIRS
 }
+
+data class SummaryTemplate(
+    val id: String,
+    val name: String,
+    val description: String,
+    val type: TemplateType,
+    val format: SummaryFormat = SummaryFormat.BULLET_POINTS,
+    val style: SummaryStyle = SummaryStyle.CONCISE,
+    val maxLength: Int = 500,
+    val options: SummaryOptions = SummaryOptions()
+)
 
 enum class EntityType {
     PERSON,

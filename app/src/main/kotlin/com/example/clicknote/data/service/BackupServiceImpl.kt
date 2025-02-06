@@ -1,21 +1,26 @@
 package com.example.clicknote.data.service
 
 import android.content.Context
-import com.example.clicknote.domain.model.*
-import com.example.clicknote.domain.preferences.UserPreferencesDataStore
+import android.net.Uri
+import com.example.clicknote.data.storage.CloudStorageAdapter
+import com.example.clicknote.domain.model.BackupInfo
+import com.example.clicknote.domain.model.BackupType
 import com.example.clicknote.domain.service.BackupService
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.domain.repository.FolderRepository
+import com.example.clicknote.domain.repository.UserRepository
+import com.example.clicknote.util.BackupEncryption
+import com.example.clicknote.util.calculateChecksum
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
+import kotlinx.coroutines.withContext
+import java.io.*
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
-import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,57 +29,76 @@ class BackupServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val noteRepository: NoteRepository,
     private val folderRepository: FolderRepository,
-    private val preferences: UserPreferencesDataStore
+    private val userRepository: UserRepository,
+    private val cloudStorageAdapter: CloudStorageAdapter,
+    private val backupEncryption: BackupEncryption
 ) : BackupService {
 
     private val _backupProgress = MutableStateFlow(0f)
     private val _restoreProgress = MutableStateFlow(0f)
-    private val backupDir = File(context.filesDir, "backups")
-
-    init {
-        backupDir.mkdirs()
-    }
+    private val backupDir = File(context.filesDir, "backups").apply { mkdirs() }
+    private val tempDir = File(context.cacheDir, "backup_temp").apply { mkdirs() }
 
     override suspend fun createBackup(): Result<BackupInfo> = runCatching {
         _backupProgress.value = 0f
         
         val notes = noteRepository.getAllNotes().getOrThrow()
-        val backupFile = File(backupDir, "backup_${System.currentTimeMillis()}.zip")
+        val timestamp = System.currentTimeMillis()
+        val backupFile = File(tempDir, "backup_$timestamp.zip")
+        val encryptedFile = File(tempDir, "backup_$timestamp.encrypted")
         
         try {
-            ZipOutputStream(FileOutputStream(backupFile)).use { zip ->
-                // Backup notes
-                val notesJson = com.google.gson.Gson().toJson(notes)
-                zip.putNextEntry(ZipEntry("notes.json"))
-                zip.write(notesJson.toByteArray())
-                zip.closeEntry()
-                _backupProgress.value = 0.5f
+            withContext(Dispatchers.IO) {
+                val totalBytes = calculateTotalBytes(notes)
+                var bytesWritten = 0L
 
-                // Backup folders
-                val folders = folderRepository.getAllFolders().getOrThrow()
-                val foldersJson = com.google.gson.Gson().toJson(folders)
-                zip.putNextEntry(ZipEntry("folders.json"))
-                zip.write(foldersJson.toByteArray())
-                zip.closeEntry()
-                _backupProgress.value = 1.0f
+                ZipOutputStream(BufferedOutputStream(FileOutputStream(backupFile))).use { zip ->
+                    // Backup notes
+                    val notesJson = com.google.gson.Gson().toJson(notes)
+                    zip.putNextEntry(ZipEntry("notes.json"))
+                    val notesBytes = notesJson.toByteArray()
+                    zip.write(notesBytes)
+                    zip.closeEntry()
+                    bytesWritten += notesBytes.size
+                    _backupProgress.value = bytesWritten.toFloat() / totalBytes
+
+                    // Backup folders
+                    val folders = folderRepository.getAllFolders().getOrThrow()
+                    val foldersJson = com.google.gson.Gson().toJson(folders)
+                    zip.putNextEntry(ZipEntry("folders.json"))
+                    val foldersBytes = foldersJson.toByteArray()
+                    zip.write(foldersBytes)
+                    zip.closeEntry()
+                    bytesWritten += foldersBytes.size
+                    _backupProgress.value = bytesWritten.toFloat() / totalBytes
+                }
             }
+
+            // Encrypt backup
+            backupEncryption.encryptFile(backupFile, encryptedFile)
+            backupFile.delete()
+
+            // Upload to cloud
+            val userId = userRepository.getUserId() ?: throw IllegalStateException("User not logged in")
+            val remotePath = "backups/$userId/backup_$timestamp.encrypted"
+            val url = cloudStorageAdapter.uploadFile(encryptedFile, remotePath)
+            encryptedFile.delete()
             
-            val backupInfo = BackupInfo(
-                id = backupFile.name,
-                size = backupFile.length(),
+            BackupInfo(
+                id = "backup_$timestamp",
+                size = encryptedFile.length(),
                 createdAt = LocalDateTime.now(),
-                noteCount = notes.size,
-                audioCount = 0, // TODO: Get actual count
-                compressionLevel = CompressionLevel.LOW,
-                isEncrypted = false,
-                cloudStorageProvider = CloudStorageProvider.NONE,
-                metadata = emptyMap()
+                backupType = BackupType.FULL,
+                metadata = mapOf(
+                    "url" to url,
+                    "timestamp" to timestamp.toString(),
+                    "noteCount" to notes.size.toString()
+                )
             )
-            
-            _backupProgress.value = 0f
-            backupInfo
         } finally {
             _backupProgress.value = 0f
+            backupFile.delete()
+            encryptedFile.delete()
         }
     }
 
@@ -82,71 +106,82 @@ class BackupServiceImpl @Inject constructor(
         _restoreProgress.value = 0f
         
         try {
-            val backupFile = File(context.filesDir, backupId)
-            if (!backupFile.exists()) {
-                throw IllegalArgumentException("Backup file not found")
-            }
-            
-            ZipInputStream(FileInputStream(backupFile)).use { zip ->
-                var entry = zip.nextEntry
-                while (entry != null) {
-                    when (entry.name) {
-                        "notes.json" -> {
-                            val notesJson = zip.readBytes().decodeToString()
-                            val notes = com.google.gson.Gson().fromJson(notesJson, Array<com.example.clicknote.domain.model.Note>::class.java)
-                            noteRepository.insertNotes(notes.toList()).getOrThrow()
-                            _restoreProgress.value = 0.5f
+            val userId = userRepository.getUserId() ?: throw IllegalStateException("User not logged in")
+            val remotePath = "backups/$userId/$backupId.encrypted"
+            val tempFile = File(tempDir, "$backupId.encrypted")
+            val decryptedFile = File(tempDir, "$backupId.zip")
+
+            // Download from cloud
+            cloudStorageAdapter.downloadFile(remotePath, tempFile)
+
+            // Decrypt backup
+            backupEncryption.decryptFile(tempFile, decryptedFile)
+            tempFile.delete()
+
+            withContext(Dispatchers.IO) {
+                val fileSize = decryptedFile.length()
+                var bytesRead = 0L
+
+                ZipInputStream(BufferedInputStream(FileInputStream(decryptedFile))).use { zip ->
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        when (entry.name) {
+                            "notes.json" -> {
+                                val notesJson = zip.readBytes().decodeToString()
+                                val notes = com.google.gson.Gson().fromJson(notesJson, Array<com.example.clicknote.domain.model.Note>::class.java)
+                                noteRepository.insertNotes(notes.toList()).getOrThrow()
+                                bytesRead += entry.size
+                                _restoreProgress.value = bytesRead.toFloat() / fileSize
+                            }
+                            "folders.json" -> {
+                                val foldersJson = zip.readBytes().decodeToString()
+                                val folders = com.google.gson.Gson().fromJson(foldersJson, Array<com.example.clicknote.domain.model.Folder>::class.java)
+                                folderRepository.insertFolders(folders.toList()).getOrThrow()
+                                bytesRead += entry.size
+                                _restoreProgress.value = bytesRead.toFloat() / fileSize
+                            }
                         }
-                        "folders.json" -> {
-                            val foldersJson = zip.readBytes().decodeToString()
-                            val folders = com.google.gson.Gson().fromJson(foldersJson, Array<com.example.clicknote.domain.model.Folder>::class.java)
-                            folderRepository.insertFolders(folders.toList()).getOrThrow()
-                            _restoreProgress.value = 1.0f
-                        }
+                        entry = zip.nextEntry
                     }
-                    entry = zip.nextEntry
                 }
             }
-            _restoreProgress.value = 0f
             Unit
         } finally {
             _restoreProgress.value = 0f
         }
     }
 
-    override suspend fun listBackups(): List<BackupInfo> {
-        return context.filesDir.listFiles { file ->
-            file.name.startsWith("backup_") && file.name.endsWith(".zip")
-        }?.map { file ->
+    override suspend fun listBackups(): List<BackupInfo> = withContext(Dispatchers.IO) {
+        val userId = userRepository.getUserId() ?: return@withContext emptyList()
+        val backups = cloudStorageAdapter.listFiles("backups/$userId")
+        
+        backups.map { file ->
+            val timestamp = file.name.substringAfter("backup_").substringBefore(".encrypted").toLong()
             BackupInfo(
-                id = file.name,
-                size = file.length(),
-                createdAt = LocalDateTime.now(), // TODO: Get actual creation time
-                noteCount = 0, // TODO: Get actual count
-                audioCount = 0, // TODO: Get actual count
-                compressionLevel = CompressionLevel.LOW,
-                isEncrypted = false,
-                cloudStorageProvider = CloudStorageProvider.NONE,
-                metadata = emptyMap()
+                id = file.name.removeSuffix(".encrypted"),
+                size = file.size,
+                createdAt = LocalDateTime.ofEpochSecond(timestamp / 1000, 0, ZoneOffset.UTC),
+                backupType = BackupType.FULL,
+                metadata = mapOf(
+                    "path" to file.path,
+                    "timestamp" to timestamp.toString()
+                )
             )
-        } ?: emptyList()
+        }.sortedByDescending { it.createdAt }
     }
 
     override suspend fun deleteBackup(backupId: String): Result<Unit> = runCatching {
-        val backupFile = File(context.filesDir, backupId)
-        if (backupFile.exists()) {
-            backupFile.delete()
-        }
-        Unit
+        val userId = userRepository.getUserId() ?: throw IllegalStateException("User not logged in")
+        cloudStorageAdapter.deleteFile("backups/$userId/$backupId.encrypted")
     }
 
     override suspend fun scheduleAutomaticBackup(intervalHours: Int): Result<Unit> = runCatching {
-        // TODO: Implement automatic backup scheduling
+        // TODO: Implement using WorkManager
         Unit
     }
 
     override suspend fun cancelAutomaticBackup(): Result<Unit> = runCatching {
-        // TODO: Implement automatic backup cancellation
+        // TODO: Implement using WorkManager
         Unit
     }
 
@@ -155,13 +190,19 @@ class BackupServiceImpl @Inject constructor(
     override fun observeRestoreProgress(): Flow<Float> = _restoreProgress.asStateFlow()
 
     override suspend fun validateBackup(backupId: String): Result<Boolean> = runCatching {
-        val backupFile = File(context.filesDir, backupId)
-        backupFile.exists() && backupFile.length() > 0
+        val userId = userRepository.getUserId() ?: throw IllegalStateException("User not logged in")
+        cloudStorageAdapter.fileExists("backups/$userId/$backupId.encrypted")
     }
 
     override suspend fun getLastBackupTime(): Result<Long> = runCatching {
         val backups = listBackups()
-        backups.maxOfOrNull { it.createdAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000 }
-            ?: 0L
+        backups.maxOfOrNull { it.createdAt.toEpochSecond(ZoneOffset.UTC) * 1000 } ?: 0L
+    }
+
+    private suspend fun calculateTotalBytes(notes: List<com.example.clicknote.domain.model.Note>): Long {
+        val notesJson = com.google.gson.Gson().toJson(notes)
+        val folders = folderRepository.getAllFolders().getOrThrow()
+        val foldersJson = com.google.gson.Gson().toJson(folders)
+        return notesJson.toByteArray().size.toLong() + foldersJson.toByteArray().size.toLong()
     }
 } 

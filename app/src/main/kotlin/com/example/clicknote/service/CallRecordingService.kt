@@ -6,8 +6,12 @@ import android.media.MediaRecorder
 import android.os.IBinder
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
-import com.example.clicknote.domain.model.CallRecording
-import com.example.clicknote.domain.repository.CallRecordingRepository
+import com.example.clicknote.domain.model.Note
+import com.example.clicknote.domain.model.NoteSource
+import com.example.clicknote.domain.repository.NoteRepository
+import com.example.clicknote.domain.service.TranscriptionService
+import com.example.clicknote.domain.service.AnalyticsService
+import com.example.clicknote.domain.service.BillingService
 import com.example.clicknote.service.notification.CallRecordingNotificationService
 import com.example.clicknote.service.transcription.TranscriptionManager
 import com.example.clicknote.service.AudioEnhancer
@@ -15,57 +19,53 @@ import com.example.clicknote.util.ContactUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import java.io.File
+import java.time.LocalDateTime
 import javax.inject.Inject
+import java.util.UUID
 
 @AndroidEntryPoint
 class CallRecordingService : Service() {
 
-    private val repository: CallRecordingRepository
-    private val transcriptionManager: TranscriptionManager
-    private val audioEnhancer: AudioEnhancer
-    private val contactUtils: ContactUtils
-    private val notificationService: CallRecordingNotificationService
+    @Inject
+    lateinit var transcriptionService: TranscriptionService
 
     @Inject
-    constructor(
-        repository: CallRecordingRepository,
-        transcriptionManager: TranscriptionManager,
-        audioEnhancer: AudioEnhancer,
-        contactUtils: ContactUtils,
-        notificationService: CallRecordingNotificationService
-    ) {
-        this.repository = repository
-        this.transcriptionManager = transcriptionManager
-        this.audioEnhancer = audioEnhancer
-        this.contactUtils = contactUtils
-        this.notificationService = notificationService
-    }
+    lateinit var noteRepository: NoteRepository
+
+    @Inject
+    lateinit var analyticsService: AnalyticsService
+
+    @Inject
+    lateinit var billingService: BillingService
+
+    @Inject
+    lateinit var transcriptionManager: TranscriptionManager
+
+    @Inject
+    lateinit var audioEnhancer: AudioEnhancer
+
+    @Inject
+    lateinit var contactUtils: ContactUtils
+
+    @Inject
+    lateinit var notificationService: CallRecordingNotificationService
 
     private var mediaRecorder: MediaRecorder? = null
-    private var recordingStartTime: Long = 0
+    private var recordingFile: File? = null
+    private var isRecording = false
     private var currentPhoneNumber: String? = null
-    private var isIncoming: Boolean = false
-    private var recordingJob: Job? = null
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var startTime: Long = 0
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val phoneStateListener = object : PhoneStateListener() {
         override fun onCallStateChanged(state: Int, phoneNumber: String?) {
             when (state) {
-                TelephonyManager.CALL_STATE_RINGING -> {
-                    currentPhoneNumber = phoneNumber
-                    isIncoming = true
-                }
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
-                    if (currentPhoneNumber == null) {
-                        currentPhoneNumber = phoneNumber
-                        isIncoming = false
-                    }
-                    startRecording()
-                    showRecordingNotification()
+                    currentPhoneNumber = phoneNumber
+                    startRecording(phoneNumber)
                 }
                 TelephonyManager.CALL_STATE_IDLE -> {
                     stopRecording()
-                    currentPhoneNumber = null
                 }
             }
         }
@@ -77,129 +77,138 @@ class CallRecordingService : Service() {
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
-        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
-        stopRecording()
-        serviceScope.cancel()
-        notificationService.dismissNotification()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START_RECORDING -> {
+                val phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER)
+                startRecording(phoneNumber)
+            }
+            ACTION_STOP_RECORDING -> stopRecording()
+        }
+        return START_NOT_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    private fun startRecording(phoneNumber: String?) {
+        if (isRecording) return
 
-    private fun startRecording() {
-        val outputFile = createOutputFile()
-        mediaRecorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.VOICE_CALL)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(outputFile.absolutePath)
+        serviceScope.launch {
+            if (!billingService.canMakeTranscription()) {
+                // Handle subscription limit reached
+                return@launch
+            }
+
             try {
-                prepare()
-                start()
-                recordingStartTime = System.currentTimeMillis()
+                recordingFile = File(applicationContext.cacheDir, "call_${System.currentTimeMillis()}.m4a")
+                mediaRecorder = MediaRecorder().apply {
+                    setAudioSource(MediaRecorder.AudioSource.VOICE_CALL)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    setOutputFile(recordingFile?.path)
+                    prepare()
+                    start()
+                }
+                isRecording = true
+                startTime = System.currentTimeMillis()
+                analyticsService.trackCallRecordingStarted(phoneNumber ?: "unknown", false)
             } catch (e: Exception) {
-                e.printStackTrace()
-                reset()
-                release()
+                analyticsService.trackCallRecordingError(phoneNumber ?: "unknown", e.message ?: "Unknown error")
+                cleanup()
             }
         }
     }
 
     private fun stopRecording() {
-        recordingJob?.cancel()
-        mediaRecorder?.apply {
+        if (!isRecording) return
+
+        serviceScope.launch {
             try {
-                stop()
+                mediaRecorder?.apply {
+                    stop()
+                    release()
+                }
+                mediaRecorder = null
+                isRecording = false
+
+                recordingFile?.let { file ->
+                    processRecording(file)
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                analyticsService.trackCallRecordingError(currentPhoneNumber ?: "unknown", e.message ?: "Unknown error")
             } finally {
-                reset()
-                release()
+                cleanup()
             }
-        }
-        mediaRecorder = null
-
-        val endTime = System.currentTimeMillis()
-        val duration = endTime - recordingStartTime
-        val outputFile = getLatestOutputFile()
-
-        if (outputFile != null && duration > 0) {
-            processRecording(outputFile, duration)
         }
     }
 
-    private fun processRecording(audioFile: File, duration: Long) {
-        recordingJob = serviceScope.launch {
-            try {
-                showTranscribingNotification()
-                
-                // Enhance audio quality
-                val enhancedAudioFile = audioEnhancer.enhance(audioFile)
-                
-                // Get transcription
-                val transcription = transcriptionManager.transcribe(enhancedAudioFile)
-                
-                // Generate summary
-                val summary = transcriptionManager.generateSummary(transcription)
-                
-                // Get contact name
-                val contactName = currentPhoneNumber?.let { 
-                    contactUtils.getContactName(it)
-                }
-
-                // Create and save recording
-                val recording = CallRecording.create(
-                    phoneNumber = currentPhoneNumber ?: "Unknown",
-                    contactName = contactName,
-                    timestamp = recordingStartTime,
-                    duration = duration,
-                    audioFilePath = enhancedAudioFile.absolutePath,
-                    transcription = transcription,
-                    summary = summary,
-                    isIncoming = isIncoming
+    private suspend fun processRecording(file: File) {
+        try {
+            // Transcribe audio
+            val transcriptionResult = transcriptionService.transcribeFile(
+                file,
+                com.example.clicknote.domain.model.TranscriptionSettings(
+                    noteId = UUID.randomUUID().toString(),
+                    enableSpeakerDetection = true
                 )
-                
-                repository.insertCallRecording(recording)
-                
-                // Delete original audio file if different from enhanced
-                if (audioFile != enhancedAudioFile) {
-                    audioFile.delete()
-                }
-                
-                notificationService.dismissNotification()
-            } catch (e: Exception) {
-                e.printStackTrace()
-                notificationService.dismissNotification()
-            }
+            ).getOrThrow()
+
+            // Create note
+            val note = Note(
+                id = UUID.randomUUID().toString(),
+                title = "Call with ${currentPhoneNumber ?: "Unknown"} - ${LocalDateTime.now()}",
+                content = transcriptionResult.text,
+                createdAt = LocalDateTime.now(),
+                modifiedAt = LocalDateTime.now(),
+                source = NoteSource.CALL,
+                hasAudio = true,
+                audioPath = file.path,
+                duration = ((System.currentTimeMillis() - startTime) / 1000).toInt(),
+                transcriptionLanguage = transcriptionResult.language,
+                speakerCount = transcriptionResult.speakers.size
+            )
+
+            // Save note
+            noteRepository.insertNote(note)
+
+            // Track analytics
+            analyticsService.trackCallRecordingCompleted(
+                phoneNumber = currentPhoneNumber ?: "unknown",
+                duration = System.currentTimeMillis() - startTime,
+                transcriptionLength = transcriptionResult.text.length,
+                isIncoming = false
+            )
+
+            // Consume transcription
+            billingService.consumeTranscription()
+
+        } catch (e: Exception) {
+            analyticsService.trackCallRecordingError(currentPhoneNumber ?: "unknown", e.message ?: "Unknown error")
         }
     }
 
-    private fun showRecordingNotification() {
-        val formattedNumber = currentPhoneNumber?.let { 
-            contactUtils.formatPhoneNumber(it)
-        } ?: "Unknown"
-        notificationService.showRecordingNotification(formattedNumber, isIncoming)
+    private fun cleanup() {
+        mediaRecorder?.release()
+        mediaRecorder = null
+        recordingFile?.delete()
+        recordingFile = null
+        isRecording = false
+        currentPhoneNumber = null
+        startTime = 0
     }
 
-    private fun showTranscribingNotification() {
-        val formattedNumber = currentPhoneNumber?.let { 
-            contactUtils.formatPhoneNumber(it)
-        } ?: "Unknown"
-        notificationService.showTranscribingNotification(formattedNumber)
+    override fun onDestroy() {
+        super.onDestroy()
+        val telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
+        serviceScope.cancel()
+        cleanup()
+        notificationService.dismissNotification()
     }
 
-    private fun createOutputFile(): File {
-        val recordingsDir = File(getExternalFilesDir(null), "call_recordings").apply {
-            if (!exists()) mkdirs()
-        }
-        return File(recordingsDir, "call_${System.currentTimeMillis()}.m4a")
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun getLatestOutputFile(): File? {
-        val recordingsDir = File(getExternalFilesDir(null), "call_recordings")
-        return recordingsDir.listFiles()
-            ?.maxByOrNull { it.lastModified() }
+    companion object {
+        const val ACTION_START_RECORDING = "com.example.clicknote.action.START_RECORDING"
+        const val ACTION_STOP_RECORDING = "com.example.clicknote.action.STOP_RECORDING"
+        const val EXTRA_PHONE_NUMBER = "phone_number"
     }
 } 

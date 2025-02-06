@@ -2,9 +2,7 @@ package com.example.clicknote.service
 
 import android.content.Context
 import com.example.clicknote.domain.model.BackupInfo
-import com.example.clicknote.domain.model.BackupSettings
-import com.example.clicknote.domain.model.CompressionLevel
-import com.example.clicknote.domain.model.CloudStorageProvider
+import com.example.clicknote.domain.model.BackupType
 import com.example.clicknote.domain.service.AnalyticsService
 import com.example.clicknote.domain.service.BackupService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,6 +22,7 @@ class BackupAnalyticsService @Inject constructor(
     private val analyticsService: AnalyticsService
 ) {
     private val _backupStats = MutableStateFlow<BackupStats?>(null)
+    private val _searchFilters = MutableStateFlow(BackupSearchFilters())
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM")
 
     suspend fun updateBackupStats() {
@@ -51,13 +50,12 @@ class BackupAnalyticsService @Inject constructor(
             )
         }
 
-        val compressionStats = backups.groupBy { it.compressionLevel }.map { (level, levelBackups) ->
-            CompressionStats(
-                level = level,
-                count = levelBackups.size,
-                totalSize = levelBackups.sumOf { it.size },
-                averageSize = levelBackups.sumOf { it.size } / levelBackups.size,
-                averageCompressionRatio = calculateCompressionRatio(levelBackups)
+        val typeStats = backups.groupBy { it.backupType }.map { (type, typeBackups) ->
+            BackupTypeStats(
+                type = type,
+                count = typeBackups.size,
+                totalSize = typeBackups.sumOf { it.size },
+                averageSize = typeBackups.sumOf { it.size } / typeBackups.size
             )
         }
 
@@ -67,17 +65,13 @@ class BackupAnalyticsService @Inject constructor(
             averageSize = averageSize,
             lastBackupTime = lastBackupTime,
             monthlyStats = monthlyStats,
-            compressionStats = compressionStats,
+            typeStats = typeStats,
             successRate = calculateSuccessRate(backups)
         )
     }
 
-    private fun calculateCompressionRatio(backups: List<BackupInfo>): Float {
-        return 0.0f // Placeholder
-    }
-
     private fun calculateSuccessRate(backups: List<BackupInfo>): Float {
-        return 0.0f // Placeholder
+        return if (backups.isEmpty()) 0f else 1f // Placeholder
     }
 
     fun getBackupStats(): Flow<BackupStats?> = _backupStats
@@ -93,13 +87,61 @@ class BackupAnalyticsService @Inject constructor(
         }
     }
 
-    fun trackBackupStarted(settings: BackupSettings) {
+    fun searchBackups(query: String? = null, filters: BackupSearchFilters? = null): Flow<List<BackupInfo>> = flow {
+        val backups = backupService.listBackups()
+        emit(backups.filter { backup ->
+            matchesFilters(backup, filters ?: _searchFilters.value) &&
+            (query.isNullOrBlank() || matchesQuery(backup, query))
+        })
+    }
+
+    private fun matchesFilters(backup: BackupInfo, filters: BackupSearchFilters): Boolean {
+        return filters.run {
+            val matchesDateRange = when (dateRange) {
+                DateRange.ALL -> true
+                DateRange.TODAY -> {
+                    val today = LocalDate.now()
+                    backup.toLocalDate() == today
+                }
+                DateRange.LAST_7_DAYS -> {
+                    val weekAgo = LocalDateTime.now().minusDays(7)
+                    backup.isAfter(weekAgo)
+                }
+                DateRange.LAST_30_DAYS -> {
+                    val monthAgo = LocalDateTime.now().minusDays(30)
+                    backup.isAfter(monthAgo)
+                }
+                DateRange.CUSTOM -> {
+                    customStartDate?.let { start ->
+                        customEndDate?.let { end ->
+                            !backup.createdAt.isBefore(start) && !backup.createdAt.isAfter(end)
+                        }
+                    } ?: true
+                }
+            }
+
+            val matchesType = backupType == null || backup.backupType == backupType
+            val matchesSize = when (sizeFilter) {
+                SizeFilter.ALL -> true
+                SizeFilter.LESS_THAN_10MB -> backup.size < 10 * 1024 * 1024
+                SizeFilter.LESS_THAN_100MB -> backup.size < 100 * 1024 * 1024
+                SizeFilter.MORE_THAN_100MB -> backup.size >= 100 * 1024 * 1024
+            }
+
+            matchesDateRange && matchesType && matchesSize
+        }
+    }
+
+    private fun matchesQuery(backup: BackupInfo, query: String): Boolean {
+        return backup.id.contains(query, ignoreCase = true) ||
+               backup.metadata.entries.any { (_, value) -> value.contains(query, ignoreCase = true) }
+    }
+
+    fun trackBackupStarted(settings: BackupSearchFilters) {
         val props = JSONObject()
-        putSafely(props, "backup_frequency", settings.backupFrequency.toHours())
-        putSafely(props, "backup_audio_files", settings.backupAudioFiles)
-        putSafely(props, "backup_settings", settings.backupSettings)
-        putSafely(props, "compression_level", settings.compressionLevel.toString())
-        putSafely(props, "cloud_provider", settings.cloudProvider.toString())
+        putSafely(props, "backup_type", settings.backupType?.name ?: "FULL")
+        putSafely(props, "size_filter", settings.sizeFilter.name)
+        putSafely(props, "date_range", settings.dateRange.name)
         analyticsService.trackEvent("backup_started", props.toMap())
     }
 
@@ -107,12 +149,9 @@ class BackupAnalyticsService @Inject constructor(
         val props = JSONObject()
         putSafely(props, "backup_id", info.id)
         putSafely(props, "size_mb", info.size / (1024 * 1024))
-        putSafely(props, "note_count", info.noteCount)
-        putSafely(props, "audio_count", info.audioCount)
+        putSafely(props, "backup_type", info.backupType.name)
         putSafely(props, "duration_seconds", duration / 1000)
-        putSafely(props, "compression_level", info.compressionLevel.toString())
-        putSafely(props, "is_encrypted", info.isEncrypted)
-        putSafely(props, "cloud_provider", info.cloudStorageProvider.toString())
+        putSafely(props, "metadata_count", info.metadata.size)
         analyticsService.trackEvent("backup_completed", props.toMap())
     }
 
@@ -122,11 +161,8 @@ class BackupAnalyticsService @Inject constructor(
         info?.let { backup ->
             putSafely(props, "backup_id", backup.id)
             putSafely(props, "size_mb", backup.size / (1024 * 1024))
-            putSafely(props, "note_count", backup.noteCount)
-            putSafely(props, "audio_count", backup.audioCount)
-            putSafely(props, "compression_level", backup.compressionLevel.toString())
-            putSafely(props, "is_encrypted", backup.isEncrypted)
-            putSafely(props, "cloud_provider", backup.cloudStorageProvider.toString())
+            putSafely(props, "backup_type", backup.backupType.name)
+            putSafely(props, "metadata_count", backup.metadata.size)
         }
         analyticsService.trackEvent("backup_error", props.toMap())
     }
@@ -139,7 +175,7 @@ class BackupAnalyticsService @Inject constructor(
             LocalDate.now()
         )
         putSafely(props, "backup_age_days", daysBetween)
-        putSafely(props, "cloud_provider", info.cloudStorageProvider.toString())
+        putSafely(props, "backup_type", info.backupType.name)
         analyticsService.trackEvent("backup_deleted", props.toMap())
     }
 
@@ -170,7 +206,7 @@ class BackupAnalyticsService @Inject constructor(
         val averageSize: Long,
         val lastBackupTime: LocalDateTime,
         val monthlyStats: List<MonthlyBackupStats>,
-        val compressionStats: List<CompressionStats>,
+        val typeStats: List<BackupTypeStats>,
         val successRate: Float
     )
 
@@ -181,16 +217,38 @@ class BackupAnalyticsService @Inject constructor(
         val averageSize: Long
     )
 
-    data class CompressionStats(
-        val level: CompressionLevel,
+    data class BackupTypeStats(
+        val type: BackupType,
         val count: Int,
         val totalSize: Long,
-        val averageSize: Long,
-        val averageCompressionRatio: Float
+        val averageSize: Long
     )
 
     data class StorageUsagePoint(
         val timestamp: LocalDateTime,
         val usageBytes: Long
     )
+
+    data class BackupSearchFilters(
+        val dateRange: DateRange = DateRange.ALL,
+        val customStartDate: LocalDateTime? = null,
+        val customEndDate: LocalDateTime? = null,
+        val backupType: BackupType? = null,
+        val sizeFilter: SizeFilter = SizeFilter.ALL
+    )
+
+    enum class DateRange {
+        ALL,
+        TODAY,
+        LAST_7_DAYS,
+        LAST_30_DAYS,
+        CUSTOM
+    }
+
+    enum class SizeFilter {
+        ALL,
+        LESS_THAN_10MB,
+        LESS_THAN_100MB,
+        MORE_THAN_100MB
+    }
 }

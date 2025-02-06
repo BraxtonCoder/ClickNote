@@ -1,19 +1,23 @@
 package com.example.clicknote.service
 
 import android.content.Context
-import com.example.clicknote.domain.model.*
-import com.example.clicknote.util.verifyChecksum
+import com.example.clicknote.domain.model.BackupInfo
+import com.example.clicknote.domain.service.BackupService
+import com.example.clicknote.data.storage.CloudStorageAdapter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.zip.ZipFile
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Singleton
 class BackupVerificationService @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val backupService: BackupService,
-    private val notificationService: BackupNotificationService
+    private val backupService: com.example.clicknote.domain.service.BackupService,
+    private val notificationService: BackupNotificationService,
+    private val cloudStorageAdapter: CloudStorageAdapter
 ) {
     private val tempDir = File(context.cacheDir, "backup_verify")
 
@@ -21,34 +25,43 @@ class BackupVerificationService @Inject constructor(
         tempDir.mkdirs()
     }
 
-    suspend fun verifyBackup(backup: BackupInfo): BackupVerificationResult {
+    suspend fun verifyBackup(backup: BackupInfo): BackupVerificationResult = withContext(Dispatchers.IO) {
         try {
             // Download backup to temp directory
-            val backupFile = File(tempDir, backup.name)
-            // TODO: Download backup file using cloudStorageAdapter
+            val backupFile = File(tempDir, backup.id)
+            val remotePath = "backups/${backup.metadata["userId"]}/${backup.id}"
+            cloudStorageAdapter.downloadFile(remotePath, backupFile)
 
-            // Verify checksum
-            if (!verifyChecksum(backupFile, backup.checksum)) {
-                return BackupVerificationResult.Error("Backup file checksum verification failed")
+            // Verify file size
+            if (backupFile.length() != backup.size) {
+                return@withContext BackupVerificationResult.Error("File size mismatch")
+            }
+
+            // Verify checksum if available
+            backup.metadata["checksum"]?.let { storedChecksum ->
+                if (!verifyChecksum(backupFile, storedChecksum)) {
+                    return@withContext BackupVerificationResult.Error("Checksum verification failed")
+                }
             }
 
             // Verify zip integrity
             if (!verifyZipIntegrity(backupFile)) {
-                return BackupVerificationResult.Error("Backup file is corrupted")
+                return@withContext BackupVerificationResult.Error("Backup file is corrupted")
             }
 
             // Verify backup contents
             val contentVerification = verifyBackupContents(backupFile)
             if (contentVerification != null) {
-                return BackupVerificationResult.Error(contentVerification)
+                return@withContext BackupVerificationResult.Error(contentVerification)
             }
 
             // Verify version info
-            if (!verifyVersionInfo(backup)) {
-                return BackupVerificationResult.Error("Version information is invalid")
+            val version = backup.metadata["version"]?.toIntOrNull() ?: 1
+            if (version < 1) {
+                return@withContext BackupVerificationResult.Error("Invalid backup version")
             }
 
-            return BackupVerificationResult.Success(
+            BackupVerificationResult.Success(
                 BackupVerificationStats(
                     fileCount = countFiles(backupFile),
                     totalSize = backupFile.length(),
@@ -57,7 +70,19 @@ class BackupVerificationService @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            return BackupVerificationResult.Error(e.message ?: "Verification failed")
+            BackupVerificationResult.Error(e.message ?: "Verification failed")
+        } finally {
+            // Cleanup temp files
+            tempDir.listFiles()?.forEach { it.delete() }
+        }
+    }
+
+    private fun verifyChecksum(file: File, expectedChecksum: String): Boolean {
+        return try {
+            val calculatedChecksum = calculateChecksum(file)
+            calculatedChecksum == expectedChecksum
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -99,10 +124,6 @@ class BackupVerificationService @Inject constructor(
         }
     }
 
-    private fun verifyVersionInfo(backup: BackupInfo): Boolean {
-        return backup.version >= 1 && backup.createdAt != null
-    }
-
     private fun countFiles(file: File): Int {
         return ZipFile(file).use { zip ->
             zip.entries().asSequence().count { !it.isDirectory }
@@ -125,6 +146,18 @@ class BackupVerificationService @Inject constructor(
         } else {
             0f
         }
+    }
+
+    private fun calculateChecksum(file: File): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { fis ->
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            while (fis.read(buffer).also { bytesRead = it } != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     sealed class BackupVerificationResult {

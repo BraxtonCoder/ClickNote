@@ -6,12 +6,66 @@ import com.google.firebase.auth.PhoneAuthProvider
 import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
-    fun getCurrentUser(): Flow<User?>
-    
-    suspend fun signInWithGoogle(idToken: String): Result<User>
-    
+    /**
+     * Get the current signed-in user
+     */
+    suspend fun getCurrentUser(): User?
+
+    /**
+     * Observe the current user state
+     */
+    fun observeCurrentUser(): Flow<User?>
+
+    /**
+     * Sign in with email and password
+     */
     suspend fun signInWithEmail(email: String, password: String): Result<User>
-    
+
+    /**
+     * Sign in with Google
+     */
+    suspend fun signInWithGoogle(idToken: String): Result<User>
+
+    /**
+     * Sign in anonymously
+     */
+    suspend fun signInAnonymously(): Result<User>
+
+    /**
+     * Sign out the current user
+     */
+    suspend fun signOut()
+
+    /**
+     * Delete the current user account
+     */
+    suspend fun deleteAccount(): Result<Unit>
+
+    /**
+     * Update user profile
+     */
+    suspend fun updateProfile(displayName: String? = null, photoUrl: String? = null): Result<Unit>
+
+    /**
+     * Update user email
+     */
+    suspend fun updateEmail(newEmail: String): Result<Unit>
+
+    /**
+     * Send email verification
+     */
+    suspend fun sendEmailVerification(): Result<Unit>
+
+    /**
+     * Check if user is signed in
+     */
+    suspend fun isSignedIn(): Boolean
+
+    /**
+     * Get user ID or null if not signed in
+     */
+    suspend fun getUserId(): String?
+
     suspend fun signInWithPhoneNumber(
         phoneNumber: String,
         callbacks: PhoneAuthProvider.OnVerificationStateChangedCallbacks
@@ -25,14 +79,6 @@ interface UserRepository {
     )
     
     suspend fun linkPhoneCredentialWithCurrentUser(credential: PhoneAuthCredential): Result<User>
-    
-    suspend fun signOut(): Result<Unit>
-    
-    suspend fun deleteAccount(): Result<Unit>
-    
-    suspend fun updateProfile(displayName: String?, photoUrl: String?): Result<Unit>
-    
-    suspend fun updateEmail(newEmail: String): Result<Unit>
     
     suspend fun updatePassword(newPassword: String): Result<Unit>
     

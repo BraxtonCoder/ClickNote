@@ -1,5 +1,6 @@
 package com.example.clicknote.service
 
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -9,19 +10,24 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.clicknote.R
 import com.example.clicknote.di.ServiceNotificationManager
 import com.example.clicknote.di.ServicePowerManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.nio.ByteBuffer
 import javax.inject.Inject
 
@@ -30,16 +36,23 @@ class InternalAudioCaptureService @Inject constructor(
     @ServicePowerManager private val powerManager: PowerManager,
     @ServiceNotificationManager private val notificationManager: NotificationManager
 ) : Service() {
+
+    @Inject
+    lateinit var mediaProjectionManager: MediaProjectionManager
+
     private var mediaProjection: MediaProjection? = null
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private var isRecording = false
     private var outputFile: File? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    private val _recordingState = MutableStateFlow(false)
+    val recordingState: StateFlow<Boolean> = _recordingState
+
     companion object {
+        private const val TAG = "InternalAudioCapture"
         private const val NOTIFICATION_ID = 3000
         private const val CHANNEL_ID = "internal_audio_capture_channel"
         private const val CHANNEL_NAME = "Internal Audio Capture"
@@ -47,13 +60,20 @@ class InternalAudioCaptureService @Inject constructor(
         private const val SAMPLE_RATE = 44100
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-        private const val BUFFER_SIZE = AudioRecord.getMinBufferSize(
-            SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT
-        )
+        
+        // Initialize buffer size in a non-const property
+        private val BUFFER_SIZE: Int by lazy {
+            AudioRecord.getMinBufferSize(
+                SAMPLE_RATE,
+                CHANNEL_CONFIG,
+                AUDIO_FORMAT
+            )
+        }
 
         const val EXTRA_RESULT_DATA = "result_data"
         const val ACTION_START_RECORDING = "START_INTERNAL_RECORDING"
         const val ACTION_STOP_RECORDING = "STOP_INTERNAL_RECORDING"
+        private const val ACTION_RECORDING_INTERNAL_AUDIO = "com.example.clicknote.RECORDING_INTERNAL_AUDIO"
     }
 
     override fun onCreate() {
@@ -74,10 +94,10 @@ class InternalAudioCaptureService @Inject constructor(
     }
 
     private fun startInternalRecording(resultData: Intent) {
-        if (isRecording) return
+        if (_recordingState.value) return
 
         val projectionManager = applicationContext.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = projectionManager.getMediaProjection(RESULT_OK, resultData)
+        mediaProjection = projectionManager.getMediaProjection(Activity.RESULT_OK, resultData)
 
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
@@ -109,7 +129,7 @@ class InternalAudioCaptureService @Inject constructor(
                 .build()
         }
 
-        isRecording = true
+        _recordingState.value = true
         startRecording()
     }
 
@@ -120,7 +140,7 @@ class InternalAudioCaptureService @Inject constructor(
 
             outputFile?.let { file ->
                 FileOutputStream(file).use { outputStream ->
-                    while (isRecording) {
+                    while (_recordingState.value) {
                         val bytesRead = audioRecord?.read(buffer, BUFFER_SIZE) ?: -1
                         if (bytesRead > 0) {
                             outputStream.channel.write(buffer)
@@ -133,7 +153,7 @@ class InternalAudioCaptureService @Inject constructor(
     }
 
     private fun stopInternalRecording() {
-        isRecording = false
+        _recordingState.value = false
         recordingJob?.cancel()
         
         audioRecord?.apply {
@@ -164,15 +184,14 @@ class InternalAudioCaptureService @Inject constructor(
                 CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Internal audio capture notification channel"
-                setShowBadge(false)
+                description = "Internal audio capture service notification channel"
             }
             notificationManager.createNotificationChannel(channel)
         }
     }
 
     private fun createNotification() = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-        .setContentTitle(getString(R.string.recording_internal_audio))
+        .setContentTitle(getString(R.string.internal_audio_recording))
         .setSmallIcon(R.drawable.ic_mic)
         .setPriority(NotificationCompat.PRIORITY_LOW)
         .build()

@@ -11,13 +11,13 @@ data class BackupInfo(
     val id: String,
     val size: Long,
     val createdAt: LocalDateTime,
-    val noteCount: Int,
-    val audioCount: Int,
-    val compressionLevel: CompressionLevel,
-    val isEncrypted: Boolean,
-    val cloudStorageProvider: CloudStorageProvider,
+    val backupType: BackupType,
     val metadata: Map<String, String> = emptyMap()
 ) {
+    fun toLocalDate(): LocalDate = createdAt.toLocalDate()
+
+    fun isAfter(other: LocalDateTime): Boolean = createdAt.isAfter(other)
+
     fun getCreationDate(): LocalDate = createdAt.toLocalDate()
     
     fun formatCreationDate(formatter: DateTimeFormatter): String = 
@@ -30,12 +30,14 @@ data class BackupInfo(
             id = "",
             size = 0L,
             createdAt = LocalDateTime.now(),
-            noteCount = 0,
-            audioCount = 0,
-            compressionLevel = CompressionLevel.NONE,
-            isEncrypted = false,
-            cloudStorageProvider = CloudStorageProvider.NONE,
+            backupType = BackupType.FULL,
             metadata = emptyMap()
         )
     }
+}
+
+enum class BackupType {
+    FULL,
+    DIFFERENTIAL,
+    INCREMENTAL
 }

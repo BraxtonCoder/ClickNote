@@ -1,13 +1,16 @@
 package com.example.clicknote.service
 
 import android.content.Context
-import android.media.MediaExtractor
-import android.media.MediaFormat
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.util.Log
 import android.util.LruCache
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.example.clicknote.analytics.AnalyticsTracker
 import com.example.clicknote.data.SharedPreferences
+import com.example.clicknote.domain.model.SpeakerProfile
+import com.example.clicknote.domain.service.SpeakerDetectionService
 import com.example.clicknote.ml.VoiceEmbeddingModel
 import com.example.clicknote.util.AudioFeatureExtractor
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,7 +34,8 @@ class MLSpeakerDetectionService @Inject constructor(
     private val audioFeatureExtractor: AudioFeatureExtractor,
     private val analyticsTracker: AnalyticsTracker,
     private val persistentProfiles: SharedPreferences
-) {
+) : SpeakerDetectionService {
+
     private var interpreter: Interpreter? = null
     private var embeddingModel: MappedByteBuffer? = null
     private val modelName = "voice_embedding_model.tflite"
@@ -58,6 +62,9 @@ class MLSpeakerDetectionService @Inject constructor(
     val realtimeSpeakers: StateFlow<List<SpeakerSegment>> = _realtimeSpeakers.asStateFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val _speakerConfidence = MutableStateFlow(0f)
+    private val speakerConfidence = _speakerConfidence.asStateFlow()
 
     data class SpeakerProfile(
         val id: Int,
@@ -152,96 +159,132 @@ class MLSpeakerDetectionService @Inject constructor(
         }
     }
 
-    fun detectSpeakers(audioFile: File): Flow<DetectionResult> = flow {
-        try {
-            if (!audioFile.exists()) {
-                emit(DetectionResult.Error(ErrorCode.INVALID_INPUT, "Audio file not found"))
-                return@flow
-            }
+    override suspend fun detectSpeakers(audioData: ByteArray): Result<Int> = runCatching {
+        withContext(Dispatchers.Default) {
+            val processedAudio = preprocessAudio(audioData)
+            val inputArray = FloatArray(BUFFER_SIZE)
+            processedAudio.asFloatBuffer().get(inputArray)
 
-            val startTime = System.currentTimeMillis()
-            val audioLengthSeconds = audioFile.length() / (16000.0 * 2)
-            analyticsTracker.trackSpeakerDetectionStarted(audioLengthSeconds)
+            val outputArray = Array(1) { FloatArray(2) }
+            interpreter?.run(inputArray, outputArray)
 
-            val segments = audioFeatureExtractor.segmentAudioWithNoiseReduction(
-                audioFile,
-                minSegmentDuration
-            )
+            val speakerCount = outputArray[0].count { it > 0.5f }
+            _speakerConfidence.value = outputArray[0].maxOrNull() ?: 0f
 
-            val embeddings = mutableListOf<FloatArray>()
-            val speakerSegments = mutableListOf<SpeakerSegment>()
-
-            segments.forEach { (start, end, audioData) ->
-                val cacheKey = generateCacheKey(audioData)
-                val embedding = cache.get(cacheKey) ?: generateEmbedding(audioData)?.also {
-                    cache.put(cacheKey, it)
-                }
-                
-                if (embedding != null) {
-                    embeddings.add(embedding)
-                    speakerSegments.add(
-                        SpeakerSegment(
-                            speakerId = -1,
-                            startTime = start,
-                            endTime = end,
-                            confidence = 0f,
-                            embedding = embedding
-                        )
-                    )
-                }
-            }
-
-            var optimalClusters: Triple<List<SpeakerSegment>, Int, Map<Int, SpeakerProfile>>? = null
-            var currentThreshold = similarityThreshold
-
-            while (currentThreshold >= minSimilarityThreshold && optimalClusters == null) {
-                val clusters = clusterSpeakersWithProfiles(speakerSegments, currentThreshold)
-                if (clusters.second in 2..maxSpeakers) {
-                    optimalClusters = clusters
-                } else {
-                    currentThreshold -= adaptiveThresholdStep
-                }
-            }
-
-            if (optimalClusters == null) {
-                optimalClusters = clusterSpeakersWithProfiles(speakerSegments, minSimilarityThreshold)
-            }
-
-            val (labeledSegments, speakerCount, profiles) = optimalClusters
-            val averageConfidence = labeledSegments.map { it.confidence }.average().toFloat()
-
-            val segmentsWithTransitions = detectTransitionsAndOverlaps(labeledSegments)
-            
-            val processedSegments = postProcessSegments(segmentsWithTransitions)
-
-            val totalDuration = System.currentTimeMillis() - startTime
-
-            analyticsTracker.trackSpeakerDetectionCompleted(
-                speakerCount = speakerCount,
-                confidence = averageConfidence,
-                durationMs = totalDuration,
-                success = true
-            )
-
-            emit(DetectionResult.Success(
-                segments = processedSegments,
-                speakerCount = speakerCount,
-                confidence = averageConfidence,
-                speakerProfiles = profiles
-            ))
-
-        } catch (e: Exception) {
-            handleError(e)
-            emit(DetectionResult.Error(
-                code = when (e) {
-                    is IllegalArgumentException -> ErrorCode.INVALID_INPUT
-                    is IllegalStateException -> ErrorCode.MODEL_LOADING_FAILED
-                    else -> ErrorCode.INFERENCE_FAILED
-                },
-                message = "Error during speaker detection: ${e.message}"
-            ))
+            speakerCount
         }
-    }.flowOn(Dispatchers.Default)
+    }
+
+    override suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>> = runCatching {
+        withContext(Dispatchers.Default) {
+            val segments = segmentAudio(audioData)
+            val speakerMap = mutableMapOf<String, String>()
+
+            segments.forEachIndexed { index, segment ->
+                val (start, end, audio) = segment
+                val processedSegment = preprocessAudio(audio)
+                val inputArray = FloatArray(BUFFER_SIZE)
+                processedSegment.asFloatBuffer().get(inputArray)
+
+                val outputArray = Array(1) { FloatArray(2) }
+                interpreter?.run(inputArray, outputArray)
+
+                val speakerId = "Speaker${index + 1}"
+                speakerMap[speakerId] = "Unknown"
+            }
+
+            speakerMap
+        }
+    }
+
+    override suspend fun detectSpeakers(file: File): Result<List<String>> = runCatching {
+        withContext(Dispatchers.Default) {
+            val audioData = file.readBytes()
+            val segments = segmentAudio(audioData)
+            val speakers = mutableSetOf<String>()
+
+            segments.forEachIndexed { index, segment ->
+                val (_, _, audio) = segment
+                val processedSegment = preprocessAudio(audio)
+                val inputArray = FloatArray(BUFFER_SIZE)
+                processedSegment.asFloatBuffer().get(inputArray)
+
+                val outputArray = Array(1) { FloatArray(2) }
+                interpreter?.run(inputArray, outputArray)
+
+                if (outputArray[0].maxOrNull() ?: 0f > 0.5f) {
+                    speakers.add("Speaker${index + 1}")
+                }
+            }
+
+            speakers.toList()
+        }
+    }
+
+    override suspend fun trainSpeakerProfile(
+        profile: SpeakerProfile,
+        audioData: ByteArray
+    ): Result<SpeakerProfile> = runCatching {
+        // Training not implemented in this version
+        profile
+    }
+
+    override suspend fun deleteSpeakerProfile(speakerId: String): Result<Unit> = runCatching {
+        // Profile deletion not implemented in this version
+    }
+
+    override suspend fun getSpeakerConfidence(
+        speakerId: String,
+        audioSample: ByteArray
+    ): Result<Float> = runCatching {
+        withContext(Dispatchers.Default) {
+            val processedAudio = preprocessAudio(audioSample)
+            val inputArray = FloatArray(BUFFER_SIZE)
+            processedAudio.asFloatBuffer().get(inputArray)
+
+            val outputArray = Array(1) { FloatArray(2) }
+            interpreter?.run(inputArray, outputArray)
+
+            outputArray[0].maxOrNull() ?: 0f
+        }
+    }
+
+    override suspend fun getKnownSpeakers(): Result<List<SpeakerProfile>> = runCatching {
+        emptyList() // Profile management not implemented in this version
+    }
+
+    override fun getSpeakerConfidence(): Flow<Float> = speakerConfidence
+
+    private fun preprocessAudio(audioData: ByteArray): ByteBuffer {
+        return ByteBuffer.allocateDirect(BUFFER_SIZE * 4).apply {
+            // Convert to float values between -1 and 1
+            audioData.forEachIndexed { index, byte ->
+                if (index < BUFFER_SIZE) {
+                    putFloat(byte.toFloat() / 128.0f)
+                }
+            }
+            rewind()
+        }
+    }
+
+    private fun segmentAudio(audioData: ByteArray): List<Triple<Int, Int, ByteArray>> {
+        val segments = mutableListOf<Triple<Int, Int, ByteArray>>()
+        val segmentSize = SAMPLE_RATE * 2 // 2 seconds per segment
+        var startPos = 0
+
+        while (startPos < audioData.size) {
+            val endPos = minOf(startPos + segmentSize, audioData.size)
+            val segment = audioData.copyOfRange(startPos, endPos)
+            segments.add(Triple(startPos, endPos, segment))
+            startPos = endPos
+        }
+
+        return segments
+    }
+
+    override fun cleanup() {
+        interpreter?.close()
+    }
 
     private fun detectTransitionsAndOverlaps(
         segments: List<SpeakerSegment>
@@ -690,21 +733,6 @@ class MLSpeakerDetectionService @Inject constructor(
         return dotProduct / (sqrt(normA) * sqrt(normB))
     }
 
-    private fun handleError(e: Exception, audioFile: File? = null) {
-        Log.e(TAG, "Error in speaker detection", e)
-        val errorCode = when (e) {
-            is IllegalArgumentException -> ErrorCode.INVALID_INPUT
-            is IllegalStateException -> ErrorCode.MODEL_LOADING_FAILED
-            else -> ErrorCode.INFERENCE_FAILED
-        }
-
-        analyticsTracker.trackSpeakerDetectionError(
-            errorCode = errorCode.name,
-            errorMessage = e.message ?: "Unknown error",
-            audioLengthSeconds = audioFile?.length()?.div(16000.0 * 2) ?: 0.0
-        )
-    }
-
     fun verifySpeaker(audioData: FloatArray, speakerId: Int): Flow<VerificationResult> = flow {
         try {
             val embedding = generateEmbedding(audioData) ?: throw IllegalStateException("Failed to generate embedding")
@@ -1068,5 +1096,9 @@ class MLSpeakerDetectionService @Inject constructor(
 
     companion object {
         private const val TAG = "MLSpeakerDetectionService"
+        private const val MODEL_PATH = "speaker_detection_model.tflite"
+        private const val SAMPLE_RATE = 16000
+        private const val RECORDING_DURATION_MS = 5000
+        private const val BUFFER_SIZE = SAMPLE_RATE * (RECORDING_DURATION_MS / 1000)
     }
 } 

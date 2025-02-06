@@ -32,7 +32,7 @@ class VolumeButtonReceiver : BroadcastReceiver() {
         if (intent?.action == Intent.ACTION_MEDIA_BUTTON) {
             val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
             event?.let {
-                volumeButtonHandler.onKeyEvent(it.keyCode, it)
+                volumeButtonHandler.handleVolumeButton(it)
             }
         }
     }

@@ -8,6 +8,8 @@ import kotlinx.coroutines.withContext
 import java.io.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 @Singleton
 class AudioConverterService @Inject constructor(
@@ -18,6 +20,8 @@ class AudioConverterService @Inject constructor(
         private const val CHANNELS = 1
         private const val BITS_PER_SAMPLE = 16
         private const val BUFFER_SIZE = 4096
+        private const val WAV_HEADER_SIZE = 44
+        private const val AUDIO_FORMAT_PCM = 1 // PCM format code
     }
 
     sealed class AudioFormat(val extension: String) {
@@ -76,7 +80,7 @@ class AudioConverterService @Inject constructor(
     private fun convertMp3ToWav(mp3File: File): File {
         val wavFile = File(mp3File.parent, mp3File.nameWithoutExtension + ".wav")
         val extractor = MediaExtractor()
-        val muxer = MediaMuxer(wavFile.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_WAV)
+        val muxer = MediaMuxer(wavFile.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         
         try {
             extractor.setDataSource(mp3File.path)
@@ -89,6 +93,9 @@ class AudioConverterService @Inject constructor(
             
             // Process audio
             processAudioTrack(extractor, decoder, muxer, trackIndex)
+            
+            // Convert the muxed output to WAV
+            convertToWavFormat(wavFile)
             
         } finally {
             extractor.release()
@@ -121,7 +128,7 @@ class AudioConverterService @Inject constructor(
     private fun convertGenericToWav(inputFile: File, mimeType: String): File {
         val wavFile = File(inputFile.parent, inputFile.nameWithoutExtension + ".wav")
         val extractor = MediaExtractor()
-        val muxer = MediaMuxer(wavFile.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_WAV)
+        val muxer = MediaMuxer(wavFile.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         
         try {
             extractor.setDataSource(inputFile.path)
@@ -134,6 +141,9 @@ class AudioConverterService @Inject constructor(
             
             // Process audio
             processAudioTrack(extractor, decoder, muxer, trackIndex)
+            
+            // Convert the muxed output to WAV
+            convertToWavFormat(wavFile)
             
         } finally {
             extractor.release()
@@ -205,23 +215,36 @@ class AudioConverterService @Inject constructor(
 
     private fun writeWavHeader(output: DataOutputStream, pcmDataSize: Int) {
         // RIFF header
-        output.writeBytes("RIFF") // ChunkID
-        output.writeInt(Integer.reverseBytes(36 + pcmDataSize)) // ChunkSize
-        output.writeBytes("WAVE") // Format
+        output.write("RIFF".toByteArray()) // ChunkID
+        output.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(36 + pcmDataSize).array()) // ChunkSize
+        output.write("WAVE".toByteArray()) // Format
         
         // fmt subchunk
-        output.writeBytes("fmt ") // Subchunk1ID
-        output.writeInt(Integer.reverseBytes(16)) // Subchunk1Size
-        output.writeShort(Short.reverseBytes(1.toShort())) // AudioFormat (PCM = 1)
-        output.writeShort(Short.reverseBytes(CHANNELS.toShort())) // NumChannels
-        output.writeInt(Integer.reverseBytes(SAMPLE_RATE)) // SampleRate
-        output.writeInt(Integer.reverseBytes(SAMPLE_RATE * CHANNELS * BITS_PER_SAMPLE / 8)) // ByteRate
-        output.writeShort(Short.reverseBytes((CHANNELS * BITS_PER_SAMPLE / 8).toShort())) // BlockAlign
-        output.writeShort(Short.reverseBytes(BITS_PER_SAMPLE.toShort())) // BitsPerSample
+        output.write("fmt ".toByteArray()) // Subchunk1ID
+        output.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(16).array()) // Subchunk1Size
+        output.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(1).array()) // AudioFormat (PCM = 1)
+        output.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(CHANNELS.toShort()).array()) // NumChannels
+        output.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(SAMPLE_RATE).array()) // SampleRate
+        output.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(SAMPLE_RATE * CHANNELS * BITS_PER_SAMPLE / 8).array()) // ByteRate
+        output.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort((CHANNELS * BITS_PER_SAMPLE / 8).toShort()).array()) // BlockAlign
+        output.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(BITS_PER_SAMPLE.toShort()).array()) // BitsPerSample
         
         // data subchunk
-        output.writeBytes("data") // Subchunk2ID
-        output.writeInt(Integer.reverseBytes(pcmDataSize)) // Subchunk2Size
+        output.write("data".toByteArray()) // Subchunk2ID
+        output.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(pcmDataSize).array()) // Subchunk2Size
+    }
+
+    private fun convertToWavFormat(file: File) {
+        val tempFile = File(file.parent, "${file.nameWithoutExtension}_temp.wav")
+        val pcmData = file.readBytes()
+        
+        DataOutputStream(BufferedOutputStream(FileOutputStream(tempFile))).use { output ->
+            writeWavHeader(output, pcmData.size)
+            output.write(pcmData)
+        }
+        
+        file.delete()
+        tempFile.renameTo(file)
     }
 
     fun splitWavFile(wavFile: File, chunkDurationMs: Int): List<File> {
@@ -262,5 +285,157 @@ class AudioConverterService @Inject constructor(
                 file.delete()
             }
         }
+    }
+
+    suspend fun convertToWav(inputFile: File, outputFile: File): Result<File> = runCatching {
+        val extractor = MediaExtractor()
+        extractor.setDataSource(inputFile.absolutePath)
+
+        val audioTrackIndex = selectAudioTrack(extractor)
+        if (audioTrackIndex < 0) {
+            throw IllegalStateException("No audio track found")
+        }
+
+        val format = extractor.getTrackFormat(audioTrackIndex)
+        val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+        val channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+        val duration = format.getLong(MediaFormat.KEY_DURATION)
+
+        val decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+        decoder.configure(format, null, null, 0)
+        decoder.start()
+
+        val muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        val outputFormat = MediaFormat.createAudioFormat(
+            MediaFormat.MIMETYPE_AUDIO_RAW,
+            sampleRate,
+            channelCount
+        )
+        val outputTrackIndex = muxer.addTrack(outputFormat)
+        muxer.start()
+
+        try {
+            decodeAndMuxAudio(extractor, decoder, muxer, outputTrackIndex, audioTrackIndex)
+        } finally {
+            extractor.release()
+            decoder.stop()
+            decoder.release()
+            muxer.stop()
+            muxer.release()
+        }
+
+        // Add WAV header
+        addWavHeader(outputFile, sampleRate, channelCount, duration)
+
+        outputFile
+    }
+
+    private fun selectAudioTrack(extractor: MediaExtractor): Int {
+        for (i in 0 until extractor.trackCount) {
+            val format = extractor.getTrackFormat(i)
+            val mime = format.getString(MediaFormat.KEY_MIME)
+            if (mime?.startsWith("audio/") == true) {
+                extractor.selectTrack(i)
+                return i
+            }
+        }
+        return -1
+    }
+
+    private fun decodeAndMuxAudio(
+        extractor: MediaExtractor,
+        decoder: MediaCodec,
+        muxer: MediaMuxer,
+        outputTrackIndex: Int,
+        audioTrackIndex: Int
+    ) {
+        val bufferInfo = MediaCodec.BufferInfo()
+        val inputBuffers = decoder.inputBuffers
+        val outputBuffers = decoder.outputBuffers
+        var sawInputEOS = false
+        var sawOutputEOS = false
+
+        while (!sawOutputEOS) {
+            if (!sawInputEOS) {
+                val inputBufferIndex = decoder.dequeueInputBuffer(10000)
+                if (inputBufferIndex >= 0) {
+                    val inputBuffer = inputBuffers[inputBufferIndex]
+                    val sampleSize = extractor.readSampleData(inputBuffer, 0)
+
+                    if (sampleSize < 0) {
+                        decoder.queueInputBuffer(
+                            inputBufferIndex,
+                            0,
+                            0,
+                            0,
+                            MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                        )
+                        sawInputEOS = true
+                    } else {
+                        decoder.queueInputBuffer(
+                            inputBufferIndex,
+                            0,
+                            sampleSize,
+                            extractor.sampleTime,
+                            0
+                        )
+                        extractor.advance()
+                    }
+                }
+            }
+
+            val outputBufferIndex = decoder.dequeueOutputBuffer(bufferInfo, 10000)
+            if (outputBufferIndex >= 0) {
+                if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                    sawOutputEOS = true
+                }
+
+                if (bufferInfo.size > 0) {
+                    val outputBuffer = outputBuffers[outputBufferIndex]
+                    muxer.writeSampleData(outputTrackIndex, outputBuffer, bufferInfo)
+                }
+                decoder.releaseOutputBuffer(outputBufferIndex, false)
+            }
+        }
+    }
+
+    private fun addWavHeader(outputFile: File, sampleRate: Int, channelCount: Int, duration: Long) {
+        val pcmData = outputFile.readBytes()
+        val wavFile = FileOutputStream(outputFile)
+
+        val totalDataLen = pcmData.size + WAV_HEADER_SIZE - 8
+        val byteRate = sampleRate * channelCount * BITS_PER_SAMPLE / 8
+
+        val header = ByteBuffer.allocate(WAV_HEADER_SIZE).apply {
+            order(ByteOrder.LITTLE_ENDIAN)
+            // RIFF header
+            put("RIFF".toByteArray())
+            putInt(totalDataLen)
+            put("WAVE".toByteArray())
+
+            // fmt chunk
+            put("fmt ".toByteArray())
+            putInt(16) // fmt chunk size
+            putShort(AUDIO_FORMAT_PCM.toShort()) // audio format (PCM)
+            putShort(channelCount.toShort()) // channels
+            putInt(sampleRate) // sample rate
+            putInt(byteRate) // byte rate
+            putShort((channelCount * BITS_PER_SAMPLE / 8).toShort()) // block align
+            putShort(BITS_PER_SAMPLE.toShort()) // bits per sample
+
+            // data chunk
+            put("data".toByteArray())
+            putInt(pcmData.size)
+        }.array()
+
+        wavFile.write(header)
+        wavFile.write(pcmData)
+        wavFile.close()
+    }
+
+    private fun ByteBuffer.reverseBytes(size: Int): ByteArray {
+        val bytes = ByteArray(size)
+        get(bytes)
+        return bytes.reversedArray()
     }
 } 

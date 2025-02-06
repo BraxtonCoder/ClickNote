@@ -1,15 +1,21 @@
 package com.example.clicknote.service
 
 import android.content.Context
-import com.example.clicknote.domain.model.*
+import com.example.clicknote.domain.model.BackupInfo
+import com.example.clicknote.domain.model.BackupSettings
+import com.example.clicknote.domain.model.CompressionLevel
+import com.example.clicknote.domain.model.CloudStorageProvider
+import com.example.clicknote.domain.service.AnalyticsService
+import com.example.clicknote.domain.service.BackupService
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
+import org.json.JSONObject
 import java.time.LocalDateTime
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import org.json.JSONObject
 
 @Singleton
 class BackupAnalyticsService @Inject constructor(
@@ -18,6 +24,7 @@ class BackupAnalyticsService @Inject constructor(
     private val analyticsService: AnalyticsService
 ) {
     private val _backupStats = MutableStateFlow<BackupStats?>(null)
+    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM")
 
     suspend fun updateBackupStats() {
         val backups = backupService.listBackups()
@@ -29,10 +36,10 @@ class BackupAnalyticsService @Inject constructor(
         val totalBackups = backups.size
         val totalSize = backups.sumOf { it.size }
         val averageSize = if (totalBackups > 0) totalSize / totalBackups else 0
-        val lastBackupTime = backups.maxOfOrNull { it.createdAt } ?: LocalDateTime.now()
+        val lastBackupTime = backups.maxByOrNull { it.createdAt }?.createdAt ?: LocalDateTime.now()
         
-        val backupsByMonth = backups.groupBy { 
-            "${it.createdAt.year}-${it.createdAt.monthValue}" 
+        val backupsByMonth = backups.groupBy { backup -> 
+            dateFormatter.format(backup.createdAt)
         }
         
         val monthlyStats = backupsByMonth.map { (month, monthBackups) ->
@@ -66,12 +73,10 @@ class BackupAnalyticsService @Inject constructor(
     }
 
     private fun calculateCompressionRatio(backups: List<BackupInfo>): Float {
-        // Implementation to calculate average compression ratio
         return 0.0f // Placeholder
     }
 
     private fun calculateSuccessRate(backups: List<BackupInfo>): Float {
-        // Implementation to calculate backup success rate
         return 0.0f // Placeholder
     }
 
@@ -81,7 +86,7 @@ class BackupAnalyticsService @Inject constructor(
         return _backupStats.map { stats ->
             stats?.monthlyStats?.map { monthly ->
                 StorageUsagePoint(
-                    timestamp = LocalDateTime.now(), // Parse from month string
+                    timestamp = LocalDateTime.now(),
                     usageBytes = monthly.totalSize
                 )
             } ?: emptyList()
@@ -89,92 +94,74 @@ class BackupAnalyticsService @Inject constructor(
     }
 
     fun trackBackupStarted(settings: BackupSettings) {
-        val properties = JSONObject().apply {
-            put("auto_backup_enabled", settings.isAutoBackupEnabled)
-            put("backup_interval_hours", settings.backupIntervalHours)
-            put("include_audio", settings.includeAudioFiles)
-            put("encryption_enabled", settings.encryptBackups)
-            put("compression_level", settings.compressionLevel.name)
-            put("cloud_provider", settings.cloudStorageProvider.name)
-        }
-        analyticsService.track("Backup Started", properties)
+        val props = JSONObject()
+        putSafely(props, "backup_frequency", settings.backupFrequency.toHours())
+        putSafely(props, "backup_audio_files", settings.backupAudioFiles)
+        putSafely(props, "backup_settings", settings.backupSettings)
+        putSafely(props, "compression_level", settings.compressionLevel.toString())
+        putSafely(props, "cloud_provider", settings.cloudProvider.toString())
+        analyticsService.trackEvent("backup_started", props.toMap())
     }
 
-    fun trackBackupCompleted(backupInfo: BackupInfo, duration: Long) {
-        val properties = JSONObject().apply {
-            put("backup_id", backupInfo.id)
-            put("size_mb", backupInfo.size / (1024 * 1024))
-            put("note_count", backupInfo.noteCount)
-            put("audio_count", backupInfo.audioCount)
-            put("duration_seconds", duration / 1000)
-            put("compression_level", backupInfo.compressionLevel.name)
-            put("is_encrypted", backupInfo.isEncrypted)
-            put("cloud_provider", backupInfo.cloudStorageProvider.name)
-        }
-        analyticsService.track("Backup Completed", properties)
+    fun trackBackupCompleted(info: BackupInfo, duration: Long) {
+        val props = JSONObject()
+        putSafely(props, "backup_id", info.id)
+        putSafely(props, "size_mb", info.size / (1024 * 1024))
+        putSafely(props, "note_count", info.noteCount)
+        putSafely(props, "audio_count", info.audioCount)
+        putSafely(props, "duration_seconds", duration / 1000)
+        putSafely(props, "compression_level", info.compressionLevel.toString())
+        putSafely(props, "is_encrypted", info.isEncrypted)
+        putSafely(props, "cloud_provider", info.cloudStorageProvider.toString())
+        analyticsService.trackEvent("backup_completed", props.toMap())
     }
 
-    fun trackBackupFailed(error: String, phase: String) {
-        val properties = JSONObject().apply {
-            put("error_message", error)
-            put("phase", phase)
+    fun trackBackupError(error: String, info: BackupInfo?) {
+        val props = JSONObject()
+        putSafely(props, "error_message", error)
+        info?.let { backup ->
+            putSafely(props, "backup_id", backup.id)
+            putSafely(props, "size_mb", backup.size / (1024 * 1024))
+            putSafely(props, "note_count", backup.noteCount)
+            putSafely(props, "audio_count", backup.audioCount)
+            putSafely(props, "compression_level", backup.compressionLevel.toString())
+            putSafely(props, "is_encrypted", backup.isEncrypted)
+            putSafely(props, "cloud_provider", backup.cloudStorageProvider.toString())
         }
-        analyticsService.track("Backup Failed", properties)
+        analyticsService.trackEvent("backup_error", props.toMap())
     }
 
-    fun trackBackupRestoreStarted(backupInfo: BackupInfo) {
-        val properties = JSONObject().apply {
-            put("backup_id", backupInfo.id)
-            put("size_mb", backupInfo.size / (1024 * 1024))
-            put("note_count", backupInfo.noteCount)
-            put("audio_count", backupInfo.audioCount)
-            put("is_encrypted", backupInfo.isEncrypted)
-            put("cloud_provider", backupInfo.cloudStorageProvider.name)
-        }
-        analyticsService.track("Backup Restore Started", properties)
+    fun trackBackupDeleted(info: BackupInfo) {
+        val props = JSONObject()
+        putSafely(props, "backup_id", info.id)
+        val daysBetween = ChronoUnit.DAYS.between(
+            info.createdAt.toLocalDate(),
+            LocalDate.now()
+        )
+        putSafely(props, "backup_age_days", daysBetween)
+        putSafely(props, "cloud_provider", info.cloudStorageProvider.toString())
+        analyticsService.trackEvent("backup_deleted", props.toMap())
     }
 
-    fun trackBackupRestoreCompleted(backupInfo: BackupInfo, duration: Long) {
-        val properties = JSONObject().apply {
-            put("backup_id", backupInfo.id)
-            put("size_mb", backupInfo.size / (1024 * 1024))
-            put("note_count", backupInfo.noteCount)
-            put("audio_count", backupInfo.audioCount)
-            put("duration_seconds", duration / 1000)
-            put("is_encrypted", backupInfo.isEncrypted)
-            put("cloud_provider", backupInfo.cloudStorageProvider.name)
+    private fun putSafely(json: JSONObject, key: String, value: Any?) {
+        val stringValue = when (value) {
+            null -> ""
+            is Boolean -> value.toString()
+            is Number -> value.toString()
+            is String -> value
+            else -> value.toString()
         }
-        analyticsService.track("Backup Restore Completed", properties)
+        json.put(key, stringValue)
     }
 
-    fun trackBackupRestoreFailed(error: String, phase: String) {
-        val properties = JSONObject().apply {
-            put("error_message", error)
-            put("phase", phase)
+    private fun JSONObject.toMap(): Map<String, Any> {
+        val map = mutableMapOf<String, Any>()
+        val keys = this.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            map[key] = this.get(key).toString()
         }
-        analyticsService.track("Backup Restore Failed", properties)
-    }
-
-    fun trackBackupSettingsChanged(settings: BackupSettings) {
-        val properties = JSONObject().apply {
-            put("auto_backup_enabled", settings.isAutoBackupEnabled)
-            put("backup_interval_hours", settings.backupIntervalHours)
-            put("include_audio", settings.includeAudioFiles)
-            put("encryption_enabled", settings.encryptBackups)
-            put("compression_level", settings.compressionLevel.name)
-            put("cloud_provider", settings.cloudStorageProvider.name)
-        }
-        analyticsService.track("Backup Settings Changed", properties)
-    }
-
-    fun trackBackupDeleted(backupInfo: BackupInfo) {
-        val properties = JSONObject().apply {
-            put("backup_id", backupInfo.id)
-            put("size_mb", backupInfo.size / (1024 * 1024))
-            put("age_days", backupInfo.createdAt.until(LocalDateTime.now()).toDays())
-            put("cloud_provider", backupInfo.cloudStorageProvider.name)
-        }
-        analyticsService.track("Backup Deleted", properties)
+        return map
     }
 
     data class BackupStats(
@@ -206,4 +193,4 @@ class BackupAnalyticsService @Inject constructor(
         val timestamp: LocalDateTime,
         val usageBytes: Long
     )
-} 
+}

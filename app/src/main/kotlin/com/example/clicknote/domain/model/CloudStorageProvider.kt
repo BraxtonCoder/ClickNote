@@ -6,7 +6,8 @@ package com.example.clicknote.domain.model
 enum class CloudStorageProvider {
     NONE,           // Local storage only
     GOOGLE_DRIVE,   // Google Drive storage
-    FIREBASE;       // Firebase Cloud Storage
+    DROPBOX,        // Dropbox storage
+    ONE_DRIVE;      // OneDrive storage
 
     companion object {
         fun fromString(provider: String): CloudStorageProvider {

@@ -1,21 +1,21 @@
 package com.example.clicknote.data.service
 
 import android.content.Context
+import com.example.clicknote.domain.model.*
+import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.service.BackupService
-import com.example.clicknote.domain.preferences.UserPreferences
 import com.example.clicknote.domain.repository.NoteRepository
 import com.example.clicknote.domain.repository.FolderRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.*
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,27 +24,31 @@ class BackupServiceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val noteRepository: NoteRepository,
     private val folderRepository: FolderRepository,
-    private val userPreferences: UserPreferences
+    private val preferences: UserPreferencesDataStore
 ) : BackupService {
-    private val backupProgress = MutableStateFlow(0f)
-    private val restoreProgress = MutableStateFlow(0f)
+
+    private val _backupProgress = MutableStateFlow(0f)
+    private val _restoreProgress = MutableStateFlow(0f)
     private val backupDir = File(context.filesDir, "backups")
 
     init {
         backupDir.mkdirs()
     }
 
-    override suspend fun createBackup(): Result<File> = withContext(Dispatchers.IO) {
+    override suspend fun createBackup(): Result<BackupInfo> = runCatching {
+        _backupProgress.value = 0f
+        
+        val notes = noteRepository.getAllNotes().getOrThrow()
+        val backupFile = File(backupDir, "backup_${System.currentTimeMillis()}.zip")
+        
         try {
-            val backupFile = File(backupDir, "backup_${System.currentTimeMillis()}.zip")
             ZipOutputStream(FileOutputStream(backupFile)).use { zip ->
                 // Backup notes
-                val notes = noteRepository.getAllNotes().getOrThrow()
                 val notesJson = com.google.gson.Gson().toJson(notes)
                 zip.putNextEntry(ZipEntry("notes.json"))
                 zip.write(notesJson.toByteArray())
                 zip.closeEntry()
-                backupProgress.value = 0.5f
+                _backupProgress.value = 0.5f
 
                 // Backup folders
                 val folders = folderRepository.getAllFolders().getOrThrow()
@@ -52,18 +56,37 @@ class BackupServiceImpl @Inject constructor(
                 zip.putNextEntry(ZipEntry("folders.json"))
                 zip.write(foldersJson.toByteArray())
                 zip.closeEntry()
-                backupProgress.value = 1.0f
+                _backupProgress.value = 1.0f
             }
             
-            userPreferences.setLastBackupTime(System.currentTimeMillis())
-            Result.success(backupFile)
-        } catch (e: Exception) {
-            Result.failure(e)
+            val backupInfo = BackupInfo(
+                id = backupFile.name,
+                size = backupFile.length(),
+                createdAt = LocalDateTime.now(),
+                noteCount = notes.size,
+                audioCount = 0, // TODO: Get actual count
+                compressionLevel = CompressionLevel.LOW,
+                isEncrypted = false,
+                cloudStorageProvider = CloudStorageProvider.NONE,
+                metadata = emptyMap()
+            )
+            
+            _backupProgress.value = 0f
+            backupInfo
+        } finally {
+            _backupProgress.value = 0f
         }
     }
 
-    override suspend fun restoreBackup(backupFile: File): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun restoreBackup(backupId: String): Result<Unit> = runCatching {
+        _restoreProgress.value = 0f
+        
         try {
+            val backupFile = File(context.filesDir, backupId)
+            if (!backupFile.exists()) {
+                throw IllegalArgumentException("Backup file not found")
+            }
+            
             ZipInputStream(FileInputStream(backupFile)).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
@@ -72,83 +95,73 @@ class BackupServiceImpl @Inject constructor(
                             val notesJson = zip.readBytes().decodeToString()
                             val notes = com.google.gson.Gson().fromJson(notesJson, Array<com.example.clicknote.domain.model.Note>::class.java)
                             noteRepository.insertNotes(notes.toList()).getOrThrow()
-                            restoreProgress.value = 0.5f
+                            _restoreProgress.value = 0.5f
                         }
                         "folders.json" -> {
                             val foldersJson = zip.readBytes().decodeToString()
                             val folders = com.google.gson.Gson().fromJson(foldersJson, Array<com.example.clicknote.domain.model.Folder>::class.java)
                             folderRepository.insertFolders(folders.toList()).getOrThrow()
-                            restoreProgress.value = 1.0f
+                            _restoreProgress.value = 1.0f
                         }
                     }
                     entry = zip.nextEntry
                 }
             }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            _restoreProgress.value = 0f
+            Unit
+        } finally {
+            _restoreProgress.value = 0f
         }
     }
 
-    override suspend fun getBackupFiles(): Result<List<File>> = withContext(Dispatchers.IO) {
-        try {
-            Result.success(backupDir.listFiles()?.filter { it.extension == "zip" }?.sortedByDescending { it.lastModified() } ?: emptyList())
-        } catch (e: Exception) {
-            Result.failure(e)
+    override suspend fun listBackups(): List<BackupInfo> {
+        return context.filesDir.listFiles { file ->
+            file.name.startsWith("backup_") && file.name.endsWith(".zip")
+        }?.map { file ->
+            BackupInfo(
+                id = file.name,
+                size = file.length(),
+                createdAt = LocalDateTime.now(), // TODO: Get actual creation time
+                noteCount = 0, // TODO: Get actual count
+                audioCount = 0, // TODO: Get actual count
+                compressionLevel = CompressionLevel.LOW,
+                isEncrypted = false,
+                cloudStorageProvider = CloudStorageProvider.NONE,
+                metadata = emptyMap()
+            )
+        } ?: emptyList()
+    }
+
+    override suspend fun deleteBackup(backupId: String): Result<Unit> = runCatching {
+        val backupFile = File(context.filesDir, backupId)
+        if (backupFile.exists()) {
+            backupFile.delete()
         }
+        Unit
     }
 
-    override suspend fun deleteBackup(backupFile: File): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            if (backupFile.exists() && backupFile.delete()) {
-                Result.success(Unit)
-            } else {
-                Result.failure(IllegalStateException("Failed to delete backup file"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    override suspend fun scheduleAutomaticBackup(intervalHours: Int): Result<Unit> = runCatching {
+        // TODO: Implement automatic backup scheduling
+        Unit
     }
 
-    override suspend fun scheduleAutomaticBackup(intervalHours: Int): Result<Unit> {
-        userPreferences.setAutoBackupInterval(intervalHours)
-        userPreferences.setAutoBackupEnabled(true)
-        // TODO: Implement automatic backup scheduling using WorkManager
-        return Result.success(Unit)
-    }
-
-    override suspend fun cancelAutomaticBackup(): Result<Unit> {
-        userPreferences.setAutoBackupEnabled(false)
+    override suspend fun cancelAutomaticBackup(): Result<Unit> = runCatching {
         // TODO: Implement automatic backup cancellation
-        return Result.success(Unit)
+        Unit
     }
 
-    override fun observeBackupProgress(): Flow<Float> = backupProgress
+    override fun observeBackupProgress(): Flow<Float> = _backupProgress.asStateFlow()
 
-    override fun observeRestoreProgress(): Flow<Float> = restoreProgress
+    override fun observeRestoreProgress(): Flow<Float> = _restoreProgress.asStateFlow()
 
-    override suspend fun validateBackup(backupFile: File): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            var isValid = true
-            ZipInputStream(FileInputStream(backupFile)).use { zip ->
-                var entry = zip.nextEntry
-                val requiredEntries = setOf("notes.json", "folders.json")
-                val foundEntries = mutableSetOf<String>()
-                
-                while (entry != null) {
-                    foundEntries.add(entry.name)
-                    entry = zip.nextEntry
-                }
-                
-                isValid = foundEntries.containsAll(requiredEntries)
-            }
-            Result.success(isValid)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    override suspend fun validateBackup(backupId: String): Result<Boolean> = runCatching {
+        val backupFile = File(context.filesDir, backupId)
+        backupFile.exists() && backupFile.length() > 0
     }
 
-    override suspend fun getLastBackupTime(): Result<Long> {
-        return Result.success(userPreferences.getLastBackupTime())
+    override suspend fun getLastBackupTime(): Result<Long> = runCatching {
+        val backups = listBackups()
+        backups.maxOfOrNull { it.createdAt.toEpochSecond(java.time.ZoneOffset.UTC) * 1000 }
+            ?: 0L
     }
 } 

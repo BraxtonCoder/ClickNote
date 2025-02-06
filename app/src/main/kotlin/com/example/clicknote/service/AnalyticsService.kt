@@ -1,9 +1,10 @@
 package com.example.clicknote.service
 
 import android.content.Context
+import com.example.clicknote.BuildConfig
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.SubscriptionPlan
-import com.example.clicknote.service.PremiumFeature
+import com.example.clicknote.domain.service.AnalyticsService
 import com.mixpanel.android.mpmetrics.MixpanelAPI
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONObject
@@ -11,177 +12,175 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AnalyticsService @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
-    private val mixpanel = MixpanelAPI.getInstance(context, MIXPANEL_TOKEN)
+class AnalyticsServiceImpl @Inject constructor(
+    @ApplicationContext context: Context
+) : AnalyticsService {
 
-    fun trackNoteCreated(note: Note) {
-        val properties = JSONObject().apply {
-            put("note_id", note.id)
-            put("has_audio", note.audioPath != null)
-            put("folder_id", note.folderId)
-            put("word_count", note.content.split(" ").size)
-            put("character_count", note.content.length)
-            put("duration", note.duration)
+    private val mixpanel: MixpanelAPI = MixpanelAPI.getInstance(
+        context,
+        BuildConfig.MIXPANEL_TOKEN,
+        true
+    )
+
+    override fun trackScreenView(screenName: String) {
+        val props = JSONObject().apply {
+            put("screen_name", screenName)
         }
-        mixpanel.track("Note Created", properties)
+        mixpanel.trackMap("screen_view", props.toMap())
     }
 
-    fun trackNoteDeleted(note: Note) {
-        val properties = JSONObject().apply {
-            put("note_id", note.id)
-            put("has_audio", note.audioPath != null)
-            put("folder_id", note.folderId)
-            put("age_days", note.createdAt.until(note.updatedAt).toDays())
+    override fun trackEvent(eventName: String, properties: Map<String, Any>) {
+        val props = JSONObject()
+        properties.forEach { (key, value) ->
+            when (value) {
+                is String -> props.put(key, value)
+                is Number -> props.put(key, value)
+                is Boolean -> props.put(key, value)
+                else -> props.put(key, value.toString())
+            }
         }
-        mixpanel.track("Note Deleted", properties)
+        mixpanel.trackMap(eventName, props.toMap())
     }
 
-    fun trackNoteRestored(note: Note) {
-        val properties = JSONObject().apply {
-            put("note_id", note.id)
-            put("has_audio", note.audioPath != null)
-            put("folder_id", note.folderId)
-        }
-        mixpanel.track("Note Restored", properties)
-    }
-
-    fun trackSubscriptionStarted(plan: SubscriptionPlan) {
-        val properties = JSONObject().apply {
-            put("plan_type", plan.name)
-            put("price", when (plan) {
-                SubscriptionPlan.MONTHLY -> 9.99
-                SubscriptionPlan.ANNUAL -> 98.00
-            })
-        }
-        mixpanel.track("Subscription Started", properties)
-    }
-
-    fun trackSubscriptionCanceled(plan: SubscriptionPlan) {
-        val properties = JSONObject().apply {
-            put("plan_type", plan.name)
-        }
-        mixpanel.track("Subscription Canceled", properties)
-    }
-
-    fun trackSearch(query: String, resultCount: Int) {
-        val properties = JSONObject().apply {
-            put("query", query)
-            put("result_count", resultCount)
-        }
-        mixpanel.track("Search Performed", properties)
-    }
-
-    fun trackBackupCreated(size: Long, noteCount: Int, audioCount: Int) {
-        val properties = JSONObject().apply {
-            put("size_mb", size / (1024 * 1024))
-            put("note_count", noteCount)
-            put("audio_count", audioCount)
-        }
-        mixpanel.track("Backup Created", properties)
-    }
-
-    fun trackBackupRestored(size: Long, noteCount: Int, audioCount: Int) {
-        val properties = JSONObject().apply {
-            put("size_mb", size / (1024 * 1024))
-            put("note_count", noteCount)
-            put("audio_count", audioCount)
-        }
-        mixpanel.track("Backup Restored", properties)
-    }
-
-    fun trackError(error: String, screen: String) {
-        val properties = JSONObject().apply {
+    override fun trackError(error: String, screen: String) {
+        val props = JSONObject().apply {
             put("error_message", error)
             put("screen", screen)
         }
-        mixpanel.track("Error Occurred", properties)
+        mixpanel.trackMap("error", props.toMap())
     }
 
-    fun setUserProperties(userId: String, email: String?) {
-        mixpanel.identify(userId)
-        val properties = JSONObject().apply {
-            put("\$email", email)
+    override fun trackSearch(query: String, resultCount: Int) {
+        val props = JSONObject().apply {
+            put("query", query)
+            put("result_count", resultCount)
         }
-        mixpanel.people.set(properties)
+        mixpanel.trackMap("search", props.toMap())
     }
 
-    fun clearUserProperties() {
+    override fun trackSubscriptionChanged(plan: SubscriptionPlan) {
+        val props = JSONObject().apply {
+            put("plan_type", when (plan) {
+                is SubscriptionPlan.Monthly -> "MONTHLY"
+                is SubscriptionPlan.Annual -> "ANNUAL"
+                is SubscriptionPlan.Free -> "FREE"
+            })
+            put("price", plan.price)
+        }
+        mixpanel.trackMap("subscription_changed", props.toMap())
+    }
+
+    override fun trackNoteCreated(note: Note) {
+        val props = JSONObject().apply {
+            put("note_id", note.id)
+            put("has_audio", note.hasAudio)
+            put("word_count", note.content.split(" ").size)
+            put("folder_id", note.folderId ?: "none")
+        }
+        mixpanel.trackMap("note_created", props.toMap())
+    }
+
+    override fun trackNoteDeleted(note: Note) {
+        val props = JSONObject().apply {
+            put("note_id", note.id)
+            put("has_audio", note.hasAudio)
+        }
+        mixpanel.trackMap("note_deleted", props.toMap())
+    }
+
+    override fun trackNoteRestored(note: Note) {
+        val props = JSONObject().apply {
+            put("note_id", note.id)
+            put("has_audio", note.hasAudio)
+        }
+        mixpanel.trackMap("note_restored", props.toMap())
+    }
+
+    override fun trackTranscriptionStarted(source: String) {
+        val props = JSONObject().apply {
+            put("source", source)
+        }
+        mixpanel.trackMap("transcription_started", props.toMap())
+    }
+
+    override fun trackTranscriptionCompleted(duration: Long, wordCount: Int) {
+        val props = JSONObject().apply {
+            put("duration_ms", duration)
+            put("word_count", wordCount)
+        }
+        mixpanel.trackMap("transcription_completed", props.toMap())
+    }
+
+    override fun trackTranscriptionFailed(error: String) {
+        val props = JSONObject().apply {
+            put("error_message", error)
+        }
+        mixpanel.trackMap("transcription_failed", props.toMap())
+    }
+
+    override fun setUserProperties(properties: Map<String, Any>) {
+        properties.forEach { (key, value) ->
+            mixpanel.people.set(key, value)
+        }
+    }
+
+    override fun identify(userId: String) {
+        mixpanel.identify(userId)
+        mixpanel.people.identify(userId)
+    }
+
+    override fun reset() {
         mixpanel.reset()
     }
 
-    fun trackFeatureAccess(
-        feature: String,
-        isAllowed: Boolean,
-        subscriptionState: Any
-    ) {
-        val properties = JSONObject().apply {
-            put("feature", feature)
-            put("is_allowed", isAllowed)
-            put("subscription_state", subscriptionState.toString())
+    override fun trackCallRecordingStarted(phoneNumber: String, isIncoming: Boolean) {
+        val props = JSONObject().apply {
+            put("phone_number", phoneNumber)
+            put("is_incoming", isIncoming)
             put("timestamp", System.currentTimeMillis())
         }
-        mixpanel.track("feature_access_attempt", properties)
+        mixpanel.trackMap("call_recording_started", props.toMap())
     }
 
-    fun trackUpgradePromptShown(
-        feature: PremiumFeature,
-        remainingCount: Int?,
-        source: String
+    override fun trackCallRecordingCompleted(
+        phoneNumber: String,
+        duration: Long,
+        transcriptionLength: Int,
+        isIncoming: Boolean
     ) {
-        val properties = JSONObject().apply {
-            put("feature", feature.name)
-            put("remaining_count", remainingCount)
-            put("source", source)
-            put("timestamp", System.currentTimeMillis())
+        val props = JSONObject().apply {
+            put("phone_number", phoneNumber)
+            put("duration_ms", duration)
+            put("transcription_length", transcriptionLength)
+            put("is_incoming", isIncoming)
         }
-        mixpanel.track("upgrade_prompt_shown", properties)
+        mixpanel.trackMap("call_recording_completed", props.toMap())
     }
 
-    fun trackUpgradePromptAction(
-        feature: PremiumFeature,
-        action: String,
-        source: String
-    ) {
-        val properties = JSONObject().apply {
-            put("feature", feature.name)
-            put("action", action) // "upgrade", "dismiss"
-            put("source", source)
-            put("timestamp", System.currentTimeMillis())
+    override fun trackCallRecordingError(phoneNumber: String, error: String) {
+        val props = JSONObject().apply {
+            put("phone_number", phoneNumber)
+            put("error_message", error)
         }
-        mixpanel.track("upgrade_prompt_action", properties)
+        mixpanel.trackMap("call_recording_error", props.toMap())
     }
 
-    fun trackWeeklyLimitUpdate(
-        newCount: Int,
-        remainingCount: Int
-    ) {
-        val properties = JSONObject().apply {
-            put("new_count", newCount)
-            put("remaining_count", remainingCount)
-            put("timestamp", System.currentTimeMillis())
+    override fun trackStorageUsage(usedBytes: Long, totalBytes: Long) {
+        val props = JSONObject().apply {
+            put("used_bytes", usedBytes)
+            put("total_bytes", totalBytes)
+            put("usage_percentage", (usedBytes.toDouble() / totalBytes.toDouble()) * 100)
         }
-        mixpanel.track("weekly_limit_update", properties)
+        mixpanel.trackMap("storage_usage", props.toMap())
     }
 
-    fun trackSubscriptionConversion(
-        previousState: String,
-        newPlan: SubscriptionPlan,
-        source: String,
-        triggeringFeature: PremiumFeature?
-    ) {
-        val properties = JSONObject().apply {
-            put("previous_state", previousState)
-            put("new_plan", newPlan.name)
-            put("source", source)
-            put("triggering_feature", triggeringFeature?.name)
-            put("timestamp", System.currentTimeMillis())
+    private fun JSONObject.toMap(): Map<String, Any> {
+        val map = mutableMapOf<String, Any>()
+        val keys = this.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            map[key] = this.get(key)
         }
-        mixpanel.track("subscription_conversion", properties)
-    }
-
-    companion object {
-        private const val MIXPANEL_TOKEN = "YOUR_MIXPANEL_TOKEN"
+        return map
     }
 } 

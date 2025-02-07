@@ -10,7 +10,8 @@ enum class SyncStatus {
     FAILED,     // Sync failed
     CANCELLED,
     CONFLICT,   // Sync conflict detected
-    OFFLINE;    // Offline, will sync when online
+    OFFLINE,    // Offline, will sync when online
+    SYNCED;     // Successfully synced with cloud
 
     companion object {
         fun fromString(status: String): SyncStatus {

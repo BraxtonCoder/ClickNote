@@ -36,7 +36,8 @@ data class Note(
         "isDeleted" to isDeleted,
         "createdAt" to createdAt,
         "modifiedAt" to modifiedAt,
-        "deletedAt" to deletedAt
+        "deletedAt" to deletedAt,
+        "syncStatus" to syncStatus.name
     )
 
     companion object {
@@ -54,7 +55,7 @@ data class Note(
                 createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                 modifiedAt = doc.getLong("modifiedAt") ?: System.currentTimeMillis(),
                 deletedAt = doc.getLong("deletedAt"),
-                syncStatus = SyncStatus.SYNCED
+                syncStatus = doc.getString("syncStatus")?.let { SyncStatus.fromString(it) } ?: SyncStatus.SYNCED
             )
         }
     }

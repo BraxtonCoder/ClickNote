@@ -4,8 +4,21 @@ import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.SubscriptionPlan
 
 interface AnalyticsService {
+    fun track(
+        eventName: String,
+        properties: Map<String, Any> = emptyMap()
+    )
+
+    fun setUserProperty(
+        propertyName: String,
+        value: Any
+    )
+
+    fun identify(userId: String)
+
+    fun reset()
+
     fun trackScreenView(screenName: String)
-    fun trackEvent(eventName: String, properties: Map<String, Any>)
     fun trackError(error: String, screen: String)
     fun trackSearch(query: String, resultCount: Int)
     fun trackNoteCreated(note: Note)
@@ -24,9 +37,6 @@ interface AnalyticsService {
     )
     fun trackCallRecordingError(phoneNumber: String, error: String)
     fun trackStorageUsage(usedBytes: Long, totalBytes: Long)
-    fun setUserProperties(properties: Map<String, Any>)
-    fun identify(userId: String)
-    fun reset()
 }
 
 sealed class AnalyticsEvent(val name: String) {

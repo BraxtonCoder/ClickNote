@@ -137,46 +137,115 @@ class BackupAnalyticsService @Inject constructor(
                backup.metadata.entries.any { (_, value) -> value.contains(query, ignoreCase = true) }
     }
 
-    fun trackBackupStarted(settings: BackupSearchFilters) {
-        val props = JSONObject()
-        putSafely(props, "backup_type", settings.backupType?.name ?: "FULL")
-        putSafely(props, "size_filter", settings.sizeFilter.name)
-        putSafely(props, "date_range", settings.dateRange.name)
-        analyticsService.trackEvent("backup_started", props.toMap())
+    fun trackBackupStarted(backupInfo: BackupInfo) {
+        analyticsService.track(
+            "backup_started",
+            mapOf(
+                "backup_id" to backupInfo.id,
+                "backup_type" to backupInfo.backupType.name,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
     }
 
-    fun trackBackupCompleted(info: BackupInfo, duration: Long) {
-        val props = JSONObject()
-        putSafely(props, "backup_id", info.id)
-        putSafely(props, "size_mb", info.size / (1024 * 1024))
-        putSafely(props, "backup_type", info.backupType.name)
-        putSafely(props, "duration_seconds", duration / 1000)
-        putSafely(props, "metadata_count", info.metadata.size)
-        analyticsService.trackEvent("backup_completed", props.toMap())
+    fun trackBackupCompleted(
+        backupInfo: BackupInfo,
+        duration: Long,
+        fileCount: Int,
+        totalSize: Long
+    ) {
+        analyticsService.track(
+            "backup_completed",
+            mapOf(
+                "backup_id" to backupInfo.id,
+                "backup_type" to backupInfo.backupType.name,
+                "duration_ms" to duration,
+                "file_count" to fileCount,
+                "total_size_bytes" to totalSize,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
     }
 
-    fun trackBackupError(error: String, info: BackupInfo?) {
-        val props = JSONObject()
-        putSafely(props, "error_message", error)
-        info?.let { backup ->
-            putSafely(props, "backup_id", backup.id)
-            putSafely(props, "size_mb", backup.size / (1024 * 1024))
-            putSafely(props, "backup_type", backup.backupType.name)
-            putSafely(props, "metadata_count", backup.metadata.size)
-        }
-        analyticsService.trackEvent("backup_error", props.toMap())
+    fun trackBackupError(
+        backupInfo: BackupInfo,
+        error: String,
+        phase: String
+    ) {
+        analyticsService.track(
+            "backup_error",
+            mapOf(
+                "backup_id" to backupInfo.id,
+                "backup_type" to backupInfo.backupType.name,
+                "error" to error,
+                "phase" to phase,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
+    }
+
+    fun trackBackupRestoreStarted(backupInfo: BackupInfo) {
+        analyticsService.track(
+            "backup_restore_started",
+            mapOf(
+                "backup_id" to backupInfo.id,
+                "backup_type" to backupInfo.backupType.name,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
+    }
+
+    fun trackBackupRestoreCompleted(
+        backupInfo: BackupInfo,
+        duration: Long,
+        fileCount: Int,
+        totalSize: Long
+    ) {
+        analyticsService.track(
+            "backup_restore_completed",
+            mapOf(
+                "backup_id" to backupInfo.id,
+                "backup_type" to backupInfo.backupType.name,
+                "duration_ms" to duration,
+                "file_count" to fileCount,
+                "total_size_bytes" to totalSize,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
+    }
+
+    fun trackBackupRestoreError(
+        backupInfo: BackupInfo,
+        error: String,
+        phase: String
+    ) {
+        analyticsService.track(
+            "backup_restore_error",
+            mapOf(
+                "backup_id" to backupInfo.id,
+                "backup_type" to backupInfo.backupType.name,
+                "error" to error,
+                "phase" to phase,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
     }
 
     fun trackBackupDeleted(info: BackupInfo) {
-        val props = JSONObject()
-        putSafely(props, "backup_id", info.id)
         val daysBetween = ChronoUnit.DAYS.between(
             info.createdAt.toLocalDate(),
             LocalDate.now()
         )
-        putSafely(props, "backup_age_days", daysBetween)
-        putSafely(props, "backup_type", info.backupType.name)
-        analyticsService.trackEvent("backup_deleted", props.toMap())
+        analyticsService.track(
+            "backup_deleted",
+            mapOf(
+                "backup_id" to info.id,
+                "backup_age_days" to daysBetween,
+                "backup_type" to info.backupType.name,
+                "backup_size_bytes" to info.size,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
     }
 
     private fun putSafely(json: JSONObject, key: String, value: Any?) {

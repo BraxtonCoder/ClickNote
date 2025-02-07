@@ -10,6 +10,10 @@ import com.example.clicknote.data.strategy.ServiceStrategyImpl
 import com.example.clicknote.domain.strategy.ServiceStrategy
 import com.example.clicknote.data.handler.ServiceEventHandlerImpl
 import com.example.clicknote.domain.event.ServiceEventHandler
+import com.example.clicknote.service.TranscriptionManager
+import com.example.clicknote.service.TranscriptionManagerImpl
+import com.example.clicknote.service.recording.IRecordingService
+import com.example.clicknote.service.recording.RecordingServiceImpl
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -72,6 +76,17 @@ abstract class ServiceModule {
     abstract fun bindWhisperOfflineTranscriptionService(
         impl: WhisperOfflineTranscriptionServiceImpl
     ): WhisperOfflineTranscriptionService
+
+    @Binds
+    @Singleton
+    abstract fun bindTranscriptionManager(
+        impl: TranscriptionManagerImpl
+    ): TranscriptionManager
+
+    @Binds
+    abstract fun bindRecordingService(
+        impl: RecordingServiceImpl
+    ): IRecordingService
 
     companion object {
         @Provides

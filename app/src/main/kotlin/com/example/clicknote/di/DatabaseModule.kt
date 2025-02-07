@@ -2,9 +2,10 @@ package com.example.clicknote.di
 
 import android.content.Context
 import androidx.room.Room
+import com.example.clicknote.data.AppDatabase
 import com.example.clicknote.data.converter.RoomConverters
-import com.example.clicknote.data.db.ClickNoteDatabase
 import com.example.clicknote.data.dao.*
+import com.google.gson.Gson
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,70 +19,52 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideRoomConverters(): RoomConverters {
-        return RoomConverters()
-    }
+    fun provideGson(): Gson = Gson()
+
+    @Provides
+    @Singleton
+    fun provideRoomConverters(gson: Gson): RoomConverters = RoomConverters(gson)
 
     @Provides
     @Singleton
     fun provideAppDatabase(
         @ApplicationContext context: Context,
-        roomConverters: RoomConverters
-    ): ClickNoteDatabase {
+        converters: RoomConverters
+    ): AppDatabase {
         return Room.databaseBuilder(
-            context,
-            ClickNoteDatabase::class.java,
-            ClickNoteDatabase.DATABASE_NAME
+            context.applicationContext,
+            AppDatabase::class.java,
+            AppDatabase.DATABASE_NAME
         )
-        .addTypeConverter(roomConverters)
-        .addMigrations(
-            ClickNoteDatabase.Migrations.MIGRATION_1_2,
-            ClickNoteDatabase.Migrations.MIGRATION_2_3,
-            ClickNoteDatabase.Migrations.MIGRATION_3_4,
-            ClickNoteDatabase.Migrations.MIGRATION_4_5
-        )
+        .fallbackToDestructiveMigration()
         .build()
     }
 
     @Provides
     @Singleton
-    fun provideNoteDao(database: ClickNoteDatabase): NoteDao {
-        return database.noteDao()
-    }
+    fun provideNoteDao(database: AppDatabase): NoteDao = database.noteDao()
 
     @Provides
     @Singleton
-    fun provideFolderDao(database: ClickNoteDatabase): FolderDao {
-        return database.folderDao()
-    }
+    fun provideFolderDao(database: AppDatabase): FolderDao = database.folderDao()
 
     @Provides
     @Singleton
-    fun provideSearchHistoryDao(database: ClickNoteDatabase): SearchHistoryDao {
-        return database.searchHistoryDao()
-    }
+    fun provideTranscriptionSegmentDao(database: AppDatabase): TranscriptionSegmentDao = 
+        database.transcriptionSegmentDao()
 
     @Provides
     @Singleton
-    fun provideTranscriptionTimestampDao(database: ClickNoteDatabase): TranscriptionTimestampDao {
-        return database.transcriptionTimestampDao()
-    }
+    fun provideTranscriptionMetadataDao(database: AppDatabase): TranscriptionMetadataDao = 
+        database.transcriptionMetadataDao()
 
     @Provides
     @Singleton
-    fun provideTranscriptionMetadataDao(database: ClickNoteDatabase): TranscriptionMetadataDao {
-        return database.transcriptionMetadataDao()
-    }
+    fun provideSearchHistoryDao(database: AppDatabase): SearchHistoryDao = 
+        database.searchHistoryDao()
 
     @Provides
     @Singleton
-    fun provideSpeakerProfileDao(database: ClickNoteDatabase): SpeakerProfileDao {
-        return database.speakerProfileDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideCallRecordingDao(database: ClickNoteDatabase): CallRecordingDao {
-        return database.callRecordingDao()
-    }
+    fun provideSubscriptionDao(database: AppDatabase): SubscriptionDao = 
+        database.subscriptionDao()
 } 

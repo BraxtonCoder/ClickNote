@@ -32,6 +32,7 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         val CALL_RECORDING_ENABLED = booleanPreferencesKey("call_recording_enabled")
         val AUDIO_SAVING_ENABLED = booleanPreferencesKey("audio_saving_enabled")
         val OFFLINE_TRANSCRIPTION_ENABLED = booleanPreferencesKey("offline_transcription_enabled")
+        val ONLINE_TRANSCRIPTION_ENABLED = booleanPreferencesKey("online_transcription_enabled")
         val SELECTED_LANGUAGE = stringPreferencesKey("selected_language")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
@@ -47,10 +48,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val IS_FIRST_TIME_USER = booleanPreferencesKey("is_first_time_user")
         val LAST_TRANSCRIPTION_RESET = longPreferencesKey("last_transcription_reset")
-        val ONLINE_TRANSCRIPTION_ENABLED = booleanPreferencesKey("online_transcription_enabled")
+        val LAST_TRANSCRIPTION_RESET_TIME = longPreferencesKey("last_transcription_reset_time")
         val SUBSCRIPTION_STATUS = stringPreferencesKey("subscription_status")
         val OFFLINE_MODE_ENABLED = booleanPreferencesKey("offline_mode_enabled")
-        val LAST_TRANSCRIPTION_RESET_TIME = longPreferencesKey("last_transcription_reset_time")
     }
 
     private val onlineTranscriptionEnabledKey = booleanPreferencesKey("online_transcription_enabled")
@@ -59,19 +59,22 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         .map { preferences -> preferences[PreferencesKeys.CALL_RECORDING_ENABLED] ?: false }
 
     override val audioSavingEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.AUDIO_SAVING_ENABLED] ?: false }
+        .map { preferences -> preferences[PreferencesKeys.AUDIO_SAVING_ENABLED] ?: true }
 
     override val offlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[PreferencesKeys.OFFLINE_TRANSCRIPTION_ENABLED] ?: false }
 
+    override val onlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.ONLINE_TRANSCRIPTION_ENABLED] ?: true }
+
     override val selectedLanguage: Flow<String> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.SELECTED_LANGUAGE] ?: "" }
+        .map { preferences -> preferences[PreferencesKeys.SELECTED_LANGUAGE] ?: "en" }
 
     override val notificationsEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: false }
+        .map { preferences -> preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true }
 
     override val vibrationEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.VIBRATION_ENABLED] ?: false }
+        .map { preferences -> preferences[PreferencesKeys.VIBRATION_ENABLED] ?: true }
 
     override val themeMode: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[PreferencesKeys.THEME_MODE] ?: "system" }
@@ -85,26 +88,25 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override val cloudSyncEnabled: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[PreferencesKeys.CLOUD_SYNC_ENABLED] ?: false }
 
+    override val weeklyTranscriptionCount: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.WEEKLY_TRANSCRIPTION_COUNT] ?: 0 }
+
     override val detectSpeakers: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[PreferencesKeys.DETECT_SPEAKERS] ?: false }
 
     override val transcriptionLanguage: Flow<TranscriptionLanguage> = context.dataStore.data
-        .map { preferences ->
-            val languageCode = preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: TranscriptionLanguage.AUTO_DETECT.code
-            TranscriptionLanguage.fromCode(languageCode)
+        .map { preferences -> 
+            val code = preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: "en"
+            TranscriptionLanguage.fromCode(code) ?: TranscriptionLanguage.ENGLISH
         }
 
     override val audioQuality: Flow<String> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.AUDIO_QUALITY] ?: "high" }
+        .map { preferences -> preferences[PreferencesKeys.AUDIO_QUALITY] ?: "HIGH" }
 
     override val cloudProvider: Flow<CloudProvider> = context.dataStore.data
         .map { preferences ->
             val provider = preferences[PreferencesKeys.CLOUD_PROVIDER] ?: CloudProvider.LOCAL.name
-            try {
-                CloudProvider.valueOf(provider)
-            } catch (e: IllegalArgumentException) {
-                CloudProvider.LOCAL
-            }
+            CloudProvider.fromString(provider)
         }
 
     override val buttonTriggerDelay: Flow<Long> = context.dataStore.data
@@ -127,42 +129,51 @@ class UserPreferencesDataStoreImpl @Inject constructor(
 
     override val cloudStorageType: Flow<CloudStorageType> = context.dataStore.data
         .map { preferences ->
-            val typeString = preferences[PreferencesKeys.CLOUD_STORAGE_TYPE] ?: CloudStorageType.NONE.name
-            try {
-                CloudStorageType.valueOf(typeString)
-            } catch (e: IllegalArgumentException) {
-                CloudStorageType.NONE
-            }
-        }
-
-    override val weeklyTranscriptionCount: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.WEEKLY_TRANSCRIPTION_COUNT] ?: 0 }
-
-    override val onlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences ->
-            preferences[onlineTranscriptionEnabledKey] ?: true // Default to true
+            val type = preferences[PreferencesKeys.CLOUD_STORAGE_TYPE] ?: CloudStorageType.LOCAL.name
+            CloudStorageType.fromString(type)
         }
 
     override val subscriptionStatus: Flow<SubscriptionStatus> = context.dataStore.data
         .map { preferences ->
-            val status = preferences[PreferencesKeys.SUBSCRIPTION_STATUS] ?: SubscriptionStatus.Free.toString()
+            val status = preferences[PreferencesKeys.SUBSCRIPTION_STATUS] ?: "Free"
             SubscriptionStatus.fromString(status)
         }
 
     override val offlineModeEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences ->
-            preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] ?: false
-        }
+        .map { preferences -> preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] ?: false }
 
     override val isOnlineTranscriptionEnabled: Flow<Boolean> = context.dataStore.data
-        .map { preferences ->
-            preferences[onlineTranscriptionEnabledKey] ?: true // Default to true
-        }
+        .map { preferences -> preferences[PreferencesKeys.ONLINE_TRANSCRIPTION_ENABLED] ?: true }
 
     override val lastTranscriptionResetTime: Flow<Long> = context.dataStore.data
-        .map { preferences ->
-            preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] ?: System.currentTimeMillis()
-        }
+        .map { preferences -> preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] ?: 0L }
+
+    override fun getTranscriptionLanguage(): Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: "en" }
+
+    override fun getSpeakerDetectionEnabled(): Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.DETECT_SPEAKERS] ?: false }
+
+    override fun getOfflineModeEnabled(): Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] ?: false }
+
+    override fun getAudioSavingEnabled(): Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.AUDIO_SAVING_ENABLED] ?: true }
+
+    override fun getVibrationEnabled(): Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.VIBRATION_ENABLED] ?: true }
+
+    override fun getCallRecordingEnabled(): Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.CALL_RECORDING_ENABLED] ?: false }
+
+    override fun getShowSilentNotifications(): Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.SHOW_SILENT_NOTIFICATIONS] ?: true }
+
+    override fun getCloudSyncEnabled(): Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.CLOUD_SYNC_ENABLED] ?: false }
+
+    override fun getCloudProvider(): Flow<String> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.CLOUD_PROVIDER] ?: "LOCAL" }
 
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
@@ -230,9 +241,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         }
     }
 
-    override suspend fun setTranscriptionLanguage(language: TranscriptionLanguage) {
+    override suspend fun setTranscriptionLanguage(language: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] = language.code
+            preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] = language
         }
     }
 
@@ -242,9 +253,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         }
     }
 
-    override suspend fun setCloudProvider(provider: CloudProvider) {
+    override suspend fun setCloudProvider(provider: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.CLOUD_PROVIDER] = provider.name
+            preferences[PreferencesKeys.CLOUD_PROVIDER] = provider
         }
     }
 

@@ -1,150 +1,164 @@
 package com.example.clicknote.service
 
 import android.content.Context
-import android.media.MediaExtractor
-import android.media.MediaFormat
-import android.util.Log
+import com.example.clicknote.analytics.AnalyticsTracker
+import com.example.clicknote.domain.model.SpeakerProfile
+import com.example.clicknote.domain.service.SpeakerDetectionService
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
-import java.nio.ByteBuffer
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 import kotlin.math.sqrt
 
 @Singleton
-class SpeakerDetectionService @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
-    private val minSilenceDuration = 0.5 // seconds
-    private val energyThreshold = 0.1
-    private val windowSize = 1024
-    private val minSegmentDuration = 2.0 // seconds
+class SpeakerDetectionServiceImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val analyticsTracker: AnalyticsTracker
+) : SpeakerDetectionService {
 
-    data class SpeakerSegment(
-        val speakerId: Int,
-        val startTime: Double,
-        val endTime: Double,
-        val confidence: Float
-    )
+    private val _speakerConfidence = MutableStateFlow(0f)
+    private val speakerConfidence = _speakerConfidence.asStateFlow()
 
-    sealed class DetectionResult {
-        data class Success(
-            val segments: List<SpeakerSegment>,
-            val speakerCount: Int
-        ) : DetectionResult()
-        data class Error(val message: String) : DetectionResult()
+    override val id: String = "speaker_detection_service"
+    private var initialized = false
+
+    override suspend fun detectSpeakers(audioData: ByteArray): Result<Int> = runCatching {
+        val startTime = System.currentTimeMillis()
+        val features = extractAudioFeatures(audioData)
+        val speakerCount = detectSpeakerCount(features)
+
+        analyticsTracker.trackSpeakerDetectionCompleted(
+            speakerCount = speakerCount,
+            confidence = calculateConfidence(features),
+            durationMs = System.currentTimeMillis() - startTime,
+            success = true
+        )
+
+        speakerCount
     }
 
-    fun detectSpeakers(audioFile: File): Flow<DetectionResult> = flow {
-        try {
-            val audioData = loadAudioData(audioFile)
-            val segments = segmentAudio(audioData)
-            val speakerSegments = assignSpeakers(segments)
-            
-            emit(DetectionResult.Success(
-                segments = speakerSegments,
-                speakerCount = speakerSegments.map { it.speakerId }.distinct().size
-            ))
-        } catch (e: Exception) {
-            Log.e(TAG, "Error detecting speakers", e)
-            emit(DetectionResult.Error(e.message ?: "Unknown error"))
+    override suspend fun identifySpeakers(audioData: ByteArray): Result<Map<String, String>> = runCatching {
+        val features = extractAudioFeatures(audioData)
+        val speakerCount = detectSpeakerCount(features)
+        
+        (0 until speakerCount).associate { index ->
+            "Speaker ${index + 1}" to "Unknown"
         }
-    }.flowOn(Dispatchers.Default)
-
-    private fun loadAudioData(audioFile: File): FloatArray {
-        val extractor = MediaExtractor()
-        extractor.setDataSource(audioFile.path)
-        extractor.selectTrack(0)
-        
-        val format = extractor.getTrackFormat(0)
-        val duration = format.getLong(MediaFormat.KEY_DURATION)
-        val buffer = ByteBuffer.allocate(duration.toInt())
-        
-        var offset = 0
-        while (extractor.readSampleData(buffer, offset) >= 0) {
-            offset += extractor.readSampleData(buffer, offset)
-            extractor.advance()
-        }
-        
-        buffer.rewind()
-        val floatArray = FloatArray(buffer.remaining() / 2)
-        buffer.asShortBuffer().get(ShortArray(floatArray.size)).forEachIndexed { index, value ->
-            floatArray[index] = value / 32768f
-        }
-        
-        extractor.release()
-        return floatArray
     }
 
-    private fun segmentAudio(audioData: FloatArray): List<Pair<Int, Int>> {
-        val segments = mutableListOf<Pair<Int, Int>>()
-        var segmentStart = 0
-        var inSilence = true
-        var silenceStart = 0
-        
-        // Calculate energy for each window
-        for (i in audioData.indices step windowSize) {
-            val windowEnd = minOf(i + windowSize, audioData.size)
-            val energy = calculateEnergy(audioData.slice(i until windowEnd))
-            
-            if (energy < energyThreshold) {
-                if (!inSilence) {
-                    silenceStart = i
-                    inSilence = true
-                }
-            } else {
-                if (inSilence) {
-                    val silenceDuration = (i - silenceStart) / 16000.0 // assuming 16kHz sample rate
-                    if (silenceDuration >= minSilenceDuration && segmentStart < silenceStart) {
-                        segments.add(segmentStart to silenceStart)
-                        segmentStart = i
-                    }
-                    inSilence = false
-                }
+    override fun getSpeakerConfidence(): Flow<Float> = speakerConfidence
+
+    override suspend fun getKnownSpeakers(): Result<List<SpeakerProfile>> = runCatching {
+        emptyList() // Implement speaker profile storage and retrieval
+    }
+
+    override suspend fun trainSpeakerProfile(
+        profile: SpeakerProfile,
+        audioData: ByteArray
+    ): Result<SpeakerProfile> = runCatching {
+        // Implement speaker profile training
+        profile
+    }
+
+    override suspend fun detectSpeakers(file: File): Result<List<String>> = runCatching {
+        val audioData = file.readBytes()
+        val speakerCount = detectSpeakers(audioData).getOrThrow()
+        List(speakerCount) { index -> "Speaker ${index + 1}" }
+    }
+
+    override suspend fun deleteSpeakerProfile(speakerId: String): Result<Unit> = runCatching {
+        // Implement speaker profile deletion
+    }
+
+    override suspend fun getSpeakerConfidence(
+        speakerId: String,
+        audioSample: ByteArray
+    ): Result<Float> = runCatching {
+        val features = extractAudioFeatures(audioSample)
+        calculateConfidence(features)
+    }
+
+    override fun isInitialized(): Boolean = initialized
+
+    override suspend fun cleanup() {
+        initialized = false
+    }
+
+    private fun extractAudioFeatures(audioData: ByteArray): FloatArray {
+        val samples = audioData.toShortArray()
+        val frameSize = 1024
+        val hopSize = frameSize / 2
+        val numFrames = (samples.size - frameSize) / hopSize + 1
+        val features = FloatArray(numFrames)
+
+        for (i in 0 until numFrames) {
+            val startIdx = i * hopSize
+            val endIdx = minOf(startIdx + frameSize, samples.size)
+            val frame = samples.slice(startIdx until endIdx)
+            features[i] = calculateFrameEnergy(frame)
+        }
+
+        return features
+    }
+
+    private fun calculateFrameEnergy(frame: List<Short>): Float {
+        var energy = 0f
+        frame.forEach { sample ->
+            val normalizedSample = sample.toFloat() / Short.MAX_VALUE
+            energy += normalizedSample * normalizedSample
+        }
+        return if (frame.isNotEmpty()) energy / frame.size else 0f
+    }
+
+    private fun detectSpeakerCount(features: FloatArray): Int {
+        // Simple threshold-based speaker detection
+        // In a real implementation, use more sophisticated methods
+        val threshold = 0.1f
+        var speakerCount = 0
+        var inSpeech = false
+
+        features.forEach { energy ->
+            if (energy > threshold && !inSpeech) {
+                speakerCount++
+                inSpeech = true
+            } else if (energy <= threshold) {
+                inSpeech = false
             }
         }
-        
-        // Add final segment if needed
-        if (segmentStart < audioData.size) {
-            segments.add(segmentStart to audioData.size)
-        }
-        
-        return segments
+
+        return maxOf(1, speakerCount)
     }
 
-    private fun calculateEnergy(window: List<Float>): Double {
-        var sum = 0.0
-        window.forEach { sample ->
-            sum += sample * sample
+    private fun calculateConfidence(features: FloatArray): Float {
+        if (features.isEmpty()) return 0f
+
+        val mean = features.average().toFloat()
+        var variance = 0f
+        features.forEach { feature ->
+            variance += (feature - mean) * (feature - mean)
         }
-        return sqrt(sum / window.size)
+        variance /= features.size
+
+        // Normalize confidence score between 0 and 1
+        val stdDev = sqrt(variance)
+        return if (stdDev > 0) {
+            minOf(1f, maxOf(0f, mean / (stdDev * 2)))
+        } else {
+            0f
+        }
     }
 
-    private fun assignSpeakers(segments: List<Pair<Int, Int>>): List<SpeakerSegment> {
-        val speakerSegments = mutableListOf<SpeakerSegment>()
-        var currentSpeakerId = 1
-        
-        segments.forEach { (start, end) ->
-            val duration = (end - start) / 16000.0 // assuming 16kHz sample rate
-            if (duration >= minSegmentDuration) {
-                speakerSegments.add(
-                    SpeakerSegment(
-                        speakerId = currentSpeakerId,
-                        startTime = start / 16000.0,
-                        endTime = end / 16000.0,
-                        confidence = 0.8f // This would come from a real speaker recognition model
-                    )
-                )
-                currentSpeakerId = if (currentSpeakerId == 1) 2 else 1
-            }
+    private fun ByteArray.toShortArray(): ShortArray {
+        val shorts = ShortArray(size / 2)
+        for (i in shorts.indices) {
+            shorts[i] = ((this[i * 2 + 1].toInt() shl 8) or
+                    (this[i * 2].toInt() and 0xFF)).toShort()
         }
-        
-        return speakerSegments
+        return shorts
     }
 
     companion object {

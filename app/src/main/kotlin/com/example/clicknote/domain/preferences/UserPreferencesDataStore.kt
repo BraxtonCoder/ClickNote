@@ -46,6 +46,16 @@ interface UserPreferencesDataStore {
     val isOnlineTranscriptionEnabled: Flow<Boolean>
     val lastTranscriptionResetTime: Flow<Long>
 
+    fun getTranscriptionLanguage(): Flow<String>
+    fun getSpeakerDetectionEnabled(): Flow<Boolean>
+    fun getOfflineModeEnabled(): Flow<Boolean>
+    fun getAudioSavingEnabled(): Flow<Boolean>
+    fun getVibrationEnabled(): Flow<Boolean>
+    fun getCallRecordingEnabled(): Flow<Boolean>
+    fun getShowSilentNotifications(): Flow<Boolean>
+    fun getCloudSyncEnabled(): Flow<Boolean>
+    fun getCloudProvider(): Flow<String>
+
     suspend fun setCallRecordingEnabled(enabled: Boolean)
     suspend fun setAudioSavingEnabled(enabled: Boolean)
     suspend fun setOfflineTranscriptionEnabled(enabled: Boolean)
@@ -60,9 +70,9 @@ interface UserPreferencesDataStore {
     suspend fun incrementWeeklyTranscriptionCount()
     suspend fun resetWeeklyTranscriptionCount()
     suspend fun setDetectSpeakers(enabled: Boolean)
-    suspend fun setTranscriptionLanguage(language: TranscriptionLanguage)
+    suspend fun setTranscriptionLanguage(language: String)
     suspend fun setAudioQuality(quality: String)
-    suspend fun setCloudProvider(provider: CloudProvider)
+    suspend fun setCloudProvider(provider: String)
     suspend fun setButtonTriggerDelay(delayMs: Long)
     suspend fun setOpenaiApiKey(key: String?)
     suspend fun setShowSilentNotifications(enabled: Boolean)
@@ -277,9 +287,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         }
     }
 
-    override suspend fun setTranscriptionLanguage(language: TranscriptionLanguage) {
+    override suspend fun setTranscriptionLanguage(language: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] = language.code
+            preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] = language
         }
     }
 
@@ -289,9 +299,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         }
     }
 
-    override suspend fun setCloudProvider(provider: CloudProvider) {
+    override suspend fun setCloudProvider(provider: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.CLOUD_PROVIDER] = provider.name
+            preferences[PreferencesKeys.CLOUD_PROVIDER] = provider
         }
     }
 
@@ -395,6 +405,51 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         if (currentTime - lastResetTime >= weekInMillis) {
             resetWeeklyTranscriptionCount()
         }
+    }
+
+    override fun getTranscriptionLanguage(): Flow<String> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: "" }
+    }
+
+    override fun getSpeakerDetectionEnabled(): Flow<Boolean> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.DETECT_SPEAKERS] ?: false }
+    }
+
+    override fun getOfflineModeEnabled(): Flow<Boolean> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] ?: false }
+    }
+
+    override fun getAudioSavingEnabled(): Flow<Boolean> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.AUDIO_SAVING_ENABLED] ?: false }
+    }
+
+    override fun getVibrationEnabled(): Flow<Boolean> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.VIBRATION_ENABLED] ?: false }
+    }
+
+    override fun getCallRecordingEnabled(): Flow<Boolean> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.CALL_RECORDING_ENABLED] ?: false }
+    }
+
+    override fun getShowSilentNotifications(): Flow<Boolean> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.SHOW_SILENT_NOTIFICATIONS] ?: true }
+    }
+
+    override fun getCloudSyncEnabled(): Flow<Boolean> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.CLOUD_SYNC_ENABLED] ?: false }
+    }
+
+    override fun getCloudProvider(): Flow<String> {
+        return context.dataStore.data
+            .map { preferences -> preferences[PreferencesKeys.CLOUD_PROVIDER] ?: "" }
     }
 }
 

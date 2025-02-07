@@ -15,23 +15,21 @@ import java.util.UUID
  * @property updatedAt The timestamp when this segment was last updated
  */
 data class TranscriptionSegment(
-    val id: String = UUID.randomUUID().toString(),
-    val noteId: String,
     val text: String,
-    val startTime: Long,
-    val endTime: Long,
-    val speaker: String? = null,
-    val confidence: Float = 0f
+    val startTime: Double,
+    val endTime: Double,
+    val confidence: Float,
+    val speakerId: String? = null
 ) {
     companion object {
         /**
          * Creates an empty segment with default values
          */
         fun empty(noteId: String) = TranscriptionSegment(
-            noteId = noteId,
             text = "",
-            startTime = 0L,
-            endTime = 0L
+            startTime = 0.0,
+            endTime = 0.0,
+            confidence = 0f
         )
     }
 } 

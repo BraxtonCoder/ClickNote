@@ -5,10 +5,12 @@ import com.example.clicknote.domain.model.*
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import com.example.clicknote.domain.repository.CloudSyncRepository
 import com.example.clicknote.domain.repository.NoteRepository
+import com.example.clicknote.domain.service.FirebaseService
 import com.example.clicknote.di.qualifiers.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,7 +19,8 @@ class CloudSyncRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val noteRepository: NoteRepository,
     private val preferences: UserPreferencesDataStore,
-    @ApplicationScope private val scope: CoroutineScope
+    @ApplicationScope private val scope: CoroutineScope,
+    private val firebaseService: FirebaseService
 ) : CloudSyncRepository {
 
     private val _isSyncing = MutableStateFlow(false)
@@ -34,6 +37,9 @@ class CloudSyncRepositoryImpl @Inject constructor(
     private var syncJob: Job? = null
     private var periodicSyncJob: Job? = null
     private val pendingNotes = mutableListOf<Note>()
+
+    private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.PENDING)
+    override val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
 
     override suspend fun getCloudStoragePreference(): CloudStorageType {
         return preferences.cloudStorageType.first()
@@ -250,6 +256,9 @@ class CloudSyncRepositoryImpl @Inject constructor(
             CloudStorageType.LOCAL_CLOUD -> getLocalCloudStorageUsage()
             CloudStorageType.FIREBASE -> getGoogleCloudStorageUsage()
             CloudStorageType.NONE -> 0L
+            CloudStorageType.GOOGLE_DRIVE -> 0L // TODO: Implement
+            CloudStorageType.DROPBOX -> 0L // TODO: Implement
+            CloudStorageType.ONEDRIVE -> 0L // TODO: Implement
         }
     }
 
@@ -259,6 +268,9 @@ class CloudSyncRepositoryImpl @Inject constructor(
             CloudStorageType.LOCAL_CLOUD -> getLocalCloudStorageLimit()
             CloudStorageType.FIREBASE -> 5L * 1024 * 1024 * 1024 // 5GB Firebase limit
             CloudStorageType.NONE -> 0L
+            CloudStorageType.GOOGLE_DRIVE -> 15L * 1024 * 1024 * 1024 // 15GB Google Drive limit
+            CloudStorageType.DROPBOX -> 2L * 1024 * 1024 * 1024 // 2GB Dropbox Basic limit
+            CloudStorageType.ONEDRIVE -> 5L * 1024 * 1024 * 1024 // 5GB OneDrive Basic limit
         }
     }
 
@@ -286,4 +298,101 @@ class CloudSyncRepositoryImpl @Inject constructor(
         // Implementation to get local cloud storage limit
         return 0L
     }
+
+    private suspend fun syncToLocalCloud(noteId: String): Result<Unit> = runCatching {
+        // TODO: Implement local cloud sync
+        Result.success(Unit)
+    }
+
+    private suspend fun syncAudioToLocalCloud(file: File): Result<String> = runCatching {
+        // TODO: Implement local cloud audio sync
+        Result.success(file.absolutePath)
+    }
+
+    override suspend fun syncNote(noteId: String): Result<Unit> {
+        val storageType = getCloudStoragePreference()
+        return when (storageType) {
+            CloudStorageType.NONE -> Result.success(Unit)
+            CloudStorageType.LOCAL -> Result.success(Unit)
+            CloudStorageType.LOCAL_CLOUD -> syncToLocalCloud(noteId)
+            CloudStorageType.FIREBASE -> firebaseService.syncNote(noteId)
+            CloudStorageType.GOOGLE_DRIVE -> Result.success(Unit) // TODO: Implement
+            CloudStorageType.DROPBOX -> Result.success(Unit) // TODO: Implement
+            CloudStorageType.ONEDRIVE -> Result.success(Unit) // TODO: Implement
+        }
+    }
+
+    override suspend fun syncAudio(audioFile: File): Result<String> {
+        val storageType = getCloudStoragePreference()
+        return when (storageType) {
+            CloudStorageType.NONE -> Result.success("")
+            CloudStorageType.LOCAL -> Result.success(audioFile.absolutePath)
+            CloudStorageType.LOCAL_CLOUD -> syncAudioToLocalCloud(audioFile)
+            CloudStorageType.FIREBASE -> firebaseService.uploadAudio(audioFile, "") // TODO: Pass proper noteId
+            CloudStorageType.GOOGLE_DRIVE -> Result.success("") // TODO: Implement
+            CloudStorageType.DROPBOX -> Result.success("") // TODO: Implement
+            CloudStorageType.ONEDRIVE -> Result.success("") // TODO: Implement
+        }
+    }
+
+    private suspend fun getStorageProvider(): Result<CloudStorageProvider> {
+        val storageType = getCloudStoragePreference()
+        return when (storageType) {
+            CloudStorageType.NONE -> Result.success(CloudStorageProvider.NONE)
+            CloudStorageType.LOCAL -> Result.success(CloudStorageProvider.NONE)
+            CloudStorageType.LOCAL_CLOUD -> Result.success(CloudStorageProvider.LOCAL_CLOUD)
+            CloudStorageType.FIREBASE -> Result.success(CloudStorageProvider.FIREBASE)
+            CloudStorageType.GOOGLE_DRIVE -> Result.success(CloudStorageProvider.GOOGLE_DRIVE)
+            CloudStorageType.DROPBOX -> Result.success(CloudStorageProvider.DROPBOX)
+            CloudStorageType.ONEDRIVE -> Result.success(CloudStorageProvider.ONEDRIVE)
+        }
+    }
+
+    private suspend fun getStorageService(): Result<CloudStorageService> {
+        val storageType = getCloudStoragePreference()
+        return when (storageType) {
+            CloudStorageType.NONE -> Result.success(NoOpCloudStorageService())
+            CloudStorageType.LOCAL -> Result.success(NoOpCloudStorageService())
+            CloudStorageType.LOCAL_CLOUD -> Result.success(LocalCloudStorageService(context))
+            CloudStorageType.FIREBASE -> Result.success(FirebaseCloudStorageService(firebaseService))
+            CloudStorageType.GOOGLE_DRIVE -> Result.success(GoogleDriveStorageService())
+            CloudStorageType.DROPBOX -> Result.success(DropboxStorageService())
+            CloudStorageType.ONEDRIVE -> Result.success(OneDriveStorageService())
+        }
+    }
+}
+
+private class NoOpCloudStorageService : CloudStorageService {
+    override suspend fun syncNote(noteId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun syncAudio(file: File): Result<String> = Result.success("")
+}
+
+private class LocalCloudStorageService(private val context: Context) : CloudStorageService {
+    override suspend fun syncNote(noteId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun syncAudio(file: File): Result<String> = Result.success(file.absolutePath)
+}
+
+private class FirebaseCloudStorageService(private val firebaseService: FirebaseService) : CloudStorageService {
+    override suspend fun syncNote(noteId: String): Result<Unit> = firebaseService.syncNote(noteId)
+    override suspend fun syncAudio(file: File): Result<String> = firebaseService.uploadAudio(file)
+}
+
+private class GoogleDriveStorageService : CloudStorageService {
+    override suspend fun syncNote(noteId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun syncAudio(file: File): Result<String> = Result.success("")
+}
+
+private class DropboxStorageService : CloudStorageService {
+    override suspend fun syncNote(noteId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun syncAudio(file: File): Result<String> = Result.success("")
+}
+
+private class OneDriveStorageService : CloudStorageService {
+    override suspend fun syncNote(noteId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun syncAudio(file: File): Result<String> = Result.success("")
+}
+
+interface CloudStorageService {
+    suspend fun syncNote(noteId: String): Result<Unit>
+    suspend fun syncAudio(file: File): Result<String>
 } 

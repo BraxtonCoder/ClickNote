@@ -1,59 +1,78 @@
 package com.example.clicknote.service
 
-import com.example.clicknote.domain.interfaces.*
+import android.content.Context
+import com.example.clicknote.domain.model.TranscriptionLanguage
 import com.example.clicknote.domain.model.TranscriptionSettings
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
-import com.example.clicknote.domain.usecase.TranscriptionUseCase
+import com.example.clicknote.domain.repository.TranscriptionRepository
+import com.example.clicknote.domain.service.NetworkConnectivityManager
+import com.example.clicknote.domain.service.TranscriptionManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import java.io.File
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
-class TranscriptionManager @Inject constructor(
-    private val transcriptionUseCase: Provider<TranscriptionUseCase>,
-    private val eventHandler: Provider<TranscriptionEventHandler>,
-    private val stateManager: Provider<TranscriptionStateManager>,
-    private val userPreferences: Provider<UserPreferencesDataStore>,
-    private val connectivityManager: Provider<NetworkConnectivityManager>
-) {
-    val transcriptionState: Flow<TranscriptionState> = eventHandler.get().getTranscriptionStateFlow()
-    val isTranscribing: StateFlow<Boolean> = stateManager.get().isTranscribing
-    val currentFile: StateFlow<File?> = stateManager.get().currentFile
+class TranscriptionManagerImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val transcriptionRepository: TranscriptionRepository,
+    private val userPreferences: UserPreferencesDataStore,
+    private val connectivityManager: NetworkConnectivityManager
+) : TranscriptionManager {
 
-    suspend fun transcribeStream(audioStream: Flow<ByteArray>): Flow<String> {
-        val settings = getTranscriptionSettings()
-        return transcriptionUseCase.get().transcribeStream(audioStream, settings)
+    private val _isTranscribing = MutableStateFlow(false)
+    override val isTranscribing: StateFlow<Boolean> = _isTranscribing.asStateFlow()
+
+    private val _currentFile = MutableStateFlow<File?>(null)
+    override val currentFile: StateFlow<File?> = _currentFile.asStateFlow()
+
+    override suspend fun transcribeAudio(file: File, noteId: String) {
+        try {
+            _isTranscribing.value = true
+            _currentFile.value = file
+
+            val settings = createTranscriptionSettings(noteId)
+            transcriptionRepository.transcribeFile(file, settings)
+                .onSuccess { _ ->
+                    // Handle successful transcription
+                }
+                .onFailure { _ ->
+                    // Handle transcription error
+                }
+        } finally {
+            _isTranscribing.value = false
+            _currentFile.value = null
+        }
     }
 
-    suspend fun transcribeFile(audioFile: File): Result<String> {
-        val settings = getTranscriptionSettings()
-        return transcriptionUseCase.get().transcribeFile(audioFile, settings)
+    override suspend fun cancelTranscription() {
+        transcriptionRepository.cancelTranscription()
+        _isTranscribing.value = false
+        _currentFile.value = null
     }
 
-    suspend fun generateSummary(text: String): Result<String> {
-        return transcriptionUseCase.get().generateSummary(text)
-    }
+    private suspend fun createTranscriptionSettings(noteId: String): TranscriptionSettings {
+        val language = userPreferences.getTranscriptionLanguage().first()
+        val speakerDetection = userPreferences.getSpeakerDetectionEnabled().first()
+        val offlineMode = userPreferences.getOfflineModeEnabled().first()
 
-    suspend fun detectSpeakers(audioFile: File): List<String> {
-        return transcriptionUseCase.get().detectSpeakers(audioFile)
-    }
-
-    suspend fun cleanup() {
-        transcriptionUseCase.get().cleanup()
-        stateManager.get().cleanup()
-    }
-
-    private fun getTranscriptionSettings(): TranscriptionSettings {
         return TranscriptionSettings(
-            preferOfflineMode = userPreferences.get().getPreferOfflineTranscription(),
-            isNetworkAvailable = connectivityManager.get().isNetworkAvailable(),
-            selectedLanguage = userPreferences.get().getSelectedLanguage(),
-            enhanceAudio = userPreferences.get().getEnhanceAudio(),
-            speakerDiarization = userPreferences.get().getSpeakerDiarization(),
-            saveAudio = userPreferences.get().getSaveAudio()
+            noteId = noteId,
+            language = language,
+            model = "base",
+            enableSpeakerDetection = speakerDetection,
+            enableTimestamps = true,
+            enablePunctuation = true,
+            preferOfflineMode = offlineMode,
+            isNetworkAvailable = connectivityManager.isNetworkAvailable()
         )
+    }
+
+    override suspend fun cleanup() {
+        transcriptionRepository.cleanup()
+        _isTranscribing.value = false
+        _currentFile.value = null
     }
 
     companion object {

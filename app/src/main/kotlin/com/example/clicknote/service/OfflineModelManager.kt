@@ -2,106 +2,119 @@ package com.example.clicknote.service
 
 import android.content.Context
 import android.util.Log
+import com.example.clicknote.analytics.AnalyticsTracker
+import com.example.clicknote.data.model.VoskModel
+import com.example.clicknote.domain.model.SpeechModel
+import com.example.clicknote.domain.model.TranscriptionLanguage
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.net.URL
-import java.util.zip.ZipInputStream
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.io.IOException
-import org.vosk.Model
-
-sealed class ModelError : Exception() {
-    object NetworkError : ModelError()
-    object StorageError : ModelError()
-    object ModelLoadError : ModelError()
-}
 
 @Singleton
 class OfflineModelManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val analyticsTracker: AnalyticsTracker
 ) {
-    companion object {
-        private const val TAG = "OfflineModelManager"
-        private const val VOSK_MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
-        private const val VOSK_MODEL_DIR = "vosk-model-small-en-us"
-    }
+    private var currentModel: SpeechModel? = null
+    private var currentLanguage: TranscriptionLanguage? = null
+    private val modelLock = Any()
 
-    private var model: Model? = null
-
-    suspend fun ensureModelExists(): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            if (!hasModel()) {
-                downloadVoskModel().collect()
+    suspend fun getModel(language: TranscriptionLanguage): Result<SpeechModel> = runCatching {
+        synchronized(modelLock) {
+            val existingModel = currentModel
+            if (existingModel != null && currentLanguage == language) {
+                return@runCatching existingModel
             }
-            Result.success(Unit)
-        } catch (e: ModelError) {
-            Result.failure(e)
+
+            // Clean up old model if exists
+            cleanupCurrentModel()
+
+            val startTime = System.currentTimeMillis()
+            val modelDir = getOrCreateModelDir(language)
+
+            try {
+                val newModel = VoskModel(modelDir.absolutePath)
+                if (!newModel.isLoaded()) {
+                    throw IOException("Failed to load model")
+                }
+                
+                currentModel = newModel
+                currentLanguage = language
+
+                analyticsTracker.trackPerformanceMetric(
+                    metricName = "model_load",
+                    durationMs = System.currentTimeMillis() - startTime,
+                    success = true,
+                    additionalData = mapOf(
+                        "language" to language.code,
+                        "model_size" to modelDir.length()
+                    )
+                )
+
+                newModel
+            } catch (e: IOException) {
+                analyticsTracker.trackPerformanceMetric(
+                    metricName = "model_load",
+                    durationMs = System.currentTimeMillis() - startTime,
+                    success = false,
+                    additionalData = mapOf(
+                        "language" to language.code,
+                        "error" to e.message.toString()
+                    )
+                )
+                throw e
+            }
         }
     }
 
-    private fun downloadVoskModel(): Flow<Float> = flow {
+    private fun getOrCreateModelDir(language: TranscriptionLanguage): File {
+        val modelDir = File(context.getExternalFilesDir(null), "vosk-model-${language.code}")
+        if (!modelDir.exists()) {
+            modelDir.mkdirs()
+            extractModelFiles(language, modelDir)
+        }
+        return modelDir
+    }
+
+    private fun extractModelFiles(language: TranscriptionLanguage, targetDir: File) {
+        val assetManager = context.assets
+        val modelAssetPath = "vosk/${language.code}"
+        
         try {
-            val modelDir = File(context.filesDir, VOSK_MODEL_DIR)
-            if (!modelDir.exists()) {
-                modelDir.mkdirs()
-            }
-
-            val url = URL(VOSK_MODEL_URL)
-            val connection = url.openConnection()
-            val contentLength = connection.contentLength.toFloat()
-            var downloadedBytes = 0f
-
-            connection.getInputStream().use { input ->
-                val zipStream = ZipInputStream(input)
-                var entry = zipStream.nextEntry
-                while (entry != null) {
-                    val file = File(modelDir, entry.name)
-                    if (entry.isDirectory) {
-                        file.mkdirs()
-                    } else {
-                        FileOutputStream(file).use { output ->
-                            val buffer = ByteArray(8192)
-                            var bytes = zipStream.read(buffer)
-                            while (bytes >= 0) {
-                                output.write(buffer, 0, bytes)
-                                downloadedBytes += bytes
-                                emit(downloadedBytes / contentLength)
-                                bytes = zipStream.read(buffer)
-                            }
-                        }
-                    }
-                    zipStream.closeEntry()
-                    entry = zipStream.nextEntry
+            assetManager.list(modelAssetPath)?.forEach { fileName ->
+                val assetFile = assetManager.open("$modelAssetPath/$fileName")
+                val targetFile = File(targetDir, fileName)
+                
+                FileOutputStream(targetFile).use { output ->
+                    assetFile.copyTo(output)
                 }
             }
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to download Vosk model", e)
-            throw ModelError.NetworkError
+            Log.e(TAG, "Failed to extract model files", e)
+            throw e
         }
-    }.flowOn(Dispatchers.IO)
+    }
 
-    fun getModel(): Model? {
-        if (model == null) {
-            val modelDir = File(context.filesDir, VOSK_MODEL_DIR)
-            if (modelDir.exists()) {
-                model = Model(modelDir.absolutePath)
+    private fun cleanupCurrentModel() {
+        synchronized(modelLock) {
+            try {
+                currentModel?.close()
+                currentModel = null
+                currentLanguage = null
+            } catch (e: Exception) {
+                Log.e(TAG, "Error cleaning up model", e)
             }
         }
-        return model
     }
 
-    fun hasModel(): Boolean {
-        val modelDir = File(context.filesDir, VOSK_MODEL_DIR)
-        return modelDir.exists() && modelDir.list()?.isNotEmpty() == true
+    fun cleanup() {
+        cleanupCurrentModel()
     }
 
-    fun releaseModel() {
-        model?.close()
-        model = null
+    companion object {
+        private const val TAG = "OfflineModelManager"
     }
 } 

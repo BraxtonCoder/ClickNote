@@ -5,10 +5,9 @@ import com.example.clicknote.data.dao.TranscriptionMetadataDao
 import com.example.clicknote.data.entity.TranscriptionMetadata
 import com.example.clicknote.domain.model.*
 import com.example.clicknote.domain.repository.TranscriptionRepository
+import com.example.clicknote.domain.service.SpeakerDetectionService
 import com.example.clicknote.domain.service.SummaryService
 import com.example.clicknote.service.WhisperService
-import com.example.clicknote.service.SpeakerDetectionService
-import com.example.clicknote.service.SpeakerDetectionService.DetectionResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import java.io.File
@@ -21,7 +20,7 @@ class TranscriptionRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val metadataDao: TranscriptionMetadataDao,
     private val whisperService: WhisperService,
-    private val speakerService: SpeakerDetectionService,
+    private val speakerDetectionService: SpeakerDetectionService,
     private val summaryService: SummaryService
 ) : TranscriptionRepository {
 
@@ -56,11 +55,11 @@ class TranscriptionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun transcribeAudio(audioData: ByteArray, settings: TranscriptionSettings): Result<String> = runCatching {
+        val startTime = System.currentTimeMillis()
         val tempFile = File.createTempFile("audio", ".wav", context.cacheDir)
         tempFile.writeBytes(audioData)
         
         updateTranscriptionStatus(settings.noteId, TranscriptionStatus.PROCESSING)
-        val startTime = System.currentTimeMillis()
         
         val result = whisperService.transcribe(tempFile)
         val processingTime = System.currentTimeMillis() - startTime
@@ -103,19 +102,14 @@ class TranscriptionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun detectSpeakers(file: File): Result<List<String>> = runCatching {
-        val result = speakerService.detectSpeakers(file).first()
-        when (result) {
-            is DetectionResult.Success -> result.segments.map { segment -> "Speaker ${segment.speakerId}" }.distinct()
-            is DetectionResult.Error -> throw IllegalStateException(result.message)
-        }
+        speakerDetectionService.detectSpeakers(file).getOrThrow()
     }
 
     override suspend fun getAvailableLanguages(): List<String> {
-        val languages = listOf(
+        return listOf(
             "en", "es", "fr", "de", "it", "pt", "nl", "ru", "ja", "ko", "zh",
             "ar", "hi", "tr", "pl", "vi", "th", "id", "cs", "da", "fi", "el"
         )
-        return languages
     }
 
     override fun cancelTranscription() {

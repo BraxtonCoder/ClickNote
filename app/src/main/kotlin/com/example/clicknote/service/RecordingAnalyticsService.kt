@@ -2,6 +2,7 @@ package com.example.clicknote.service
 
 import android.content.Context
 import com.example.clicknote.domain.model.Note
+import com.example.clicknote.domain.service.AnalyticsService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONObject
 import javax.inject.Inject
@@ -16,108 +17,165 @@ class RecordingAnalyticsService @Inject constructor(
 ) {
 
     fun trackRecordingStarted(source: String) {
-        val properties = JSONObject().apply {
-            put("source", source) // "accessibility_button", "app_button", etc.
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Recording Started", properties)
+        analyticsService.track(
+            "recording_started",
+            mapOf(
+                "source" to source,
+                "timestamp" to System.currentTimeMillis()
+            )
+        )
     }
 
-    fun trackRecordingPaused(duration: Long) {
-        val properties = JSONObject().apply {
-            put("duration_seconds", duration / 1000)
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Recording Paused", properties)
+    fun trackRecordingStopped(
+        duration: Long,
+        fileSize: Long,
+        source: String
+    ) {
+        analyticsService.track(
+            "recording_stopped",
+            mapOf(
+                "duration_ms" to duration,
+                "file_size_bytes" to fileSize,
+                "source" to source
+            )
+        )
     }
 
-    fun trackRecordingResumed() {
-        val properties = JSONObject().apply {
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Recording Resumed", properties)
+    fun trackRecordingError(
+        error: String,
+        source: String
+    ) {
+        analyticsService.track(
+            "recording_error",
+            mapOf(
+                "error" to error,
+                "source" to source
+            )
+        )
     }
 
-    fun trackRecordingCompleted(duration: Long, fileSize: Long, transcriptionEnabled: Boolean) {
-        val properties = JSONObject().apply {
-            put("duration_seconds", duration / 1000)
-            put("file_size_mb", fileSize / (1024 * 1024))
-            put("transcription_enabled", transcriptionEnabled)
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Recording Completed", properties)
+    fun trackTranscriptionStarted(
+        audioLength: Double,
+        language: String
+    ) {
+        analyticsService.track(
+            "transcription_started",
+            mapOf(
+                "audio_length_seconds" to audioLength,
+                "language" to language
+            )
+        )
     }
 
-    fun trackRecordingCanceled(duration: Long) {
-        val properties = JSONObject().apply {
-            put("duration_seconds", duration / 1000)
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Recording Canceled", properties)
+    fun trackTranscriptionCompleted(
+        duration: Long,
+        wordCount: Int,
+        confidence: Float
+    ) {
+        analyticsService.track(
+            "transcription_completed",
+            mapOf(
+                "duration_ms" to duration,
+                "word_count" to wordCount,
+                "confidence" to confidence
+            )
+        )
     }
 
-    fun trackRecordingError(error: String, phase: String) {
-        val properties = JSONObject().apply {
-            put("error_message", error)
-            put("phase", phase)
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Recording Error", properties)
+    fun trackTranscriptionError(
+        error: String,
+        audioLength: Double
+    ) {
+        analyticsService.track(
+            "transcription_error",
+            mapOf(
+                "error" to error,
+                "audio_length_seconds" to audioLength
+            )
+        )
     }
 
-    fun trackTranscriptionStarted(duration: Long, fileSize: Long) {
-        val properties = JSONObject().apply {
-            put("duration_seconds", duration / 1000)
-            put("file_size_mb", fileSize / (1024 * 1024))
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Transcription Started", properties)
+    fun trackSpeakerDetectionStarted(
+        audioLength: Double
+    ) {
+        analyticsService.track(
+            "speaker_detection_started",
+            mapOf(
+                "audio_length_seconds" to audioLength
+            )
+        )
     }
 
-    fun trackTranscriptionCompleted(duration: Long, wordCount: Int, speakerCount: Int) {
-        val properties = JSONObject().apply {
-            put("duration_seconds", duration / 1000)
-            put("word_count", wordCount)
-            put("speaker_count", speakerCount)
-            put("words_per_minute", (wordCount.toFloat() / (duration / 60000)).toInt())
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Transcription Completed", properties)
+    fun trackSpeakerDetectionCompleted(
+        speakerCount: Int,
+        confidence: Float,
+        durationMs: Long
+    ) {
+        analyticsService.track(
+            "speaker_detection_completed",
+            mapOf(
+                "speaker_count" to speakerCount,
+                "confidence" to confidence,
+                "duration_ms" to durationMs
+            )
+        )
     }
 
-    fun trackTranscriptionError(error: String, phase: String) {
-        val properties = JSONObject().apply {
-            put("error_message", error)
-            put("phase", phase)
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Transcription Error", properties)
+    fun trackSpeakerDetectionError(
+        error: String,
+        audioLength: Double
+    ) {
+        analyticsService.track(
+            "speaker_detection_error",
+            mapOf(
+                "error" to error,
+                "audio_length_seconds" to audioLength
+            )
+        )
     }
 
-    fun trackAudioEnhancementStarted(fileSize: Long) {
-        val properties = JSONObject().apply {
-            put("file_size_mb", fileSize / (1024 * 1024))
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Audio Enhancement Started", properties)
+    fun trackAudioProcessingStarted(
+        source: String,
+        durationSeconds: Double,
+        format: String
+    ) {
+        analyticsService.track(
+            "audio_processing_started",
+            mapOf(
+                "source" to source,
+                "duration_seconds" to durationSeconds,
+                "format" to format
+            )
+        )
     }
 
-    fun trackAudioEnhancementCompleted(duration: Long, originalSize: Long, enhancedSize: Long) {
-        val properties = JSONObject().apply {
-            put("duration_seconds", duration / 1000)
-            put("original_size_mb", originalSize / (1024 * 1024))
-            put("enhanced_size_mb", enhancedSize / (1024 * 1024))
-            put("size_reduction_percent", ((originalSize - enhancedSize) * 100 / originalSize))
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Audio Enhancement Completed", properties)
+    fun trackAudioProcessingCompleted(
+        source: String,
+        durationSeconds: Double,
+        format: String
+    ) {
+        analyticsService.track(
+            "audio_processing_completed",
+            mapOf(
+                "source" to source,
+                "duration_seconds" to durationSeconds,
+                "format" to format
+            )
+        )
     }
 
-    fun trackAudioEnhancementError(error: String) {
-        val properties = JSONObject().apply {
-            put("error_message", error)
-            put("timestamp", LocalDateTime.now().toString())
-        }
-        analyticsService.track("Audio Enhancement Error", properties)
+    fun trackAudioProcessingError(
+        source: String,
+        error: String,
+        durationSeconds: Double
+    ) {
+        analyticsService.track(
+            "audio_processing_error",
+            mapOf(
+                "source" to source,
+                "error" to error,
+                "duration_seconds" to durationSeconds
+            )
+        )
     }
 } 

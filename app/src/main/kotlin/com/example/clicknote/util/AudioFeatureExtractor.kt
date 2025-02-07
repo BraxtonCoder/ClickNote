@@ -256,4 +256,9 @@ class AudioFeatureExtractor @Inject constructor() {
     companion object {
         private const val PI = Math.PI.toFloat()
     }
+}
+
+interface AudioFeatureExtractor {
+    suspend fun extractFeatures(audioData: ByteArray): FloatArray
+    suspend fun compareFeatures(features1: FloatArray, features2: FloatArray): Float
 } 

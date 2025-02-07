@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import androidx.room.ColumnInfo
 import com.example.clicknote.domain.model.TranscriptionSegment as DomainSegment
 import java.util.UUID
 
@@ -14,61 +13,52 @@ import java.util.UUID
         ForeignKey(
             entity = NoteEntity::class,
             parentColumns = ["id"],
-            childColumns = ["note_id"],
+            childColumns = ["noteId"],
             onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [
-        Index("note_id")
+        Index("noteId"),
+        Index("startTime"),
+        Index("endTime")
     ]
 )
-data class TranscriptionSegment(
+data class TranscriptionSegmentEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
-
-    @ColumnInfo(name = "note_id")
     val noteId: String,
-
-    @ColumnInfo(name = "content")
-    val content: String,
-
-    @ColumnInfo(name = "start_time")
-    val startTime: Long,
-
-    @ColumnInfo(name = "end_time")
-    val endTime: Long,
-
-    @ColumnInfo(name = "speaker_id")
+    val text: String,
+    val startTime: Long, // Stored in milliseconds
+    val endTime: Long, // Stored in milliseconds
+    val confidence: Float,
     val speakerId: String? = null,
-
-    @ColumnInfo(name = "confidence")
-    val confidence: Float = 0f,
-
-    @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
-
-    @ColumnInfo(name = "updated_at")
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain() = DomainSegment(
-        id = id,
-        noteId = noteId,
-        text = content,
-        startTime = startTime,
-        endTime = endTime,
-        speaker = speakerId,
-        confidence = confidence
+        text = text,
+        startTime = startTime / 1000.0, // Convert to seconds
+        endTime = endTime / 1000.0, // Convert to seconds
+        confidence = confidence,
+        speakerId = speakerId
     )
 
     companion object {
-        fun fromDomain(noteId: String, segment: DomainSegment) = TranscriptionSegment(
-            id = segment.id,
+        fun fromDomain(noteId: String, domain: DomainSegment) = TranscriptionSegmentEntity(
             noteId = noteId,
-            content = segment.text,
-            startTime = segment.startTime,
-            endTime = segment.endTime,
-            speakerId = segment.speaker,
-            confidence = segment.confidence
+            text = domain.text,
+            startTime = (domain.startTime * 1000).toLong(), // Convert to milliseconds
+            endTime = (domain.endTime * 1000).toLong(), // Convert to milliseconds
+            confidence = domain.confidence,
+            speakerId = domain.speakerId
+        )
+
+        fun empty(noteId: String) = TranscriptionSegmentEntity(
+            noteId = noteId,
+            text = "",
+            startTime = 0L,
+            endTime = 0L,
+            confidence = 0f
         )
     }
 } 

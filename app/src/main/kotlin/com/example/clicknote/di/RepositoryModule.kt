@@ -10,6 +10,7 @@ import com.example.clicknote.data.repository.AuthRepositoryImpl
 import com.example.clicknote.data.repository.SearchHistoryRepositoryImpl
 import com.example.clicknote.data.repository.SpeakerRepositoryImpl
 import com.example.clicknote.data.repository.TranscriptionTimestampRepositoryImpl
+import com.example.clicknote.data.repository.SpeakerProfileRepositoryImpl
 import com.example.clicknote.domain.repository.TranscriptionRepository
 import com.example.clicknote.domain.repository.FolderRepository
 import com.example.clicknote.domain.repository.UserRepository
@@ -20,6 +21,7 @@ import com.example.clicknote.domain.repository.AuthRepository
 import com.example.clicknote.domain.repository.SearchHistoryRepository
 import com.example.clicknote.domain.repository.SpeakerRepository
 import com.example.clicknote.domain.repository.TranscriptionTimestampRepository
+import com.example.clicknote.domain.repository.SpeakerProfileRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -89,4 +91,10 @@ abstract class RepositoryModule {
     abstract fun bindTranscriptionTimestampRepository(
         impl: TranscriptionTimestampRepositoryImpl
     ): TranscriptionTimestampRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSpeakerProfileRepository(
+        impl: SpeakerProfileRepositoryImpl
+    ): SpeakerProfileRepository
 }

@@ -2,8 +2,8 @@ package com.example.clicknote.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Base64
-import com.example.clicknote.service.MLSpeakerDetectionService.SpeakerProfile
+import androidx.core.content.edit
+import com.example.clicknote.domain.model.SpeakerProfile
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -11,111 +11,106 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class SharedPreferences @Inject constructor(
-    @ApplicationContext context: Context
+class SharedPreferencesManager @Inject constructor(
+    @ApplicationContext context: Context,
+    private val gson: Gson
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences(
         PREFS_NAME,
         Context.MODE_PRIVATE
     )
-    private val gson = Gson()
-    private var cachedProfiles: Map<Int, SpeakerProfile>? = null
 
-    fun getProfiles(): Map<Int, SpeakerProfile> {
-        cachedProfiles?.let { return it }
-
-        val json = prefs.getString(KEY_SPEAKER_PROFILES, null) ?: return emptyMap()
-        val type = object : TypeToken<Map<Int, SerializableSpeakerProfile>>() {}.type
-        
-        return try {
-            gson.fromJson<Map<Int, SerializableSpeakerProfile>>(json, type)
-                .mapValues { (_, serializable) -> serializable.toSpeakerProfile() }
-                .also { cachedProfiles = it }
-        } catch (e: Exception) {
-            emptyMap()
+    fun saveSpeakerProfile(profile: SpeakerProfile) {
+        prefs.edit {
+            putString(KEY_SPEAKER_PROFILE + profile.id, gson.toJson(profile))
         }
     }
 
-    fun saveProfiles(profiles: Map<Int, SpeakerProfile>) {
-        val serializableProfiles = profiles.mapValues { (_, profile) ->
-            SerializableSpeakerProfile.fromSpeakerProfile(profile)
+    fun getSpeakerProfile(id: String): SpeakerProfile? {
+        val json = prefs.getString(KEY_SPEAKER_PROFILE + id, null)
+        return json?.let {
+            gson.fromJson(it, SpeakerProfile::class.java)
         }
-        
-        prefs.edit()
-            .putString(KEY_SPEAKER_PROFILES, gson.toJson(serializableProfiles))
-            .apply()
-        
-        cachedProfiles = profiles
     }
 
-    private data class SerializableSpeakerProfile(
-        val id: Int,
-        val name: String?,
-        val encodedEmbeddings: List<String>,
-        val totalDuration: Double,
-        val averageConfidence: Float,
-        val lastUpdated: Long,
-        val speakerCharacteristics: Map<String, Float>,
-        val verificationThreshold: Float,
-        val isVerified: Boolean,
-        val verificationCount: Int
-    ) {
-        fun toSpeakerProfile(): SpeakerProfile {
-            val embeddings = encodedEmbeddings.map { encoded ->
-                val bytes = Base64.decode(encoded, Base64.DEFAULT)
-                FloatArray(bytes.size / 4) { i ->
-                    java.nio.ByteBuffer.wrap(bytes, i * 4, 4).float
+    fun getAllSpeakerProfiles(): List<SpeakerProfile> {
+        return prefs.all
+            .filterKeys { it.startsWith(KEY_SPEAKER_PROFILE) }
+            .mapNotNull { (_, value) ->
+                try {
+                    gson.fromJson(value as String, SpeakerProfile::class.java)
+                } catch (e: Exception) {
+                    null
                 }
             }
-            
-            return SpeakerProfile(
-                id = id,
-                name = name,
-                embeddings = embeddings.toMutableList(),
-                totalDuration = totalDuration,
-                averageConfidence = averageConfidence,
-                lastUpdated = lastUpdated,
-                speakerCharacteristics = speakerCharacteristics,
-                verificationThreshold = verificationThreshold,
-                isVerified = isVerified,
-                verificationCount = verificationCount
-            )
-        }
+    }
 
-        companion object {
-            fun fromSpeakerProfile(profile: SpeakerProfile): SerializableSpeakerProfile {
-                val encodedEmbeddings = profile.embeddings.map { embedding ->
-                    val bytes = ByteArray(embedding.size * 4)
-                    embedding.forEachIndexed { i, value ->
-                        System.arraycopy(
-                            java.nio.ByteBuffer.allocate(4).putFloat(value).array(),
-                            0,
-                            bytes,
-                            i * 4,
-                            4
-                        )
-                    }
-                    Base64.encodeToString(bytes, Base64.DEFAULT)
-                }
-                
-                return SerializableSpeakerProfile(
-                    id = profile.id,
-                    name = profile.name,
-                    encodedEmbeddings = encodedEmbeddings,
-                    totalDuration = profile.totalDuration,
-                    averageConfidence = profile.averageConfidence,
-                    lastUpdated = profile.lastUpdated,
-                    speakerCharacteristics = profile.speakerCharacteristics,
-                    verificationThreshold = profile.verificationThreshold,
-                    isVerified = profile.isVerified,
-                    verificationCount = profile.verificationCount
-                )
-            }
+    fun deleteSpeakerProfile(id: String) {
+        prefs.edit {
+            remove(KEY_SPEAKER_PROFILE + id)
         }
     }
+
+    fun clearAllSpeakerProfiles() {
+        prefs.edit {
+            prefs.all.keys
+                .filter { it.startsWith(KEY_SPEAKER_PROFILE) }
+                .forEach { remove(it) }
+        }
+    }
+
+    // Transcription settings
+    var weeklyTranscriptionCount: Int
+        get() = prefs.getInt(KEY_WEEKLY_TRANSCRIPTION_COUNT, 0)
+        set(value) = prefs.edit { putInt(KEY_WEEKLY_TRANSCRIPTION_COUNT, value) }
+
+    fun incrementWeeklyTranscriptionCount() {
+        weeklyTranscriptionCount = weeklyTranscriptionCount + 1
+    }
+
+    fun resetWeeklyTranscriptionCount() {
+        weeklyTranscriptionCount = 0
+    }
+
+    // Feature flags and settings
+    var callRecordingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CALL_RECORDING_ENABLED, false)
+        set(value) = prefs.edit { putBoolean(KEY_CALL_RECORDING_ENABLED, value) }
+
+    var vibrationEnabled: Boolean
+        get() = prefs.getBoolean(KEY_VIBRATION_ENABLED, true)
+        set(value) = prefs.edit { putBoolean(KEY_VIBRATION_ENABLED, value) }
+
+    var buttonTriggerDelay: Long
+        get() = prefs.getLong(KEY_BUTTON_TRIGGER_DELAY, 750L)
+        set(value) = prefs.edit { putLong(KEY_BUTTON_TRIGGER_DELAY, value) }
+
+    var audioSavingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUDIO_SAVING_ENABLED, true)
+        set(value) = prefs.edit { putBoolean(KEY_AUDIO_SAVING_ENABLED, value) }
+
+    var showSilentNotifications: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_SILENT_NOTIFICATIONS, true)
+        set(value) = prefs.edit { putBoolean(KEY_SHOW_SILENT_NOTIFICATIONS, value) }
+
+    var cloudSyncEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLOUD_SYNC_ENABLED, false)
+        set(value) = prefs.edit { putBoolean(KEY_CLOUD_SYNC_ENABLED, value) }
+
+    var cloudProvider: String
+        get() = prefs.getString(KEY_CLOUD_PROVIDER, "LOCAL") ?: "LOCAL"
+        set(value) = prefs.edit { putString(KEY_CLOUD_PROVIDER, value) }
 
     companion object {
-        private const val PREFS_NAME = "clicknote_prefs"
-        private const val KEY_SPEAKER_PROFILES = "speaker_profiles"
+        private const val PREFS_NAME = "ClickNotePrefs"
+        private const val KEY_SPEAKER_PROFILE = "speaker_profile_"
+        private const val KEY_WEEKLY_TRANSCRIPTION_COUNT = "weekly_transcription_count"
+        private const val KEY_CALL_RECORDING_ENABLED = "call_recording_enabled"
+        private const val KEY_VIBRATION_ENABLED = "vibration_enabled"
+        private const val KEY_BUTTON_TRIGGER_DELAY = "button_trigger_delay"
+        private const val KEY_AUDIO_SAVING_ENABLED = "audio_saving_enabled"
+        private const val KEY_SHOW_SILENT_NOTIFICATIONS = "show_silent_notifications"
+        private const val KEY_CLOUD_SYNC_ENABLED = "cloud_sync_enabled"
+        private const val KEY_CLOUD_PROVIDER = "cloud_provider"
     }
 } 

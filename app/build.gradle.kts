@@ -31,7 +31,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.clicknote"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -41,9 +41,9 @@ android {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "MIXPANEL_TOKEN", "\"${localProperties.getProperty("mixpanel.token", "")}\"")
+        buildConfigField("String", "MIXPANEL_TOKEN", "\"${project.findProperty("MIXPANEL_TOKEN") ?: ""}\"")
         buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${localProperties.getProperty("stripe.publishable.key", "")}\"")
-        buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("openai.api.key", "")}\"")
+        buildConfigField("String", "OPENAI_API_KEY", "\"${project.findProperty("OPENAI_API_KEY") ?: ""}\"")
 
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
@@ -56,9 +56,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         debug {
             isMinifyEnabled = false
@@ -89,12 +92,23 @@ android {
     }
 }
 
+repositories {
+    google()
+    mavenCentral()
+    maven { url = uri("https://alphacephei.com/maven/") }
+}
+
 dependencies {
     // Core Android dependencies
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // Vosk for offline speech recognition
+    implementation("com.alphacephei:vosk-android:0.3.47")
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
+    implementation("org.apache.commons:commons-math3:3.6.1")
 
     // Compose dependencies
     implementation(platform("androidx.compose:compose-bom:2024.01.00"))

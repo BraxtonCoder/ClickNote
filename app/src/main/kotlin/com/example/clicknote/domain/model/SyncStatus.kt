@@ -5,9 +5,10 @@ package com.example.clicknote.domain.model
  */
 enum class SyncStatus {
     PENDING,    // Waiting to be synced
-    SYNCING,    // Currently being synced
-    SYNCED,     // Successfully synced
+    IN_PROGRESS,
+    COMPLETED,
     FAILED,     // Sync failed
+    CANCELLED,
     CONFLICT,   // Sync conflict detected
     OFFLINE;    // Offline, will sync when online
 

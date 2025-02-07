@@ -1,168 +1,80 @@
 package com.example.clicknote.analytics
 
-import android.content.Context
-import com.mixpanel.android.mpmetrics.MixpanelAPI
-import dagger.hilt.android.qualifiers.ApplicationContext
-import org.json.JSONObject
-import javax.inject.Inject
-import javax.inject.Singleton
-import com.example.clicknote.BuildConfig
+import com.example.clicknote.domain.model.Note
+import com.example.clicknote.domain.model.SubscriptionPlan
 
-@Singleton
-class AnalyticsTracker @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
-    private val mixpanel: MixpanelAPI by lazy {
-        MixpanelAPI.getInstance(context, BuildConfig.MIXPANEL_TOKEN, false)
-    }
+interface AnalyticsTracker {
+    fun trackScreenView(screenName: String)
+    fun trackEvent(eventName: String, properties: Map<String, Any>)
+    fun trackError(error: String, screen: String)
+    fun trackSearch(query: String, resultCount: Int)
+    fun trackSubscriptionChanged(plan: SubscriptionPlan)
+    fun trackNoteCreated(note: Note)
+    fun trackNoteDeleted(note: Note)
+    fun trackNoteRestored(note: Note)
+    fun trackTranscriptionStarted(source: String)
+    fun trackTranscriptionCompleted(duration: Long, wordCount: Int)
+    fun trackTranscriptionFailed(error: String)
+    fun setUserProperties(properties: Map<String, Any>)
+    fun identify(userId: String)
+    fun reset()
+    fun trackCallRecordingStarted(phoneNumber: String, isIncoming: Boolean)
+    fun trackCallRecordingCompleted(
+        phoneNumber: String,
+        duration: Long,
+        transcriptionLength: Int,
+        isIncoming: Boolean
+    )
+    fun trackCallRecordingError(phoneNumber: String, error: String)
+    fun trackStorageUsage(usedBytes: Long, totalBytes: Long)
 
     // Permission Events
-    fun trackPermissionRequested(permission: String) {
-        track("Permission Requested") {
-            put("permission", permission)
-        }
-    }
-
-    fun trackPermissionGranted(permission: String) {
-        track("Permission Granted") {
-            put("permission", permission)
-        }
-    }
-
-    fun trackPermissionDenied(permission: String, isPermanent: Boolean) {
-        track("Permission Denied") {
-            put("permission", permission)
-            put("is_permanent", isPermanent)
-        }
-    }
-
-    fun trackPermissionReset(permission: String) {
-        track("Permission Reset") {
-            put("permission", permission)
-        }
-    }
+    fun trackPermissionRequested(permission: String)
+    fun trackPermissionGranted(permission: String)
+    fun trackPermissionDenied(permission: String, isPermanent: Boolean)
+    fun trackPermissionReset(permission: String)
 
     // Speaker Detection Events
-    fun trackSpeakerDetectionStarted(audioLengthSeconds: Double) {
-        track("Speaker Detection Started") {
-            put("audio_length_seconds", audioLengthSeconds)
-        }
-    }
-
+    fun trackSpeakerDetectionStarted(audioLengthSeconds: Double)
     fun trackSpeakerDetectionCompleted(
         speakerCount: Int,
         confidence: Float,
         durationMs: Long,
         success: Boolean
-    ) {
-        track("Speaker Detection Completed") {
-            put("speaker_count", speakerCount)
-            put("confidence", confidence)
-            put("duration_ms", durationMs)
-            put("success", success)
-        }
-    }
-
+    )
     fun trackSpeakerDetectionError(
         errorCode: String,
         errorMessage: String,
         audioLengthSeconds: Double
-    ) {
-        track("Speaker Detection Error") {
-            put("error_code", errorCode)
-            put("error_message", errorMessage)
-            put("audio_length_seconds", audioLengthSeconds)
-        }
-    }
+    )
 
     // Model Events
-    fun trackModelLoaded(modelName: String, loadTimeMs: Long) {
-        track("Model Loaded") {
-            put("model_name", modelName)
-            put("load_time_ms", loadTimeMs)
-        }
-    }
-
-    fun trackModelLoadError(modelName: String, errorMessage: String) {
-        track("Model Load Error") {
-            put("model_name", modelName)
-            put("error_message", errorMessage)
-        }
-    }
+    fun trackModelLoaded(modelName: String, loadTimeMs: Long)
+    fun trackModelLoadError(modelName: String, errorMessage: String)
 
     // Audio Processing Events
     fun trackAudioProcessingStarted(
-        audioLengthSeconds: Double,
-        sampleRate: Int,
-        channels: Int
-    ) {
-        track("Audio Processing Started") {
-            put("audio_length_seconds", audioLengthSeconds)
-            put("sample_rate", sampleRate)
-            put("channels", channels)
-        }
-    }
-
+        source: String,
+        durationSeconds: Double,
+        format: String
+    )
     fun trackAudioProcessingCompleted(
-        audioLengthSeconds: Double,
-        processingTimeMs: Long,
-        segmentCount: Int
-    ) {
-        track("Audio Processing Completed") {
-            put("audio_length_seconds", audioLengthSeconds)
-            put("processing_time_ms", processingTimeMs)
-            put("segment_count", segmentCount)
-        }
-    }
-
+        source: String,
+        durationSeconds: Double,
+        format: String,
+        success: Boolean
+    )
     fun trackAudioProcessingError(
-        errorCode: String,
+        source: String,
         errorMessage: String,
-        audioLengthSeconds: Double
-    ) {
-        track("Audio Processing Error") {
-            put("error_code", errorCode)
-            put("error_message", errorMessage)
-            put("audio_length_seconds", audioLengthSeconds)
-        }
-    }
+        durationSeconds: Double
+    )
 
     // Performance Events
     fun trackPerformanceMetric(
         metricName: String,
         durationMs: Long,
         success: Boolean,
-        additionalData: Map<String, Any>? = null
-    ) {
-        track("Performance Metric") {
-            put("metric_name", metricName)
-            put("duration_ms", durationMs)
-            put("success", success)
-            additionalData?.forEach { (key, value) ->
-                put(key, value)
-            }
-        }
-    }
-
-    private fun track(eventName: String, properties: JSONObject.() -> Unit) {
-        try {
-            val propertiesJson = JSONObject().apply(properties)
-            mixpanel.track(eventName, propertiesJson)
-        } catch (e: Exception) {
-            // Log analytics error but don't crash the app
-            e.printStackTrace()
-        }
-    }
-
-    fun setUserProperty(property: String, value: Any) {
-        try {
-            mixpanel.people.set(property, value)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    companion object {
-        // Remove the MIXPANEL_TOKEN constant as we're using BuildConfig now
-    }
+        additionalData: Map<String, Any> = emptyMap()
+    )
 } 

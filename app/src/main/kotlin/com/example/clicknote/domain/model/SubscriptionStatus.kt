@@ -25,13 +25,16 @@ sealed class SubscriptionStatus {
     object Pending : SubscriptionStatus()
 
     companion object {
-        fun fromString(value: String): SubscriptionStatus = when (value.uppercase()) {
-            "FREE" -> Free
-            "TRIAL" -> Trial
-            "EXPIRED" -> Expired
-            "CANCELLED" -> Cancelled
-            "PENDING" -> Pending
-            else -> Free
+        fun fromString(status: String): SubscriptionStatus {
+            return when (status) {
+                "Free" -> Free
+                "Cancelled" -> Cancelled
+                else -> Error("Invalid status: $status")
+            }
+        }
+
+        fun valueOf(status: String): SubscriptionStatus {
+            return fromString(status)
         }
 
         fun toString(status: SubscriptionStatus): String = when (status) {
@@ -43,6 +46,19 @@ sealed class SubscriptionStatus {
             is Cancelled -> "CANCELLED"
             is Error -> "ERROR"
             is Pending -> "PENDING"
+        }
+    }
+
+    override fun toString(): String {
+        return when (this) {
+            is Free -> "Free"
+            is Premium -> "Premium"
+            is GracePeriod -> "GracePeriod"
+            is Error -> "Error"
+            is Cancelled -> "Cancelled"
+            is Trial -> "Trial"
+            is Expired -> "Expired"
+            is Pending -> "Pending"
         }
     }
 } 

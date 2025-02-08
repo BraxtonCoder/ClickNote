@@ -6,6 +6,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import java.util.Date
 import java.util.UUID
 import com.example.clicknote.domain.model.SyncStatus
+import java.time.LocalDateTime
 
 @Entity(tableName = "notes")
 data class Note(
@@ -55,7 +56,7 @@ data class Note(
                 createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                 modifiedAt = doc.getLong("modifiedAt") ?: System.currentTimeMillis(),
                 deletedAt = doc.getLong("deletedAt"),
-                syncStatus = doc.getString("syncStatus")?.let { SyncStatus.fromString(it) } ?: SyncStatus.SYNCED
+                syncStatus = doc.getString("syncStatus")?.let { SyncStatus.fromString(it) } ?: SyncStatus.SUCCESS
             )
         }
     }

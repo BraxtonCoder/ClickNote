@@ -4,14 +4,18 @@ package com.example.clicknote.domain.model
  * Represents the synchronization status of a note or other data
  */
 enum class SyncStatus {
-    PENDING,    // Waiting to be synced
+    IDLE,
+    PENDING,
+    SYNCING,
     IN_PROGRESS,
     COMPLETED,
-    FAILED,     // Sync failed
+    COMPLETED_WITH_ERRORS,
+    SUCCESS,
+    FAILED,
     CANCELLED,
-    CONFLICT,   // Sync conflict detected
-    OFFLINE,    // Offline, will sync when online
-    SYNCED;     // Successfully synced with cloud
+    CONFLICT,
+    OFFLINE,
+    ERROR;
 
     companion object {
         fun fromString(status: String): SyncStatus {
@@ -19,6 +23,27 @@ enum class SyncStatus {
                 valueOf(status.uppercase())
             } catch (e: IllegalArgumentException) {
                 PENDING
+            }
+        }
+
+        fun isTerminalState(status: SyncStatus): Boolean {
+            return when (status) {
+                COMPLETED, COMPLETED_WITH_ERRORS, FAILED, CANCELLED, CONFLICT, SUCCESS, ERROR -> true
+                else -> false
+            }
+        }
+
+        fun isErrorState(status: SyncStatus): Boolean {
+            return when (status) {
+                FAILED, CONFLICT, COMPLETED_WITH_ERRORS, ERROR -> true
+                else -> false
+            }
+        }
+
+        fun requiresRetry(status: SyncStatus): Boolean {
+            return when (status) {
+                FAILED, CONFLICT, ERROR -> true
+                else -> false
             }
         }
     }

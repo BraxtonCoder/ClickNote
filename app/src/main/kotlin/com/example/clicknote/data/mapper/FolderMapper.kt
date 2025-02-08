@@ -1,61 +1,68 @@
 package com.example.clicknote.data.mapper
 
+import com.example.clicknote.data.entity.FolderEntity
 import com.example.clicknote.domain.model.Folder
-import com.example.clicknote.util.DateTimeUtils
-import java.time.LocalDateTime
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
+import java.util.*
 
-data class FolderDto(
-    val id: String = "",
-    val name: String = "",
-    val color: Int = 0,
-    val createdAt: Long = 0L,
-    val modifiedAt: Long = 0L,
-    val isDeleted: Boolean = false,
-    val parentId: String? = null,
-    val position: Int = 0
-)
+object FolderMapper {
+    fun toEntity(domain: Folder): FolderEntity {
+        return FolderEntity(
+            id = domain.id,
+            name = domain.name,
+            color = domain.color,
+            createdAt = domain.createdAt,
+            modifiedAt = domain.modifiedAt,
+            isDeleted = domain.isDeleted,
+            deletedAt = domain.deletedAt,
+            parentId = domain.parentId,
+            position = domain.position
+        )
+    }
 
-fun Folder.toDto(): FolderDto {
-    return FolderDto(
-        id = id,
-        name = name,
-        color = color,
-        createdAt = DateTimeUtils.localDateTimeToTimestamp(createdAt),
-        modifiedAt = DateTimeUtils.localDateTimeToTimestamp(modifiedAt),
-        isDeleted = isDeleted,
-        parentId = parentId,
-        position = position
-    )
-}
+    fun toDomain(entity: FolderEntity): Folder {
+        return Folder(
+            id = entity.id,
+            name = entity.name,
+            color = entity.color,
+            createdAt = entity.createdAt,
+            modifiedAt = entity.modifiedAt,
+            isDeleted = entity.isDeleted,
+            deletedAt = entity.deletedAt,
+            parentId = entity.parentId,
+            position = entity.position
+        )
+    }
 
-fun FolderDto.toDomain(): Folder {
-    return Folder(
-        id = id,
-        name = name,
-        color = color,
-        createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
-        modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-        isDeleted = isDeleted,
-        parentId = parentId,
-        position = position
-    )
-}
+    fun fromDocument(document: DocumentSnapshot): FolderEntity? {
+        return try {
+            FolderEntity(
+                id = document.id,
+                name = document.getString("name") ?: "",
+                color = document.getLong("color")?.toInt() ?: 0,
+                createdAt = document.getTimestamp("createdAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                modifiedAt = document.getTimestamp("modifiedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                isDeleted = document.getBoolean("isDeleted") ?: false,
+                deletedAt = document.getTimestamp("deletedAt")?.toDate()?.time,
+                parentId = document.getString("parentId"),
+                position = document.getLong("position")?.toInt() ?: 0
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
 
-fun createFolder(
-    name: String,
-    color: Int,
-    parentId: String? = null,
-    position: Int = 0
-): Folder {
-    val now = LocalDateTime.now()
-    return Folder(
-        id = java.util.UUID.randomUUID().toString(),
-        name = name,
-        color = color,
-        createdAt = now,
-        modifiedAt = now,
-        isDeleted = false,
-        parentId = parentId,
-        position = position
-    )
+    fun toDocument(entity: FolderEntity): Map<String, Any?> {
+        return mapOf(
+            "name" to entity.name,
+            "color" to entity.color,
+            "createdAt" to Timestamp(Date(entity.createdAt)),
+            "modifiedAt" to Timestamp(Date(entity.modifiedAt)),
+            "deletedAt" to entity.deletedAt?.let { Timestamp(Date(it)) },
+            "isDeleted" to entity.isDeleted,
+            "parentId" to entity.parentId,
+            "position" to entity.position
+        )
+    }
 } 

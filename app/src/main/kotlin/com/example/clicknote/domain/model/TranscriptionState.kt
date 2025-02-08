@@ -1,11 +1,37 @@
 package com.example.clicknote.domain.model
 
-sealed class TranscriptionState {
-    data object Idle : TranscriptionState()
-    data object Recording : TranscriptionState()
-    data object Paused : TranscriptionState()
-    data class Processing(val progress: Float) : TranscriptionState()
-    data class Completed(val text: String, val duration: Long) : TranscriptionState()
-    data class Error(val error: Throwable) : TranscriptionState()
-    data class Cancelled(val reason: String? = null) : TranscriptionState()
+/**
+ * Represents the current state of a note's transcription
+ */
+enum class TranscriptionState {
+    PENDING,        // Waiting to be transcribed
+    IN_PROGRESS,    // Currently being transcribed
+    COMPLETED,      // Successfully transcribed
+    FAILED,         // Transcription failed
+    CANCELLED,      // Transcription was cancelled
+    REQUIRES_RETRY; // Transcription needs to be retried
+
+    companion object {
+        fun fromString(state: String): TranscriptionState {
+            return try {
+                valueOf(state.uppercase())
+            } catch (e: IllegalArgumentException) {
+                PENDING
+            }
+        }
+
+        fun isTerminalState(state: TranscriptionState): Boolean {
+            return when (state) {
+                COMPLETED, FAILED, CANCELLED -> true
+                else -> false
+            }
+        }
+
+        fun requiresRetry(state: TranscriptionState): Boolean {
+            return when (state) {
+                FAILED, REQUIRES_RETRY -> true
+                else -> false
+            }
+        }
+    }
 } 

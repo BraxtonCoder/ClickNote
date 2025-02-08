@@ -1,26 +1,30 @@
 package com.example.clicknote.domain.service
 
-import kotlinx.coroutines.flow.StateFlow
+import com.example.clicknote.domain.model.Note
+import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 interface TranscriptionManager {
-    val isTranscribing: StateFlow<Boolean>
-    val currentFile: StateFlow<File?>
-
-    /**
-     * Transcribes an audio file and associates it with a note
-     * @param file The audio file to transcribe
-     * @param noteId The ID of the note to associate the transcription with
-     */
-    suspend fun transcribeAudio(file: File, noteId: String)
-
-    /**
-     * Cancels any ongoing transcription
-     */
-    suspend fun cancelTranscription()
-
-    /**
-     * Cleans up any resources used by the transcription manager
-     */
+    suspend fun startTranscription(audioFile: File): Result<String>
+    suspend fun stopTranscription()
+    suspend fun pauseTranscription()
+    suspend fun resumeTranscription()
+    suspend fun getTranscriptionProgress(): Flow<Float>
+    suspend fun getTranscriptionStatus(): Flow<TranscriptionStatus>
+    suspend fun saveTranscription(note: Note): Result<Unit>
+    suspend fun isTranscribing(): Boolean
+    suspend fun setLanguage(languageCode: String)
+    suspend fun detectLanguage(audioFile: File): Result<String>
+    suspend fun detectSpeakers(audioFile: File): Result<Int>
+    suspend fun generateSummary(text: String): Result<String>
     suspend fun cleanup()
+}
+
+enum class TranscriptionStatus {
+    IDLE,
+    PREPARING,
+    TRANSCRIBING,
+    PAUSED,
+    COMPLETED,
+    ERROR
 } 

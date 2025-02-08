@@ -30,4 +30,11 @@ interface NoteRepository {
     
     suspend fun deleteExpiredNotes(expirationDate: LocalDateTime)
     suspend fun noteExists(id: String): Boolean
+
+    /**
+     * Deletes notes that have been in the trash for more than the specified number of days
+     * @param days The number of days after which trashed notes should be permanently deleted
+     * @return Result indicating success or failure of the operation
+     */
+    suspend fun deleteExpiredNotes(days: Int): Result<Unit>
 } 

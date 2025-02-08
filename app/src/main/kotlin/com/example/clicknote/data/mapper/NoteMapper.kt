@@ -5,8 +5,10 @@ import com.example.clicknote.data.entity.NoteWithFolderEntity
 import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
-import com.example.clicknote.util.DateTimeUtils
-import java.time.LocalDateTime
+import com.example.clicknote.domain.model.TranscriptionState
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
+import java.util.*
 
 data class NoteDto(
     val id: String = "",
@@ -36,16 +38,17 @@ fun NoteEntity.toDomain(): Note {
         id = id,
         title = title,
         content = content,
+        summary = transcription,
+        audioPath = audioPath,
         createdAt = createdAt,
         modifiedAt = modifiedAt,
-        source = NoteSource.valueOf(source),
-        syncStatus = SyncStatus.valueOf(syncStatus),
+        deletedAt = deletedAt,
         folderId = folderId,
-        isArchived = isArchived,
         isPinned = isPinned,
         isDeleted = isDeleted,
-        hasAudio = hasAudio,
-        audioPath = audioPath,
+        syncStatus = SyncStatus.fromString(syncStatus),
+        source = NoteSource.fromString(source),
+        isArchived = isArchived,
         duration = duration?.toInt(),
         transcriptionLanguage = transcriptionLanguage,
         speakerCount = speakerCount,
@@ -68,15 +71,18 @@ fun Note.toEntity(): NoteEntity {
         id = id,
         title = title,
         content = content,
+        transcription = content,
+        summary = "",
         createdAt = createdAt,
         modifiedAt = modifiedAt,
+        deletedAt = null,
         source = source.name,
         syncStatus = syncStatus.name,
+        transcriptionState = TranscriptionState.COMPLETED.name,
         folderId = folderId,
         isArchived = isArchived,
         isPinned = isPinned,
         isDeleted = isDeleted,
-        hasAudio = hasAudio,
         audioPath = audioPath,
         duration = duration?.toLong(),
         transcriptionLanguage = transcriptionLanguage,
@@ -93,8 +99,8 @@ fun Note.toDto(): NoteDto {
         id = id,
         title = title,
         content = content,
-        createdAt = DateTimeUtils.localDateTimeToTimestamp(createdAt),
-        modifiedAt = DateTimeUtils.localDateTimeToTimestamp(modifiedAt),
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
         source = source.name,
         syncStatus = syncStatus.name,
         folderId = folderId,
@@ -118,16 +124,17 @@ fun NoteDto.toDomain(): Note {
         id = id,
         title = title,
         content = content,
-        createdAt = DateTimeUtils.timestampToLocalDateTime(createdAt),
-        modifiedAt = DateTimeUtils.timestampToLocalDateTime(modifiedAt),
-        source = NoteSource.valueOf(source),
-        syncStatus = SyncStatus.valueOf(syncStatus),
+        summary = "",
+        audioPath = audioPath,
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
+        deletedAt = null,
         folderId = folderId,
-        isArchived = isArchived,
         isPinned = isPinned,
         isDeleted = isDeleted,
-        hasAudio = hasAudio,
-        audioPath = audioPath,
+        syncStatus = SyncStatus.fromString(syncStatus),
+        source = NoteSource.fromString(source),
+        isArchived = isArchived,
         duration = duration,
         transcriptionLanguage = transcriptionLanguage,
         speakerCount = speakerCount,
@@ -149,24 +156,83 @@ fun createNote(
     speakerCount: Int? = null,
     metadata: Map<String, String> = emptyMap()
 ): Note {
-    val now = LocalDateTime.now()
+    val now = Date().time
     return Note(
         id = java.util.UUID.randomUUID().toString(),
         title = title,
         content = content,
+        summary = "",
+        audioPath = audioPath,
         createdAt = now,
         modifiedAt = now,
-        source = source,
-        syncStatus = SyncStatus.PENDING,
+        deletedAt = null,
         folderId = folderId,
-        isArchived = false,
         isPinned = false,
         isDeleted = false,
-        hasAudio = audioPath != null,
-        audioPath = audioPath,
+        syncStatus = SyncStatus.PENDING,
+        source = source,
+        isArchived = false,
         duration = duration,
         transcriptionLanguage = transcriptionLanguage,
         speakerCount = speakerCount,
         metadata = metadata
     )
+}
+
+object NoteMapper {
+    fun fromDocument(document: DocumentSnapshot): NoteEntity? {
+        return try {
+            val content = document.getString("content") ?: ""
+            val transcription = document.getString("transcription") ?: content
+            
+            NoteEntity(
+                id = document.id,
+                title = document.getString("title") ?: "",
+                content = content,
+                transcription = transcription,
+                summary = document.getString("summary"),
+                createdAt = document.getTimestamp("createdAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                modifiedAt = document.getTimestamp("modifiedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                deletedAt = document.getTimestamp("deletedAt")?.toDate()?.time,
+                source = document.getString("source") ?: NoteSource.MANUAL.name,
+                syncStatus = document.getString("syncStatus") ?: SyncStatus.PENDING.name,
+                transcriptionState = document.getString("transcriptionState") ?: TranscriptionState.COMPLETED.name,
+                folderId = document.getString("folderId"),
+                isArchived = document.getBoolean("isArchived") ?: false,
+                isPinned = document.getBoolean("isPinned") ?: false,
+                isDeleted = document.getBoolean("isDeleted") ?: false,
+                audioPath = document.getString("audioPath"),
+                duration = document.getLong("duration"),
+                transcriptionLanguage = document.getString("transcriptionLanguage"),
+                speakerCount = document.getLong("speakerCount")?.toInt(),
+                metadata = (document.get("metadata") as? Map<String, String>) ?: emptyMap()
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun toDocument(entity: NoteEntity): Map<String, Any?> {
+        return mapOf(
+            "title" to entity.title,
+            "content" to entity.content,
+            "transcription" to entity.transcription,
+            "summary" to entity.summary,
+            "createdAt" to Timestamp(Date(entity.createdAt)),
+            "modifiedAt" to Timestamp(Date(entity.modifiedAt)),
+            "deletedAt" to entity.deletedAt?.let { Timestamp(Date(it)) },
+            "source" to entity.source,
+            "syncStatus" to entity.syncStatus,
+            "transcriptionState" to entity.transcriptionState,
+            "folderId" to entity.folderId,
+            "isArchived" to entity.isArchived,
+            "isPinned" to entity.isPinned,
+            "isDeleted" to entity.isDeleted,
+            "audioPath" to entity.audioPath,
+            "duration" to entity.duration,
+            "transcriptionLanguage" to entity.transcriptionLanguage,
+            "speakerCount" to entity.speakerCount,
+            "metadata" to entity.metadata
+        )
+    }
 } 

@@ -4,16 +4,10 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import android.os.PowerManager
-import com.example.clicknote.data.service.*
 import com.example.clicknote.domain.service.*
-import com.example.clicknote.data.strategy.ServiceStrategyImpl
 import com.example.clicknote.domain.strategy.ServiceStrategy
-import com.example.clicknote.data.handler.ServiceEventHandlerImpl
 import com.example.clicknote.domain.event.ServiceEventHandler
-import com.example.clicknote.service.TranscriptionManager
-import com.example.clicknote.service.TranscriptionManagerImpl
-import com.example.clicknote.service.recording.IRecordingService
-import com.example.clicknote.service.recording.RecordingServiceImpl
+import com.example.clicknote.service.impl.*
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -67,15 +61,15 @@ abstract class ServiceModule {
 
     @Binds
     @Singleton
-    abstract fun bindWhisperTranscriptionService(
+    abstract fun bindTranscriptionService(
         impl: WhisperTranscriptionServiceImpl
-    ): WhisperTranscriptionService
+    ): TranscriptionService
 
     @Binds
     @Singleton
-    abstract fun bindWhisperOfflineTranscriptionService(
+    abstract fun bindOfflineTranscriptionService(
         impl: WhisperOfflineTranscriptionServiceImpl
-    ): WhisperOfflineTranscriptionService
+    ): OfflineTranscriptionService
 
     @Binds
     @Singleton
@@ -84,9 +78,22 @@ abstract class ServiceModule {
     ): TranscriptionManager
 
     @Binds
-    abstract fun bindRecordingService(
-        impl: RecordingServiceImpl
-    ): IRecordingService
+    @Singleton
+    abstract fun bindAudioService(
+        impl: AudioServiceImpl
+    ): AudioService
+
+    @Binds
+    @Singleton
+    abstract fun bindStorageService(
+        impl: StorageServiceImpl
+    ): StorageService
+
+    @Binds
+    @Singleton
+    abstract fun bindOpenAiService(
+        impl: OpenAiServiceImpl
+    ): OpenAiService
 
     companion object {
         @Provides

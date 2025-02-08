@@ -33,4 +33,31 @@ interface TranscriptionService : TranscriptionCapable {
     fun cancelTranscription()
 
     fun getTranscriptionProgress(): Flow<Float>
-} 
+
+    suspend fun transcribeAudio(audioFile: File): Result<String>
+    suspend fun transcribeWithTimestamps(audioFile: File): Result<TranscriptionResult>
+    suspend fun detectLanguage(audioFile: File): Result<String>
+    suspend fun detectSpeakers(audioFile: File): Result<Int>
+    suspend fun getProgress(): Flow<Float>
+    suspend fun cancel()
+    suspend fun isTranscribing(): Boolean
+    suspend fun setLanguage(languageCode: String)
+    suspend fun cleanup()
+}
+
+data class TranscriptionResult(
+    val text: String,
+    val segments: List<TranscriptionSegment> = emptyList(),
+    val language: String = "en",
+    val speakerCount: Int = 1,
+    val confidence: Float = 0f,
+    val duration: Long = 0L
+)
+
+data class TranscriptionSegment(
+    val startTime: Long,
+    val endTime: Long,
+    val text: String,
+    val speakerLabel: String? = null,
+    val confidence: Float = 0f
+) 

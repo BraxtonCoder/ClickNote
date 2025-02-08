@@ -6,12 +6,11 @@ import com.example.clicknote.domain.model.Note
 import com.example.clicknote.domain.model.NoteSource
 import com.example.clicknote.domain.model.SyncStatus
 import com.example.clicknote.domain.repository.NoteRepository
-import com.example.clicknote.util.DateTimeUtils
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.time.LocalDateTime
-import java.util.UUID
+import java.time.ZoneId
 
 @Singleton
 class NoteRepositoryImpl @Inject constructor(
@@ -32,7 +31,7 @@ class NoteRepositoryImpl @Inject constructor(
             entities.map { it.toDomain() }
         }
 
-    override suspend fun searchNotes(query: String): Flow<List<Note>> =
+    override fun searchNotes(query: String): Flow<List<Note>> =
         noteDao.searchNotes(query).map { entities ->
             entities.map { it.toDomain() }
         }
@@ -42,11 +41,12 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertNote(note: Note): Result<Unit> = runCatching {
-        val now = LocalDateTime.now()
+        val now = System.currentTimeMillis()
         val entity = NoteEntity(
-            id = note.id.ifEmpty { UUID.randomUUID().toString() },
+            id = note.id.ifEmpty { java.util.UUID.randomUUID().toString() },
             title = note.title,
             content = note.content,
+            transcription = note.content,
             createdAt = now,
             modifiedAt = now,
             source = note.source.name,
@@ -55,7 +55,7 @@ class NoteRepositoryImpl @Inject constructor(
             isArchived = note.isArchived,
             isPinned = note.isPinned,
             isDeleted = note.isDeleted,
-            hasAudio = note.hasAudio,
+            hasAudio = note.audioPath != null,
             audioPath = note.audioPath,
             duration = note.duration?.toLong(),
             transcriptionLanguage = note.transcriptionLanguage,
@@ -67,11 +67,12 @@ class NoteRepositoryImpl @Inject constructor(
 
     override suspend fun insertNotes(notes: List<Note>): Result<Unit> = runCatching {
         val entities = notes.map { note ->
-            val now = LocalDateTime.now()
+            val now = System.currentTimeMillis()
             NoteEntity(
-                id = note.id.ifEmpty { UUID.randomUUID().toString() },
+                id = note.id.ifEmpty { java.util.UUID.randomUUID().toString() },
                 title = note.title,
                 content = note.content,
+                transcription = note.content,
                 createdAt = now,
                 modifiedAt = now,
                 source = note.source.name,
@@ -80,7 +81,7 @@ class NoteRepositoryImpl @Inject constructor(
                 isArchived = note.isArchived,
                 isPinned = note.isPinned,
                 isDeleted = note.isDeleted,
-                hasAudio = note.hasAudio,
+                hasAudio = note.audioPath != null,
                 audioPath = note.audioPath,
                 duration = note.duration?.toLong(),
                 transcriptionLanguage = note.transcriptionLanguage,
@@ -92,12 +93,13 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateNote(note: Note): Result<Unit> = runCatching {
-        val now = LocalDateTime.now()
+        val now = System.currentTimeMillis()
         noteDao.updateNote(
             NoteEntity(
                 id = note.id,
                 title = note.title,
                 content = note.content,
+                transcription = note.content,
                 createdAt = note.createdAt,
                 modifiedAt = now,
                 source = note.source.name,
@@ -106,7 +108,7 @@ class NoteRepositoryImpl @Inject constructor(
                 isArchived = note.isArchived,
                 isPinned = note.isPinned,
                 isDeleted = note.isDeleted,
-                hasAudio = note.hasAudio,
+                hasAudio = note.audioPath != null,
                 audioPath = note.audioPath,
                 duration = note.duration?.toLong(),
                 transcriptionLanguage = note.transcriptionLanguage,
@@ -121,7 +123,7 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun moveToTrash(noteIds: List<String>): Result<Unit> = runCatching {
-        val now = LocalDateTime.now()
+        val now = System.currentTimeMillis()
         noteIds.forEach { id ->
             noteDao.moveToTrash(id, now)
         }
@@ -174,7 +176,8 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteExpiredNotes(expirationDate: LocalDateTime) {
-        noteDao.deleteExpiredNotes(expirationDate)
+        val timestamp = expirationDate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        noteDao.deleteExpiredNotes(timestamp)
     }
 
     override suspend fun noteExists(id: String): Boolean {
@@ -182,7 +185,7 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun softDeleteNote(note: Note): Result<Unit> = runCatching {
-        val now = LocalDateTime.now()
+        val now = System.currentTimeMillis()
         noteDao.moveToTrash(note.id, now)
     }
 
@@ -202,16 +205,16 @@ class NoteRepositoryImpl @Inject constructor(
         id = id,
         title = title,
         content = content,
+        summary = summary,
+        audioPath = audioPath,
         createdAt = createdAt,
         modifiedAt = modifiedAt,
-        source = NoteSource.valueOf(source),
-        syncStatus = SyncStatus.valueOf(syncStatus),
         folderId = folderId,
-        isArchived = isArchived,
         isPinned = isPinned,
         isDeleted = isDeleted,
-        hasAudio = hasAudio,
-        audioPath = audioPath,
+        syncStatus = SyncStatus.valueOf(syncStatus),
+        source = NoteSource.valueOf(source),
+        isArchived = isArchived,
         duration = duration?.toInt(),
         transcriptionLanguage = transcriptionLanguage,
         speakerCount = speakerCount,

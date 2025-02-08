@@ -2,7 +2,6 @@ package com.example.clicknote.data
 
 import com.example.clicknote.data.entity.FolderEntity
 import com.example.clicknote.domain.model.Folder
-import java.time.LocalDateTime
 
 /**
  * Extension function to convert FolderEntity to domain Folder
@@ -15,7 +14,7 @@ fun FolderEntity.toDomain(): Folder {
         createdAt = createdAt,
         modifiedAt = modifiedAt,
         isDeleted = isDeleted,
-        parentId = parentId,
+        deletedAt = deletedAt,
         position = position
     )
 }
@@ -31,7 +30,7 @@ fun Folder.toEntity(): FolderEntity {
         createdAt = createdAt,
         modifiedAt = modifiedAt,
         isDeleted = isDeleted,
-        parentId = parentId,
+        deletedAt = deletedAt,
         position = position
     )
 }
@@ -42,10 +41,9 @@ fun Folder.toEntity(): FolderEntity {
 fun createFolder(
     name: String,
     color: Int,
-    parentId: String? = null,
     position: Int = 0
 ): FolderEntity {
-    val now = LocalDateTime.now()
+    val now = System.currentTimeMillis()
     return FolderEntity(
         id = java.util.UUID.randomUUID().toString(),
         name = name,
@@ -53,7 +51,7 @@ fun createFolder(
         createdAt = now,
         modifiedAt = now,
         isDeleted = false,
-        parentId = parentId,
+        deletedAt = null,
         position = position
     )
 } 

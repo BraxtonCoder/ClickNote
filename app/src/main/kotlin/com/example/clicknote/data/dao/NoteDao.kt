@@ -10,8 +10,17 @@ import java.time.LocalDateTime
 
 @Dao
 interface NoteDao {
-    @Query("SELECT * FROM notes")
+    @Query("SELECT * FROM notes WHERE is_deleted = 0 ORDER BY modified_at DESC")
     fun getAllNotes(): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE folder_id = :folderId AND is_deleted = 0 ORDER BY modified_at DESC")
+    fun getNotesInFolder(folderId: String): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE is_deleted = 1 ORDER BY modified_at DESC")
+    fun getDeletedNotes(): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE (title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%') AND is_deleted = 0 ORDER BY modified_at DESC")
+    fun searchNotes(query: String): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id")
     suspend fun getNoteById(id: String): NoteEntity?
@@ -20,22 +29,31 @@ interface NoteDao {
     suspend fun insertNote(note: NoteEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertNotes(notes: List<NoteEntity>)
+    suspend fun insertAll(notes: List<NoteEntity>)
 
     @Update
     suspend fun updateNote(note: NoteEntity)
 
-    @Delete
-    suspend fun deleteNote(note: NoteEntity)
-
     @Query("DELETE FROM notes WHERE id = :id")
-    suspend fun deleteNoteById(id: String)
+    suspend fun delete(id: String)
+
+    @Query("UPDATE notes SET is_deleted = 1, deleted_at = :deletedAt WHERE id = :id")
+    suspend fun moveToTrash(id: String, deletedAt: Long)
+
+    @Query("UPDATE notes SET is_deleted = 0, deleted_at = NULL WHERE id = :id")
+    suspend fun restoreFromTrash(id: String)
+
+    @Query("UPDATE notes SET folder_id = :folderId WHERE id = :noteId")
+    suspend fun updateNoteFolder(noteId: String, folderId: String?)
+
+    @Query("UPDATE notes SET is_pinned = :isPinned WHERE id = :noteId")
+    suspend fun updatePinned(noteId: String, isPinned: Boolean)
+
+    @Query("DELETE FROM notes WHERE is_deleted = 1 AND deleted_at < :expirationDate")
+    suspend fun deleteExpiredNotes(expirationDate: Long)
 
     @Query("SELECT * FROM notes WHERE is_deleted = 0 ORDER BY created_at DESC")
     fun getActiveNotes(): Flow<List<NoteEntity>>
-
-    @Query("SELECT * FROM notes WHERE is_deleted = 1 ORDER BY modified_at DESC")
-    fun getDeletedNotes(): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE folder_id = :folderId AND is_deleted = 0 ORDER BY created_at DESC")
     fun getNotesByFolder(folderId: String): Flow<List<NoteEntity>>
@@ -82,7 +100,7 @@ interface NoteDao {
         updateSyncStatus(localNotes.map { it.id }, SyncStatus.IN_PROGRESS.name)
 
         try {
-            insertNotes(serverNotes)
+            insertAll(serverNotes)
             updateSyncStatus(localNotes.map { it.id }, SyncStatus.COMPLETED.name)
         } catch (e: Exception) {
             updateSyncStatus(localNotes.map { it.id }, SyncStatus.FAILED.name)
@@ -125,9 +143,6 @@ interface NoteDao {
         ORDER BY is_pinned DESC, created_at DESC
     """)
     fun searchNotesWithFolders(query: String): Flow<List<NoteWithFolderEntity>>
-
-    @Query("UPDATE notes SET folder_id = :folderId WHERE id = :noteId")
-    suspend fun updateNoteFolder(noteId: String, folderId: String?)
 
     @Query("SELECT COUNT(*) FROM note_entity WHERE is_deleted = 1")
     fun getDeletedNotesCount(): Flow<Int>

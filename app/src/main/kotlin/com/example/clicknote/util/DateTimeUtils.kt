@@ -2,24 +2,26 @@ package com.example.clicknote.util
 
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.time.ZoneId
 
 object DateTimeUtils {
     /**
-     * Converts a timestamp (milliseconds since epoch) to LocalDateTime
+     * Converts a LocalDateTime to a Unix timestamp in milliseconds
      */
-    fun timestampToLocalDateTime(timestamp: Long): LocalDateTime {
-        return LocalDateTime.ofInstant(
-            Instant.ofEpochMilli(timestamp),
-            ZoneOffset.UTC
-        )
+    fun toTimestamp(dateTime: LocalDateTime): Long {
+        return dateTime.atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
     }
 
     /**
-     * Converts a LocalDateTime to timestamp (milliseconds since epoch)
+     * Converts a Unix timestamp in milliseconds to LocalDateTime
      */
-    fun localDateTimeToTimestamp(dateTime: LocalDateTime): Long {
-        return dateTime.toInstant(ZoneOffset.UTC).toEpochMilli()
+    fun fromTimestamp(timestamp: Long): LocalDateTime {
+        return LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(timestamp),
+            ZoneId.systemDefault()
+        )
     }
 
     /**
@@ -30,9 +32,26 @@ object DateTimeUtils {
     }
 
     /**
-     * Gets the current LocalDateTime in UTC
+     * Gets the current LocalDateTime
      */
-    fun currentDateTime(): LocalDateTime {
-        return LocalDateTime.now(ZoneOffset.UTC)
+    fun now(): LocalDateTime {
+        return LocalDateTime.now()
+    }
+
+    /**
+     * Checks if a timestamp is older than the specified number of days
+     */
+    fun isOlderThanDays(timestamp: Long, days: Int): Boolean {
+        val now = currentTimestamp()
+        val daysInMillis = days * 24 * 60 * 60 * 1000L
+        return (now - timestamp) > daysInMillis
+    }
+
+    /**
+     * Formats a timestamp into a human-readable string
+     */
+    fun formatTimestamp(timestamp: Long): String {
+        val dateTime = fromTimestamp(timestamp)
+        return dateTime.toString() // You can customize this format as needed
     }
 } 

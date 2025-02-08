@@ -4,11 +4,9 @@ import com.example.clicknote.data.dao.FolderDao
 import com.example.clicknote.data.entity.FolderEntity
 import com.example.clicknote.domain.model.Folder
 import com.example.clicknote.domain.repository.FolderRepository
-import com.example.clicknote.util.DateTimeUtils
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.time.LocalDateTime
 import java.util.UUID
 
 @Singleton
@@ -25,7 +23,7 @@ class FolderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun insertFolder(folder: Folder): Result<Unit> = runCatching {
-        val now = LocalDateTime.now()
+        val now = System.currentTimeMillis()
         val entity = FolderEntity(
             id = folder.id.ifEmpty { UUID.randomUUID().toString() },
             name = folder.name,
@@ -41,7 +39,7 @@ class FolderRepositoryImpl @Inject constructor(
 
     override suspend fun insertFolders(folders: List<Folder>): Result<Unit> = runCatching {
         val entities = folders.map { folder ->
-            val now = LocalDateTime.now()
+            val now = System.currentTimeMillis()
             FolderEntity(
                 id = folder.id.ifEmpty { UUID.randomUUID().toString() },
                 name = folder.name,
@@ -57,7 +55,7 @@ class FolderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateFolder(folder: Folder): Result<Unit> = runCatching {
-        val now = LocalDateTime.now()
+        val now = System.currentTimeMillis()
         folderDao.update(
             FolderEntity(
                 id = folder.id,

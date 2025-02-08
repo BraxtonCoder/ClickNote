@@ -70,29 +70,35 @@ class MixPanelAnalyticsTracker @Inject constructor(
     }
 
     override fun trackNoteCreated(note: Note) {
-        val props = JSONObject().apply {
+        val properties = JSONObject().apply {
             put("note_id", note.id)
-            put("has_audio", note.hasAudio)
-            put("word_count", note.content.split(" ").size)
-            put("folder_id", note.folderId ?: "none")
+            put("duration", note.duration ?: 0)
+            put("has_audio", note.hasAudio as Boolean)
+            put("is_long_note", note.isLongNote)
+            put("language", note.transcriptionLanguage ?: "en")
+            put("speaker_count", note.speakerCount ?: 1)
         }
-        mixpanel.trackMap("note_created", props.toMap())
+        mixpanel.track("note_created", properties)
     }
 
     override fun trackNoteDeleted(note: Note) {
-        val props = JSONObject().apply {
+        val properties = JSONObject().apply {
             put("note_id", note.id)
-            put("has_audio", note.hasAudio)
+            put("duration", note.duration ?: 0)
+            put("has_audio", note.hasAudio as Boolean)
+            put("is_long_note", note.isLongNote)
         }
-        mixpanel.trackMap("note_deleted", props.toMap())
+        mixpanel.track("note_deleted", properties)
     }
 
     override fun trackNoteRestored(note: Note) {
-        val props = JSONObject().apply {
+        val properties = JSONObject().apply {
             put("note_id", note.id)
-            put("has_audio", note.hasAudio)
+            put("duration", note.duration ?: 0)
+            put("has_audio", note.hasAudio as Boolean)
+            put("is_long_note", note.isLongNote)
         }
-        mixpanel.trackMap("note_restored", props.toMap())
+        mixpanel.track("note_restored", properties)
     }
 
     override fun trackTranscriptionStarted(source: String) {

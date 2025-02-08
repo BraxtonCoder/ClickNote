@@ -14,7 +14,7 @@ data class NoteWithFolderEntity(
     val note: NoteEntity,
 
     @Relation(
-        parentColumn = "folder_id",
+        parentColumn = "folderId",
         entityColumn = "id"
     )
     val folder: FolderEntity?

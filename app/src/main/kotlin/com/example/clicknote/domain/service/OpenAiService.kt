@@ -1,9 +1,15 @@
 package com.example.clicknote.domain.service
 
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 
 interface OpenAiService {
-    suspend fun generateSummary(text: String, options: SummaryOptions = SummaryOptions()): Result<String>
+    suspend fun transcribeAudio(audioFile: File, language: String): String
+    suspend fun generateSummary(text: String): String
+    suspend fun generateKeyPoints(text: String): List<String>
+    suspend fun detectLanguage(audioFile: File): String
+    suspend fun detectSpeakers(audioFile: File): Int
+    suspend fun improveAudioQuality(audioFile: File): File
     suspend fun generateTags(text: String): Result<List<String>>
     suspend fun extractKeyPoints(text: String): Result<List<String>>
     suspend fun categorizeContent(text: String): Result<List<String>>

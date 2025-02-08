@@ -31,7 +31,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.clicknote"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -43,7 +43,7 @@ android {
 
         buildConfigField("String", "MIXPANEL_TOKEN", "\"${project.findProperty("MIXPANEL_TOKEN") ?: ""}\"")
         buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${localProperties.getProperty("stripe.publishable.key", "")}\"")
-        buildConfigField("String", "OPENAI_API_KEY", "\"${project.findProperty("OPENAI_API_KEY") ?: ""}\"")
+        buildConfigField("String", "OPENAI_API_KEY", "\"${System.getenv("OPENAI_API_KEY") ?: ""}\"")
 
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
@@ -82,7 +82,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
+        kotlinCompilerExtensionVersion = "1.5.1"
     }
 
     packaging {

@@ -1,15 +1,23 @@
 package com.example.clicknote.data.entity
 
 import androidx.room.*
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import com.example.clicknote.domain.model.Folder
 
 @Entity(
     tableName = "folders",
+    foreignKeys = [
+        ForeignKey(
+            entity = FolderEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["parent_id"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
     indices = [
         Index("name", unique = true),
-        Index("created_at")
+        Index("created_at"),
+        Index("parent_id"),
+        Index("position")
     ]
 )
 data class FolderEntity(
@@ -24,13 +32,16 @@ data class FolderEntity(
     val color: Int,
 
     @ColumnInfo(name = "created_at")
-    val createdAt: LocalDateTime,
+    val createdAt: Long,
 
     @ColumnInfo(name = "modified_at")
-    val modifiedAt: LocalDateTime,
+    val modifiedAt: Long,
 
     @ColumnInfo(name = "is_deleted")
     val isDeleted: Boolean = false,
+
+    @ColumnInfo(name = "deleted_at")
+    val deletedAt: Long? = null,
 
     @ColumnInfo(name = "parent_id")
     val parentId: String? = null,
@@ -46,6 +57,7 @@ data class FolderEntity(
             createdAt = createdAt,
             modifiedAt = modifiedAt,
             isDeleted = isDeleted,
+            deletedAt = deletedAt,
             parentId = parentId,
             position = position
         )
@@ -60,6 +72,7 @@ data class FolderEntity(
                 createdAt = domain.createdAt,
                 modifiedAt = domain.modifiedAt,
                 isDeleted = domain.isDeleted,
+                deletedAt = domain.deletedAt,
                 parentId = domain.parentId,
                 position = domain.position
             )
@@ -71,7 +84,7 @@ data class FolderEntity(
             parentId: String? = null,
             position: Int = 0
         ): FolderEntity {
-            val now = LocalDateTime.now()
+            val now = System.currentTimeMillis()
             return FolderEntity(
                 id = java.util.UUID.randomUUID().toString(),
                 name = name,
@@ -79,11 +92,18 @@ data class FolderEntity(
                 createdAt = now,
                 modifiedAt = now,
                 isDeleted = false,
+                deletedAt = null,
                 parentId = parentId,
                 position = position
             )
         }
     }
+
+    val isRoot: Boolean
+        get() = parentId == null
+
+    val hasParent: Boolean
+        get() = parentId != null
 }
 
 /**
@@ -97,6 +117,7 @@ fun FolderEntity.toDomain(): Folder {
         createdAt = createdAt,
         modifiedAt = modifiedAt,
         isDeleted = isDeleted,
+        deletedAt = deletedAt,
         parentId = parentId,
         position = position
     )
@@ -113,6 +134,7 @@ fun Folder.toEntity(): FolderEntity {
         createdAt = createdAt,
         modifiedAt = modifiedAt,
         isDeleted = isDeleted,
+        deletedAt = deletedAt,
         parentId = parentId,
         position = position
     )

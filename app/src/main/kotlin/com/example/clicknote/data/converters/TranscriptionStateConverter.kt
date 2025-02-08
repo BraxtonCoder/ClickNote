@@ -1,33 +1,50 @@
 package com.example.clicknote.data.converters
 
-import androidx.room.TypeConverter
-import com.example.clicknote.data.entity.TranscriptionState as EntityState
-import com.example.clicknote.domain.model.TranscriptionState as DomainState
+import com.example.clicknote.domain.model.TranscriptionState
+import com.example.clicknote.ui.model.TranscriptionUiState
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class TranscriptionStateConverter {
-    @TypeConverter
-    fun fromTranscriptionState(state: DomainState): String {
-        return when (state) {
-            is DomainState.Idle -> EntityState.IDLE.name
-            is DomainState.Recording -> EntityState.RECORDING.name
-            is DomainState.Paused -> EntityState.PAUSED.name
-            is DomainState.Processing -> EntityState.PROCESSING.name
-            is DomainState.Completed -> EntityState.COMPLETED.name
-            is DomainState.Error -> EntityState.ERROR.name
-            is DomainState.Cancelled -> EntityState.CANCELLED.name
+@Singleton
+class TranscriptionStateConverter @Inject constructor() {
+
+    fun toUiState(domainState: TranscriptionState, text: String = "", duration: Long = 0L): TranscriptionUiState {
+        return when (domainState) {
+            TranscriptionState.PENDING -> TranscriptionUiState.Idle
+            TranscriptionState.IN_PROGRESS -> TranscriptionUiState.Recording
+            TranscriptionState.COMPLETED -> TranscriptionUiState.Completed(
+                text = text,
+                duration = duration,
+                wordCount = text.split("\\s+".toRegex()).count()
+            )
+            TranscriptionState.FAILED -> TranscriptionUiState.Error(
+                Exception("Transcription failed")
+            )
+            TranscriptionState.CANCELLED -> TranscriptionUiState.Cancelled(
+                reason = "User cancelled"
+            )
+            TranscriptionState.REQUIRES_RETRY -> TranscriptionUiState.Error(
+                Exception("Transcription requires retry")
+            )
         }
     }
 
-    @TypeConverter
-    fun toTranscriptionState(value: String): DomainState {
-        return when (EntityState.valueOf(value)) {
-            EntityState.IDLE -> DomainState.Idle
-            EntityState.RECORDING -> DomainState.Recording
-            EntityState.PAUSED -> DomainState.Paused
-            EntityState.PROCESSING -> DomainState.Processing(0f)
-            EntityState.COMPLETED -> DomainState.Completed("", 0L)
-            EntityState.ERROR -> DomainState.Error(Throwable("Unknown error"))
-            EntityState.CANCELLED -> DomainState.Cancelled()
+    fun toDomainState(uiState: TranscriptionUiState): TranscriptionState {
+        return when (uiState) {
+            is TranscriptionUiState.Idle -> TranscriptionState.PENDING
+            is TranscriptionUiState.Recording -> TranscriptionState.IN_PROGRESS
+            is TranscriptionUiState.Paused -> TranscriptionState.IN_PROGRESS
+            is TranscriptionUiState.Processing -> TranscriptionState.IN_PROGRESS
+            is TranscriptionUiState.Completed -> TranscriptionState.COMPLETED
+            is TranscriptionUiState.Error -> TranscriptionState.FAILED
+            is TranscriptionUiState.Cancelled -> TranscriptionState.CANCELLED
+        }
+    }
+
+    fun toUiStateWithProgress(domainState: TranscriptionState, progress: Float): TranscriptionUiState {
+        return when (domainState) {
+            TranscriptionState.IN_PROGRESS -> TranscriptionUiState.Processing(progress)
+            else -> toUiState(domainState)
         }
     }
 } 

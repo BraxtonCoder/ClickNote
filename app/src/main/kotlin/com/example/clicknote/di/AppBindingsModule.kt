@@ -3,8 +3,10 @@ package com.example.clicknote.di
 import com.example.clicknote.data.service.*
 import com.example.clicknote.data.analytics.MixPanelAnalyticsService
 import com.example.clicknote.domain.service.*
-import com.example.clicknote.domain.interfaces.*
+import com.example.clicknote.domain.interfaces.NetworkConnectivityManager
+import com.example.clicknote.domain.interfaces.NotificationHandler
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
+import com.example.clicknote.data.network.NetworkConnectivityManagerImpl
 import com.example.clicknote.service.impl.*
 import com.example.clicknote.data.preferences.UserPreferencesDataStoreImpl
 import dagger.Binds

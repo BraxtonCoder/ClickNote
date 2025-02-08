@@ -42,7 +42,7 @@ class PreferencesRepositoryImpl @Inject constructor(
     }
 
     override suspend fun setTranscriptionLanguage(language: TranscriptionLanguage) {
-        preferences.setTranscriptionLanguage(language)
+        preferences.setTranscriptionLanguage(language.code)
     }
 
     override suspend fun setDetectSpeakers(enabled: Boolean) {

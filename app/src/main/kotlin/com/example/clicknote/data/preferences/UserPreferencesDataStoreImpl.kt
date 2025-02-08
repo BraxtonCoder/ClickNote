@@ -10,12 +10,11 @@ import com.example.clicknote.domain.model.SubscriptionStatus
 import com.example.clicknote.domain.model.TranscriptionLanguage
 import com.example.clicknote.domain.preferences.UserPreferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
+import java.io.IOException
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
@@ -51,6 +50,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         val LAST_TRANSCRIPTION_RESET_TIME = longPreferencesKey("last_transcription_reset_time")
         val SUBSCRIPTION_STATUS = stringPreferencesKey("subscription_status")
         val OFFLINE_MODE_ENABLED = booleanPreferencesKey("offline_mode_enabled")
+        val SAVE_AUDIO = booleanPreferencesKey("save_audio")
+        val USE_OFFLINE_TRANSCRIPTION = booleanPreferencesKey("use_offline_transcription")
+        val SHOW_NOTIFICATIONS = booleanPreferencesKey("show_notifications")
     }
 
     private val onlineTranscriptionEnabledKey = booleanPreferencesKey("online_transcription_enabled")
@@ -95,9 +97,16 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         .map { preferences -> preferences[PreferencesKeys.DETECT_SPEAKERS] ?: false }
 
     override val transcriptionLanguage: Flow<TranscriptionLanguage> = context.dataStore.data
-        .map { preferences -> 
-            val code = preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: "en"
-            TranscriptionLanguage.fromCode(code) ?: TranscriptionLanguage.ENGLISH
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            val code = preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: TranscriptionLanguage.DEFAULT.code
+            TranscriptionLanguage.fromCode(code)
         }
 
     override val audioQuality: Flow<String> = context.dataStore.data
@@ -128,9 +137,20 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         .map { preferences -> preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET] ?: 0L }
 
     override val cloudStorageType: Flow<CloudStorageType> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
         .map { preferences ->
-            val type = preferences[PreferencesKeys.CLOUD_STORAGE_TYPE] ?: CloudStorageType.LOCAL.name
-            CloudStorageType.fromString(type)
+            val typeString = preferences[PreferencesKeys.CLOUD_STORAGE_TYPE] ?: CloudStorageType.NONE.name
+            try {
+                CloudStorageType.valueOf(typeString)
+            } catch (e: IllegalArgumentException) {
+                CloudStorageType.NONE
+            }
         }
 
     override val subscriptionStatus: Flow<SubscriptionStatus> = context.dataStore.data
@@ -149,7 +169,16 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         .map { preferences -> preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] ?: 0L }
 
     override fun getTranscriptionLanguage(): Flow<String> = context.dataStore.data
-        .map { preferences -> preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: "en" }
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.TRANSCRIPTION_LANGUAGE] ?: TranscriptionLanguage.DEFAULT.code
+        }
 
     override fun getSpeakerDetectionEnabled(): Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[PreferencesKeys.DETECT_SPEAKERS] ?: false }
@@ -359,6 +388,60 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         
         if (currentTime - lastResetTime >= weekInMillis) {
             resetWeeklyTranscriptionCount()
+        }
+    }
+
+    override val saveAudio: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.SAVE_AUDIO] ?: true
+        }
+
+    override val useOfflineTranscription: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.USE_OFFLINE_TRANSCRIPTION] ?: false
+        }
+
+    override val showNotifications: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) {
+                emit(emptyPreferences())
+            } else {
+                throw exception
+            }
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.SHOW_NOTIFICATIONS] ?: true
+        }
+
+    override suspend fun setSaveAudio(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SAVE_AUDIO] = enabled
+        }
+    }
+
+    override suspend fun setUseOfflineTranscription(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.USE_OFFLINE_TRANSCRIPTION] = enabled
+        }
+    }
+
+    override suspend fun setShowNotifications(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_NOTIFICATIONS] = enabled
         }
     }
 }

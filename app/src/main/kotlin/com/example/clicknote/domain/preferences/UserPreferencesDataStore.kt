@@ -18,6 +18,10 @@ import javax.inject.Singleton
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
 interface UserPreferencesDataStore {
+    val transcriptionLanguage: Flow<TranscriptionLanguage>
+    val cloudStorageType: Flow<CloudStorageType>
+    val cloudProvider: Flow<CloudProvider>
+    val subscriptionStatus: Flow<SubscriptionStatus>
     val callRecordingEnabled: Flow<Boolean>
     val audioSavingEnabled: Flow<Boolean>
     val offlineTranscriptionEnabled: Flow<Boolean>
@@ -31,35 +35,23 @@ interface UserPreferencesDataStore {
     val cloudSyncEnabled: Flow<Boolean>
     val weeklyTranscriptionCount: Flow<Int>
     val detectSpeakers: Flow<Boolean>
-    val transcriptionLanguage: Flow<TranscriptionLanguage>
     val audioQuality: Flow<String>
-    val cloudProvider: Flow<CloudProvider>
     val buttonTriggerDelay: Flow<Long>
     val openaiApiKey: Flow<String?>
     val showSilentNotifications: Flow<Boolean>
     val onboardingCompleted: Flow<Boolean>
     val isFirstTimeUser: Flow<Boolean>
     val lastTranscriptionReset: Flow<Long>
-    val cloudStorageType: Flow<CloudStorageType>
-    val subscriptionStatus: Flow<SubscriptionStatus>
+    val lastTranscriptionResetTime: Flow<Long>
     val offlineModeEnabled: Flow<Boolean>
     val isOnlineTranscriptionEnabled: Flow<Boolean>
-    val lastTranscriptionResetTime: Flow<Long>
-
-    fun getTranscriptionLanguage(): Flow<String>
-    fun getSpeakerDetectionEnabled(): Flow<Boolean>
-    fun getOfflineModeEnabled(): Flow<Boolean>
-    fun getAudioSavingEnabled(): Flow<Boolean>
-    fun getVibrationEnabled(): Flow<Boolean>
-    fun getCallRecordingEnabled(): Flow<Boolean>
-    fun getShowSilentNotifications(): Flow<Boolean>
-    fun getCloudSyncEnabled(): Flow<Boolean>
-    fun getCloudProvider(): Flow<String>
+    val saveAudio: Flow<Boolean>
+    val useOfflineTranscription: Flow<Boolean>
+    val showNotifications: Flow<Boolean>
 
     suspend fun setCallRecordingEnabled(enabled: Boolean)
     suspend fun setAudioSavingEnabled(enabled: Boolean)
     suspend fun setOfflineTranscriptionEnabled(enabled: Boolean)
-    suspend fun setOnlineTranscriptionEnabled(enabled: Boolean)
     suspend fun setSelectedLanguage(language: String)
     suspend fun setNotificationsEnabled(enabled: Boolean)
     suspend fun setVibrationEnabled(enabled: Boolean)
@@ -67,8 +59,6 @@ interface UserPreferencesDataStore {
     suspend fun setIsFirstLaunch(isFirst: Boolean)
     suspend fun setLastSyncTime(timestamp: Long)
     suspend fun setCloudSyncEnabled(enabled: Boolean)
-    suspend fun incrementWeeklyTranscriptionCount()
-    suspend fun resetWeeklyTranscriptionCount()
     suspend fun setDetectSpeakers(enabled: Boolean)
     suspend fun setTranscriptionLanguage(language: String)
     suspend fun setAudioQuality(quality: String)
@@ -80,10 +70,26 @@ interface UserPreferencesDataStore {
     suspend fun setIsFirstTimeUser(isFirst: Boolean)
     suspend fun setLastTranscriptionReset(timestamp: Long)
     suspend fun setCloudStorageType(type: CloudStorageType)
+    suspend fun setOnlineTranscriptionEnabled(enabled: Boolean)
     suspend fun setSubscriptionStatus(status: SubscriptionStatus)
     suspend fun setOfflineModeEnabled(enabled: Boolean)
-    suspend fun getOnlineTranscriptionEnabled(): Boolean
+    suspend fun setSaveAudio(enabled: Boolean)
+    suspend fun setUseOfflineTranscription(enabled: Boolean)
+    suspend fun setShowNotifications(enabled: Boolean)
+    suspend fun incrementWeeklyTranscriptionCount()
+    suspend fun resetWeeklyTranscriptionCount()
     suspend fun getRemainingFreeTranscriptions(): Int
+    suspend fun getOnlineTranscriptionEnabled(): Boolean
+
+    fun getTranscriptionLanguage(): Flow<String>
+    fun getSpeakerDetectionEnabled(): Flow<Boolean>
+    fun getOfflineModeEnabled(): Flow<Boolean>
+    fun getAudioSavingEnabled(): Flow<Boolean>
+    fun getVibrationEnabled(): Flow<Boolean>
+    fun getCallRecordingEnabled(): Flow<Boolean>
+    fun getShowSilentNotifications(): Flow<Boolean>
+    fun getCloudSyncEnabled(): Flow<Boolean>
+    fun getCloudProvider(): Flow<String>
 }
 
 @Singleton
@@ -118,6 +124,9 @@ class UserPreferencesDataStoreImpl @Inject constructor(
         val SUBSCRIPTION_STATUS = stringPreferencesKey("subscription_status")
         val OFFLINE_MODE_ENABLED = booleanPreferencesKey("offline_mode_enabled")
         val LAST_TRANSCRIPTION_RESET_TIME = longPreferencesKey("last_transcription_reset_time")
+        val SAVE_AUDIO = booleanPreferencesKey("save_audio")
+        val USE_OFFLINE_TRANSCRIPTION = booleanPreferencesKey("use_offline_transcription")
+        val SHOW_NOTIFICATIONS = booleanPreferencesKey("show_notifications")
     }
 
     override val callRecordingEnabled: Flow<Boolean> = context.dataStore.data
@@ -220,6 +229,15 @@ class UserPreferencesDataStoreImpl @Inject constructor(
 
     override val lastTranscriptionResetTime: Flow<Long> = context.dataStore.data
         .map { preferences -> preferences[PreferencesKeys.LAST_TRANSCRIPTION_RESET_TIME] ?: System.currentTimeMillis() }
+
+    override val saveAudio: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.SAVE_AUDIO] ?: false }
+
+    override val useOfflineTranscription: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.USE_OFFLINE_TRANSCRIPTION] ?: false }
+
+    override val showNotifications: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.SHOW_NOTIFICATIONS] ?: false }
 
     override suspend fun setCallRecordingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
@@ -380,6 +398,24 @@ class UserPreferencesDataStoreImpl @Inject constructor(
     override suspend fun setOfflineModeEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.OFFLINE_MODE_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun setSaveAudio(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SAVE_AUDIO] = enabled
+        }
+    }
+
+    override suspend fun setUseOfflineTranscription(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.USE_OFFLINE_TRANSCRIPTION] = enabled
+        }
+    }
+
+    override suspend fun setShowNotifications(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_NOTIFICATIONS] = enabled
         }
     }
 

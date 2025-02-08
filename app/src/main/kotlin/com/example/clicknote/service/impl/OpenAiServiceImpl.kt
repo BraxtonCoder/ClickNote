@@ -37,10 +37,10 @@ class OpenAiServiceImpl @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val performanceMonitor: Lazy<PerformanceMonitor>,
     private val okHttpClient: OkHttpClient,
-    @ApplicationScope private val coroutineScope: CoroutineScope
+    @ApplicationScope private val coroutineScope: CoroutineScope,
+    private val openAI: OpenAI
 ) : OpenAiService {
 
-    private var openAI: OpenAI? = null
     private val _progress = MutableStateFlow(0f)
     override val progress: Flow<Float> = _progress.asStateFlow()
     
@@ -581,5 +581,35 @@ class OpenAiServiceImpl @Inject constructor(
                 isAvailable = true
             )
         )
+    }
+
+    override suspend fun transcribeAudio(audioFile: File, language: String): String {
+        // Implementation using OpenAI Whisper API
+        return ""  // TODO: Implement actual transcription
+    }
+
+    override suspend fun generateSummary(text: String): String {
+        // Implementation using OpenAI GPT API
+        return ""  // TODO: Implement actual summary generation
+    }
+
+    override suspend fun generateKeyPoints(text: String): List<String> {
+        // Implementation using OpenAI GPT API
+        return emptyList()  // TODO: Implement actual key points generation
+    }
+
+    override suspend fun detectLanguage(audioFile: File): String {
+        // Implementation using OpenAI Whisper API
+        return "en"  // TODO: Implement actual language detection
+    }
+
+    override suspend fun detectSpeakers(audioFile: File): Int {
+        // Implementation using OpenAI API
+        return 1  // TODO: Implement actual speaker detection
+    }
+
+    override suspend fun improveAudioQuality(audioFile: File): File {
+        // Implementation for audio enhancement
+        return audioFile  // TODO: Implement actual audio improvement
     }
 } 
